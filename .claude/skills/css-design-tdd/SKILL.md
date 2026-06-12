@@ -29,14 +29,14 @@ comm -23 /tmp/css-vars-used.txt /tmp/css-vars-defined.txt
 ```
 
 ### 2. Missing Fallback Check
-Find `var(--name)` without fallbacks in container blocks:
+Find `var(--name)` without fallbacks in the diff/result panes:
 
 ```bash
-# Blockquote variables without fallback
-grep -n 'var(--[^,)]*)[^,]' src/components/Editor/editor.css | grep -E 'blockquote|alert|details'
+# Diff/result pane variables without fallback
+grep -n 'var(--[^,)]*)[^,]' src/components/DiffView/*.css | grep -E 'diff-add|diff-remove|diff-line'
 
-# All containers - should have fallbacks for --list-indent, etc.
-grep -rn 'var(--list-indent)' src/**/*.css  # Should be var(--list-indent, 1em)
+# All panes - should have fallbacks for --diff-gutter, etc.
+grep -rn 'var(--diff-gutter)' src/**/*.css  # Should be var(--diff-gutter, 1.5rem)
 ```
 
 ### 3. Hardcoded Color Check
@@ -50,21 +50,21 @@ grep -rn '#[0-9a-fA-F]\{3,6\}' src/**/*.css | grep -v ':root' | grep -v 'var(--'
 grep -rn 'rgba(255, 255, 255' src/**/*.css | grep -v ':root'
 ```
 
-### 4. Container Consistency Check
-Verify container blocks use consistent values:
+### 4. Pane Consistency Check
+Verify recurring UI panes use consistent values:
 
 ```bash
-# Check margins across containers
+# Check margins/padding across the diff panel, selectors, and settings card
 echo "=== MARGINS ==="
-grep -rn 'margin:.*em' src/components/Editor/editor.css src/plugins/alertBlock/*.css src/plugins/detailsBlock/*.css
+grep -rn 'margin:.*rem' src/components/DiffView/*.css src/components/ProviderSettings/*.css src/components/ResultPane/*.css
 
 # Check padding
 echo "=== PADDING ==="
-grep -rn 'padding:' src/components/Editor/editor.css src/plugins/alertBlock/*.css src/plugins/detailsBlock/*.css | head -20
+grep -rn 'padding:' src/components/DiffView/*.css src/components/ProviderSettings/*.css src/components/ResultPane/*.css | head -20
 
-# Check list multipliers
-echo "=== LIST MULTIPLIERS ==="
-grep -rn 'list-indent.*\*' src/**/*.css
+# Check diff-gutter usage
+echo "=== DIFF GUTTER ==="
+grep -rn 'diff-gutter' src/**/*.css
 ```
 
 ### 5. Focus Indicator Check
@@ -124,13 +124,13 @@ For each issue category:
 Example fix workflow:
 ```bash
 # Before: verify issue exists
-grep -n 'var(--list-indent)' src/components/Editor/editor.css
+grep -n 'var(--diff-gutter)' src/components/DiffView/diff-view.css
 
-# Make fix in editor.css (add fallback)
-# var(--list-indent) → var(--list-indent, 1em)
+# Make fix in diff-view.css (add fallback)
+# var(--diff-gutter) → var(--diff-gutter, 1.5rem)
 
 # After: verify issue resolved
-grep -n 'var(--list-indent)' src/components/Editor/editor.css  # Should show fallbacks
+grep -n 'var(--diff-gutter)' src/components/DiffView/diff-view.css  # Should show fallbacks
 ```
 
 ### Phase 3: REFACTOR (Verify No Regressions)
@@ -140,7 +140,7 @@ grep -n 'var(--list-indent)' src/components/Editor/editor.css  # Should show fal
 # Compare to baseline - issues should decrease, not increase
 
 # Visual verification
-pnpm dev  # Check in browser: light mode, dark mode, all container types
+pnpm dev  # Check in browser: light mode, dark mode, diff/result panes and provider settings
 ```
 
 ## Check Scripts
@@ -154,18 +154,18 @@ pnpm dev  # Check in browser: light mode, dark mode, all container types
 echo "=== CSS Quick Check ==="
 
 echo -e "\n1. Missing Fallbacks:"
-grep -rn 'var(--list-indent)[^,]' src/**/*.css 2>/dev/null | grep -v '1em)' || echo "  ✓ All fallbacks present"
+grep -rn 'var(--diff-gutter)[^,]' src/**/*.css 2>/dev/null | grep -v '1.5rem)' || echo "  ✓ All fallbacks present"
 
 echo -e "\n2. Hardcoded Dark Hover:"
 grep -rn 'rgba(255, 255, 255, 0.08)' src/**/*.css 2>/dev/null | wc -l | xargs -I{} echo "  {} occurrences (should be 0)"
 
-echo -e "\n3. Container Margin Consistency:"
-echo "  Blockquote:" && grep -o 'margin:.*em' src/components/Editor/editor.css | grep -A1 blockquote | head -1
-echo "  Alert:" && grep -o 'margin:.*em' src/plugins/alertBlock/alert-block.css | head -1
-echo "  Details:" && grep -o 'margin:.*em' src/plugins/detailsBlock/details-block.css | head -1
+echo -e "\n3. Pane Margin Consistency:"
+echo "  Diff view:" && grep -o 'margin:.*rem' src/components/DiffView/diff-view.css | head -1
+echo "  Result pane:" && grep -o 'margin:.*rem' src/components/ResultPane/result-pane.css | head -1
+echo "  Provider settings:" && grep -o 'margin:.*rem' src/components/ProviderSettings/provider-settings.css | head -1
 
 echo -e "\n4. Focus States:"
-for f in src/plugins/detailsBlock/*.css src/plugins/alertBlock/*.css; do
+for f in src/components/DiffView/*.css src/components/ProviderSettings/*.css; do
   if ! grep -q 'focus-visible' "$f" 2>/dev/null; then
     echo "  Missing focus-visible: $f"
   fi
@@ -207,17 +207,16 @@ done
 echo -e "\nAudit complete."
 ```
 
-## Container Block Checklist
+## UI Surface Checklist
 
-When modifying container blocks (blockquote, alert, details):
+When modifying lucid's UI surfaces (diff rows, result pane, language/goal selector, provider-settings card):
 
-- [ ] Margin uses `1em 0` (consistent)
-- [ ] Padding uses token or `0.75em 1em` pattern
+- [ ] Margin/padding consistent across panes
 - [ ] All `var()` calls have fallbacks
-- [ ] `:focus-visible` defined for interactive elements
-- [ ] Nested content rules exist (p, ul, ol, code, table)
+- [ ] `:focus-visible` defined for interactive controls (accept/reject buttons, provider dropdown)
 - [ ] Border radius uses `--radius-md`
 - [ ] Colors use tokens (no hardcoded hex in app CSS)
+- [ ] Dark-theme tokens applied
 
 ## Integration with pnpm check:all
 
@@ -226,6 +225,5 @@ The CSS check scripts above are inline examples — run them directly in your te
 ## Reference Files
 
 - Token definitions: `src/styles/index.css`
-- Design system rules: `.claude/rules/31-design-tokens.md`
+- Design system rules: `.claude/rules/30-ui-consistency.md`, `.claude/rules/33-focus-indicators.md`, `.claude/rules/34-dark-theme.md`
 - Component patterns: `.claude/rules/32-component-patterns.md`
-- Container audit: `dev-docs/audit/` (in repo)

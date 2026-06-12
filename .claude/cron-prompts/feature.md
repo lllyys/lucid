@@ -2,7 +2,7 @@ First, log the fire: run `mkdir -p .claude/cron-logs && echo "$(date -Iseconds) 
 
 Select a feature to implement from GitHub issues or local tasks, and use /feature-workflow to implement the feature.
 
-SCOPE: feature implementation only. Per `.claude/rules/47-feature-workflow.md`, `/feature-workflow` is the binding 6-gate sequence (Plan → Independent plan audit → TDD → Implementation audit → Device/integration verification → Merge); never skip a gate.
+SCOPE: feature implementation only. Per `.claude/rules/47-feature-workflow.md`, `/feature-workflow` is the binding 6-gate sequence (Plan → Independent plan audit → TDD → Implementation audit → Browser/integration verification → Merge); never skip a gate.
 
 PICK ORDER (highest priority first):
 

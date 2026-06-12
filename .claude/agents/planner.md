@@ -11,8 +11,8 @@ You produce a modular plan that is executable by other agents.
 
 Before writing any plan, research:
 - **Industry best practices** — search official docs, well-known libraries, and popular open-source projects for established patterns.
-- **Prior art** — how do VS Code, Obsidian, Typora, or other editors solve this? What conventions exist?
-- **Edge cases** — brainstorm exhaustively: empty input, null/undefined, max values, concurrent access, Unicode/CJK text, RTL, rapid repeated actions, network failures, permission denials, cross-platform differences.
+- **Prior art** — how do translation tools (DeepL, Google Translate) and writing assistants (Grammarly, LanguageTool) solve this? How do multi-provider LLM clients handle streaming, abort, and provider switching? What conventions exist?
+- **Edge cases** — brainstorm exhaustively: empty input, null/undefined, max values, concurrent access, Unicode/CJK text, RTL, rapid repeated actions, network failures, stream aborts, missing/invalid API keys, provider/rate-limit errors.
 
 Include a dedicated "Edge Cases" section in every Work Item listing all identified cases. Each must have a corresponding test in the acceptance criteria.
 

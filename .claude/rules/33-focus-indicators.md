@@ -82,27 +82,27 @@ Keyboard focus must ALWAYS be visible. This is a WCAG requirement.
 }
 ```
 
-**Use for:** File explorer items, dropdown menu items, autocomplete suggestions
+**Use for:** Dropdown menu items (provider switcher, target-language / polish-goal chooser), autocomplete suggestions
 
-### 6. Content Widgets (Checkboxes, Interactive Embeds): Outline or Background
+### 6. Diff Controls (Accept/Reject Toggles): Outline or Background
 
 ```css
-/* Task list checkbox */
-.task-list-checkbox:focus-visible {
+/* Accept toggle */
+.diff-accept-toggle:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: 1px;
 }
 
 /* Or use background highlight */
-.task-list-checkbox:focus-visible {
+.diff-accept-toggle:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-bg);
 }
 ```
 
-**Use for:** Task list checkboxes, embedded controls, clickable widgets within editor content
+**Use for:** Per-hunk accept/reject toggles and other clickable controls inside the diff/result pane
 
-**Rule:** Global focus reset removes outlines — content widgets MUST define their own `:focus-visible` style.
+**Rule:** Global focus reset removes outlines — diff/result controls MUST define their own `:focus-visible` style.
 
 ## Rules
 

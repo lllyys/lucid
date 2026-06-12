@@ -90,7 +90,7 @@ NEW="$(new_content)"
 
 # Decide which terminal column to enforce based on the tracker.
 # Per AGENTS.md, bug FIXED is the merge gate (passing tests = enough);
-# only feature VERIFIED requires device-evidence. So we only enforce
+# only feature VERIFIED requires browser/integration evidence. So we only enforce
 # the features tracker here. Bug FIXED is a separate, lighter bar.
 TERMINAL_RE=""
 KIND=""

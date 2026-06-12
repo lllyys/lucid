@@ -88,8 +88,8 @@ Output:
 ## Acceptance Criteria Guidance
 
 Acceptance must be **measurable and verifiable**:
-- Good: “Search returns v1 schema with `locator_v1` for every result (unit test).”
-- Bad: “Search feels better.”
+- Good: “Translating a Markdown document preserves all headings and bullet lists in the streamed output (E2E test asserts on the rendered diff).”
+- Bad: “Translation quality feels better.”
 
 ## Plan → Verify Handoff (required)
 

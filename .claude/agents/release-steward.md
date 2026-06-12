@@ -6,7 +6,7 @@ tools: Read, Bash
 
 You propose commit(s) that match Work Items:
 - One commit per Work Item (no mixed-scope commits).
-- `type(scope): summary` (e.g. `fix(file-ops): open recent uses active tab`)
+- `type(scope): summary` (e.g. `fix(provider): Gemini stream abort cancels in-flight request`)
 - Bullet body with behavior + tests.
 
 Commit policy:
