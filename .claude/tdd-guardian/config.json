@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "testCommand": "pnpm test",
+  "coverageCommand": "pnpm test:coverage",
+  "coverageSummaryPath": "coverage/coverage-summary.json",
+  "mutationCommand": "",
+  "thresholds": {
+    "lines": 100,
+    "functions": 100,
+    "branches": 100,
+    "statements": 100
+  },
+  "enforceRedGreenRefactor": true,
+  "blockCommitOnFailure": false,
+  "blockCommitWithoutFreshGate": false,
+  "stack": "node-pnpm",
+  "packageManager": "pnpm"
+}

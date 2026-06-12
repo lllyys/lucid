@@ -1,0 +1,35 @@
+{
+  "language": "typescript",
+  "framework": "vitepress",
+  "docRoot": "website/guide",
+  "strictness": "warn",
+  "stalenessThresholdDays": 30,
+  "mappings": [
+    { "code": "src/providers/index.ts", "doc": "website/guide/providers.md" },
+    { "code": "src/providers/anthropic", "doc": "website/guide/providers.md" },
+    { "code": "src/providers/openai", "doc": "website/guide/providers.md" },
+    { "code": "src/providers/gemini", "doc": "website/guide/providers.md" },
+    { "code": "src/providers/ollama", "doc": "website/guide/providers.md" },
+    { "code": "src/providers/types.ts", "doc": "website/guide/providers.md" },
+    { "code": "src/lib/translation", "doc": "website/guide/translation.md" },
+    { "code": "src/lib/polish", "doc": "website/guide/polish.md" },
+    { "code": "src/lib/diff", "doc": "website/guide/diff-review.md" },
+    { "code": "src/components/DiffView", "doc": "website/guide/diff-review.md" },
+    { "code": "src/components/Editor", "doc": "website/guide/editor.md" },
+    { "code": "src/components/LanguagePicker", "doc": "website/guide/translation.md" },
+    { "code": "src/components/PolishGoalPicker", "doc": "website/guide/polish.md" },
+    { "code": "src/stores/providerStore.ts", "doc": "website/guide/settings.md" },
+    { "code": "src/stores/settingsStore.ts", "doc": "website/guide/settings.md" },
+    { "code": "src/stores/documentStore.ts", "doc": "website/guide/editor.md" },
+    { "code": "src/lib/streaming", "doc": "website/guide/streaming.md" }
+  ],
+  "exclude": [
+    "node_modules/**",
+    "dist/**",
+    "coverage/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/__tests__/**",
+    "src/test/**"
+  ]
+}

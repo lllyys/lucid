@@ -1,0 +1,35 @@
+{
+  "skill_name": "triage",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "translation drops my Markdown formatting — headings and bullet lists come back as plain text",
+      "expected_output": "Classified as bug. Investigates the Markdown-aware translation code in src/lib/translation/. Records in docs/bugs.md with next available ID. Reports the classification to the user.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "triage the inbox",
+      "expected_output": "Reads docs/tasks.md 'New' section. For each item: investigates code, checks for duplicates in bugs.md and features.md, classifies, records, moves to Triaged section.",
+      "files": ["docs/tasks.md"]
+    },
+    {
+      "id": 3,
+      "prompt": "can we add a tone-matching polish goal? the current goals are just clarity and grammar",
+      "expected_output": "Classified as feature (never implemented, or partial). Investigates existing polish goals in src/lib/polish/. Records in docs/features.md. Does NOT start implementing.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "switching from the Anthropic provider to Ollama fails and the result never streams in",
+      "expected_output": "Classified as bug. Investigates the multi-provider layer in src/providers/ and the stores that hold the active provider. Records in docs/bugs.md. Reports the classification to the user.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "the stream hangs when I hit abort mid-translation — the UI stays stuck on 'translating'",
+      "expected_output": "Classified as bug. Investigates the streaming/abort handling in src/providers/ and src/lib/translation/. Records in docs/bugs.md with next available ID. Reports the classification to the user.",
+      "files": []
+    }
+  ]
+}
