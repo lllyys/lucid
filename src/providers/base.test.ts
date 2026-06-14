@@ -215,6 +215,16 @@ describe('defineProvider', () => {
     expect(seen.slice(0, 2)).toEqual(['claude-fable-5', 'claude-opus-4-8'])
   })
 
+  it('turns a synchronous throw from the vendor stream into an error outcome (never rejects)', async () => {
+    const streamFn: VendorStreamFn = () => {
+      throw new ProviderException(makeProviderError('requestFailed'))
+    }
+    const p = make(streamFn)
+    const out = await p.translate({ kind: 'translate', text: 'x', targetLang: 'es' })
+    expect(out.status).toBe('error')
+    if (out.status === 'error') expect(out.error.kind).toBe('requestFailed')
+  })
+
   it('honors an explicit per-call model override', async () => {
     const seen: string[] = []
     const streamFn: VendorStreamFn = (_req, opts) => {

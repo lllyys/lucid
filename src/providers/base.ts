@@ -81,13 +81,20 @@ export interface DefineProviderConfig {
 export function defineProvider(config: DefineProviderConfig): LLMProvider {
   const { vendor, model, streamFn, retry } = config
 
+  // Wrap streamFn in a lazy generator so even a SYNCHRONOUS throw from it lands
+  // inside collectStream's try — translate()/polish() always resolve to a
+  // ProviderOutcome, never reject.
+  const attempt = (request: LLMRequest, options: StreamOptions, attemptModel: string) =>
+    collectStream(
+      (async function* () {
+        yield* streamFn(request, { ...options, model: attemptModel })
+      })(),
+      { signal: options.signal },
+    )
+
   const run = (request: LLMRequest, options: StreamOptions): Promise<ProviderOutcome> =>
     withFallback(modelChain(vendor, options.model ?? model), (attemptModel) =>
-      withRetry(
-        () => collectStream(streamFn(request, { ...options, model: attemptModel }), { signal: options.signal }),
-        { maxAttempts: 3, signal: options.signal },
-        retry,
-      ),
+      withRetry(() => attempt(request, options, attemptModel), { maxAttempts: 3, signal: options.signal }, retry),
     )
 
   return {
