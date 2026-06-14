@@ -1,0 +1,16 @@
+{
+  "common.appName": "Lucid",
+  "common.tagline": "Translation & writing-polish",
+  "common.providerNotConfigured": "Add a provider API key to get started.",
+  "common.providerReady": "{{vendor}} is ready.",
+  "error.rateLimited": "You've hit the rate limit — please wait a moment and try again.",
+  "error.providerDown": "The provider is temporarily unavailable — try again or switch providers.",
+  "error.invalidKey": "Your API key is missing or invalid.",
+  "error.requestFailed": "The request couldn't be completed.",
+  "error.timeout": "The request timed out — please try again.",
+  "error.aborted": "Cancelled.",
+  "error.refusal": "The model declined to respond to this request.",
+  "error.incomplete": "The response was cut off before it finished.",
+  "error.validation": "Please check your input and try again.",
+  "error.unknown": "Something went wrong — please try again."
+}
