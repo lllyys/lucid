@@ -48,8 +48,12 @@ describe('readSSE — event framing', () => {
   it('extracts data from an event that also has event:/id: fields', async () => {
     expect(await readSSEAll(['event: message\ndata: {"t":1}\n\n'])).toEqual(['{"t":1}'])
   })
-  it('ignores the OpenAI [DONE] sentinel', async () => {
-    expect(await readSSEAll(['data: [DONE]\n\n'])).toEqual([])
+  it('yields [DONE] verbatim (vendor-agnostic; OpenAI sentinel filtering is the adapter’s job)', async () => {
+    expect(await readSSEAll(['data: [DONE]\n\n'])).toEqual(['[DONE]'])
+  })
+  it('handles a data: field with no leading space and a bare colonless data field', async () => {
+    expect(await readSSEAll(['data:nospace\n\n'])).toEqual(['nospace'])
+    expect(await readSSEAll(['data\n\n'])).toEqual([''])
   })
   it('flushes a trailing event not terminated by a blank line', async () => {
     expect(await readSSEAll(['data: tail'])).toEqual(['tail'])

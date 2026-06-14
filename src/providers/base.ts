@@ -33,10 +33,12 @@ export async function collectStream(
 ): Promise<ProviderOutcome> {
   let text = ''
   try {
+    if (options.signal?.aborted) return { status: 'cancelled', text }
     for await (const chunk of stream) {
       if (options.signal?.aborted) return { status: 'cancelled', text }
       text += chunk.text
     }
+    if (options.signal?.aborted) return { status: 'cancelled', text }
     return { status: 'done', text }
   } catch (err) {
     if (isAbortError(err) || options.signal?.aborted) return { status: 'cancelled', text }

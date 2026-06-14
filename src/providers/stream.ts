@@ -62,13 +62,9 @@ export async function* fetchStream(
   } finally {
     if (timer !== undefined) clearTimeout(timer)
     if (options.signal) options.signal.removeEventListener('abort', onAbort)
-    if (reader) {
-      try {
-        await reader.cancel()
-      } catch {
-        // Best-effort, idempotent: a cancel rejection must never mask the outcome.
-      }
-    }
+    // Fire-and-forget: awaiting cancel() could hang and mask the primary outcome.
+    // The .catch keeps the rejection from going unhandled (idempotent best-effort).
+    if (reader) void reader.cancel().catch(() => {})
     if (!controller.signal.aborted) controller.abort()
   }
 }
@@ -89,13 +85,18 @@ export async function* readSSE(source: AsyncIterable<Uint8Array>): AsyncGenerato
     if (dataLines.length === 0) return undefined
     const data = dataLines.join('\n')
     dataLines = []
-    return data === '[DONE]' ? undefined : data // OpenAI sentinel — ignored (kept for #2)
+    return data // vendor-agnostic: e.g. the OpenAI `[DONE]` sentinel is the OpenAI adapter's concern (#2)
   }
 
   function handleLine(line: string): string | undefined {
     if (line === '') return dispatch() // blank line ends the event
-    if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''))
-    return undefined // other fields (event:/id:/retry:) and comments (:) are ignored
+    if (line.startsWith(':')) return undefined // comment line
+    const colon = line.indexOf(':')
+    const field = colon === -1 ? line : line.slice(0, colon)
+    if (field !== 'data') return undefined // ignore non-data fields (event:/id:/retry:)
+    // SSE spec: a bare `data` field (no colon) carries an empty value.
+    dataLines.push(colon === -1 ? '' : line.slice(colon + 1).replace(/^ /, ''))
+    return undefined
   }
 
   for await (const chunk of source) {

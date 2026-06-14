@@ -81,8 +81,8 @@ export function capabilityOf(vendor: Vendor, model: string): ModelCapability | u
   return REGISTRY[vendor].models[model]
 }
 
-/** [resolved selected model, ...registry fallbacks not already first] — consumed by withFallback. */
+/** [resolved selected model, ...registry fallbacks], de-duplicated, order preserved. */
 export function modelChain(vendor: Vendor, selected?: string): string[] {
   const first = resolveModel(vendor, selected)
-  return [first, ...REGISTRY[vendor].fallbacks.filter((m) => m !== first)]
+  return [...new Set([first, ...REGISTRY[vendor].fallbacks])]
 }

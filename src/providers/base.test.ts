@@ -21,6 +21,27 @@ describe('collectStream', () => {
     expect(await collectStream(fromTexts('Hola', ' mundo'))).toEqual({ status: 'done', text: 'Hola mundo' })
   })
 
+  it('returns cancelled immediately (stream untouched) for a pre-aborted signal', async () => {
+    const ac = new AbortController()
+    ac.abort()
+    const started = vi.fn()
+    async function* s(): AsyncGenerator<StreamChunk> {
+      started()
+      yield { text: 'x' }
+    }
+    expect(await collectStream(s(), { signal: ac.signal })).toEqual({ status: 'cancelled', text: '' })
+    expect(started).not.toHaveBeenCalled()
+  })
+
+  it('returns cancelled if the signal aborts exactly as the stream ends', async () => {
+    const ac = new AbortController()
+    async function* s(): AsyncGenerator<StreamChunk> {
+      yield { text: 'a' }
+      ac.abort() // aborts on the final next(), after the last chunk
+    }
+    expect(await collectStream(s(), { signal: ac.signal })).toEqual({ status: 'cancelled', text: 'a' })
+  })
+
   it('returns cancelled (with partial text) when the signal aborts mid-stream', async () => {
     const ac = new AbortController()
     async function* s(): AsyncGenerator<StreamChunk> {
