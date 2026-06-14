@@ -76,9 +76,17 @@ sentinel is the OpenAI adapter's concern (#2).
 catalog. `resolveModel` / `capabilityOf` / `modelChain` (de-duped, order preserved); the other
 vendors are registered but flagged unimplemented until #2.
 
+## Prompts & request validation (`src/lib/prompts`) — WI-4
+
+`buildPrompt` produces `{system, user}` for a translate/polish request: the source text is the
+`user` content passed through verbatim, and a shared structure-preservation instruction (rule 66 §1)
+goes in `system`. `PROMPT_VERSION` versions the templates. Language fields are interpolated **only**
+as canonical labels from a curated registry (`resolveLanguage`) — never raw user input — closing the
+prompt-injection surface. `validateRequest` rejects empty/oversized input, an unsupported language,
+an unknown polish goal, or an unknown request kind (a `validation` ProviderError; never leaks the input).
+
 ## Coming next
 
-- _WI-4_ — `lib/prompts` (versioned builders + request validation).
 - _WI-5_ — `anthropicProvider.ts` + the `createProvider` factory.
 - _WI-6_ — the Zustand provider config store.
 - _WI-7_ — i18n + App wiring.
