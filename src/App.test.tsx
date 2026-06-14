@@ -3,6 +3,22 @@ import { render, screen, act } from '@testing-library/react'
 import App from '@/App'
 import i18n from '@/i18n'
 import { useProviderStore } from '@/stores/providerStore'
+import type { ErrorKind } from '@/providers/types'
+
+// Exhaustive by construction: adding an ErrorKind to the union without an entry
+// here is a compile error, forcing its i18n key to be covered below.
+const ALL_ERROR_KINDS: Record<ErrorKind, true> = {
+  rateLimited: true,
+  providerDown: true,
+  invalidKey: true,
+  requestFailed: true,
+  timeout: true,
+  aborted: true,
+  refusal: true,
+  incomplete: true,
+  validation: true,
+  unknown: true,
+}
 
 beforeEach(() => {
   useProviderStore.getState().reset()
@@ -28,19 +44,7 @@ describe('App (WI-7 shell wiring)', () => {
   })
 
   it('has a localized string for every ProviderError kind', () => {
-    const kinds = [
-      'rateLimited',
-      'providerDown',
-      'invalidKey',
-      'requestFailed',
-      'timeout',
-      'aborted',
-      'refusal',
-      'incomplete',
-      'validation',
-      'unknown',
-    ]
-    for (const kind of kinds) {
+    for (const kind of Object.keys(ALL_ERROR_KINDS) as ErrorKind[]) {
       expect(i18n.t(`error.${kind}`), `missing i18n key error.${kind}`).not.toBe(`error.${kind}`)
     }
   })
