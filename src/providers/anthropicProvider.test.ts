@@ -68,17 +68,15 @@ describe('anthropicStream — happy path & request shape', () => {
     expect(await outcome).toEqual({ status: 'done', text: 'Answer' })
   })
 
-  it('derives max_tokens from the registry capability, an explicit override, or a fallback', async () => {
-    const fableBody = JSON.parse(((await runBody(sse(textDelta('x'), MESSAGE_STOP))) as RequestInit).body as string)
-    expect(fableBody.max_tokens).toBe(128_000) // claude-fable-5 capability
-    const overrideBody = JSON.parse(
-      ((await runBody(sse(textDelta('x'), MESSAGE_STOP), { maxOutputTokens: 256 })) as RequestInit).body as string,
-    )
-    expect(overrideBody.max_tokens).toBe(256)
-    const unknownBody = JSON.parse(
-      ((await runBody(sse(textDelta('x'), MESSAGE_STOP), { model: 'mystery-model' })) as RequestInit).body as string,
-    )
-    expect(unknownBody.max_tokens).toBe(8192) // fallback when the model has no capability entry
+  it('derives, clamps, and falls back for max_tokens', async () => {
+    const maxTokensFor = async (reqOpts?: { model?: string; maxOutputTokens?: number }): Promise<number> =>
+      JSON.parse(((await runBody(sse(textDelta('x'), MESSAGE_STOP), reqOpts)) as RequestInit).body as string).max_tokens
+    expect(await maxTokensFor()).toBe(128_000) // claude-fable-5 capability
+    expect(await maxTokensFor({ maxOutputTokens: 256 })).toBe(256) // explicit, within range
+    expect(await maxTokensFor({ maxOutputTokens: 1_000_000_000 })).toBe(128_000) // clamped to capability
+    expect(await maxTokensFor({ maxOutputTokens: -5 })).toBe(1) // floored to a positive minimum
+    expect(await maxTokensFor({ maxOutputTokens: Number.NaN })).toBe(128_000) // non-finite -> capability
+    expect(await maxTokensFor({ model: 'mystery-model' })).toBe(8192) // no capability entry -> fallback
   })
 })
 
@@ -133,6 +131,46 @@ describe('anthropicStream — completion & error mapping', () => {
     const out = await outcome
     expect(out).toMatchObject({ status: 'error', text: 'some' })
     if (out.status === 'error') expect(out.error.kind).toBe('providerDown')
+  })
+
+  it.each([
+    ['authentication_error', 'invalidKey'],
+    ['permission_error', 'invalidKey'],
+    ['invalid_request_error', 'requestFailed'],
+    ['not_found_error', 'requestFailed'],
+    ['rate_limit_error', 'rateLimited'],
+    ['api_error', 'providerDown'],
+    ['overloaded_error', 'providerDown'],
+  ])('maps a streamed %s error to %s (not blindly providerDown)', async (errType, kind) => {
+    const { outcome } = run(sse({ type: 'error', error: { type: errType } }))
+    const out = await outcome
+    if (out.status === 'error') expect(out.error.kind).toBe(kind)
+    else throw new Error('expected error')
+  })
+
+  it('stop_reason model_context_window_exceeded -> incomplete (not a silent done)', async () => {
+    const { outcome } = run(sse(textDelta('cut'), messageDelta('model_context_window_exceeded'), MESSAGE_STOP))
+    const out = await outcome
+    expect(out).toMatchObject({ status: 'error', text: 'cut' })
+    if (out.status === 'error') expect(out.error.kind).toBe('incomplete')
+  })
+
+  it.each(['data: 123\n\n', 'data: null\n\n'])('non-object SSE payload (%j) -> requestFailed', async (frame) => {
+    const { outcome } = run([frame])
+    const out = await outcome
+    if (out.status === 'error') expect(out.error.kind).toBe('requestFailed')
+    else throw new Error('expected error')
+  })
+
+  it('an empty text_delta does not count as output (refusal stays fallbackable)', async () => {
+    const emptyDelta = { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: '' } }
+    const { outcome } = run(sse(emptyDelta, messageDelta('refusal'), MESSAGE_STOP))
+    const out = await outcome
+    expect(out).toMatchObject({ status: 'error', text: '' })
+    if (out.status === 'error') {
+      expect(out.error.kind).toBe('refusal')
+      expect(out.error.fallbackable).toBe(true)
+    }
   })
 
   it.each([

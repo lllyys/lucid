@@ -19,15 +19,13 @@ export function realSleep(ms: number, signal?: AbortSignal): Promise<void> {
       resolve()
       return
     }
-    const timer = setTimeout(resolve, ms)
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        resolve()
-      },
-      { once: true },
-    )
+    const settle = (): void => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', settle)
+      resolve()
+    }
+    const timer = setTimeout(settle, ms)
+    signal?.addEventListener('abort', settle)
   })
 }
 

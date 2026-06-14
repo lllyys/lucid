@@ -5,7 +5,7 @@
 // claude-api skill (Fable 5 thinking is always-on, so the `thinking` param is
 // omitted; sampling params are not sent). Vendor shapes never leak past here.
 
-import type { LLMRequest, StreamChunk, StreamOptions } from './types'
+import type { ErrorKind, LLMRequest, StreamChunk, StreamOptions } from './types'
 import { ProviderException } from './types'
 import { makeProviderError } from './errors'
 import { fetchStream, readSSE } from './stream'
@@ -30,12 +30,41 @@ interface SSEEvent {
   error?: { type?: string }
 }
 
+// Map an Anthropic streamed error.type to our ErrorKind so a non-transient error
+// (auth, bad request) is not retried as a transient providerDown (rule 65 §4).
+function streamErrorKind(type: string | undefined): ErrorKind {
+  switch (type) {
+    case 'authentication_error':
+    case 'permission_error':
+      return 'invalidKey'
+    case 'invalid_request_error':
+    case 'not_found_error':
+      return 'requestFailed'
+    case 'rate_limit_error':
+      return 'rateLimited'
+    default:
+      return 'providerDown' // overloaded_error, api_error, and unknown server errors
+  }
+}
+
+// Stop reasons that mean the output was truncated, not completed.
+function isTruncationStop(stopReason: string | undefined): boolean {
+  return stopReason === 'max_tokens' || stopReason === 'model_context_window_exceeded'
+}
+
+// Clamp a max-output request to a positive integer within the model's capability.
+function sizeMaxTokens(model: string, requested: number | undefined): number {
+  const capMax = capabilityOf('anthropic', model)?.maxOutputTokens ?? FALLBACK_MAX_TOKENS
+  const value = requested ?? capMax
+  const sized = Number.isFinite(value) ? Math.floor(value) : capMax
+  return Math.max(1, Math.min(sized, capMax))
+}
+
 export function anthropicStream(deps: AnthropicDeps): VendorStreamFn {
   return async function* (request: LLMRequest, options: StreamOptions): AsyncIterable<StreamChunk> {
     const model = options.model ?? 'claude-fable-5'
     const { system, user } = buildPrompt(request)
-    const maxTokens =
-      options.maxOutputTokens ?? capabilityOf('anthropic', model)?.maxOutputTokens ?? FALLBACK_MAX_TOKENS
+    const maxTokens = sizeMaxTokens(model, options.maxOutputTokens)
     const body = JSON.stringify({
       model,
       max_tokens: maxTokens,
@@ -60,15 +89,20 @@ export function anthropicStream(deps: AnthropicDeps): VendorStreamFn {
     let produced = false
 
     for await (const payload of readSSE(bytes)) {
-      let event: SSEEvent
+      let parsed: unknown
       try {
-        event = JSON.parse(payload) as SSEEvent
+        parsed = JSON.parse(payload)
       } catch {
         throw new ProviderException(makeProviderError('requestFailed', { detail: 'malformed SSE JSON' }))
       }
+      if (typeof parsed !== 'object' || parsed === null) {
+        throw new ProviderException(makeProviderError('requestFailed', { detail: 'non-object SSE payload' }))
+      }
+      const event = parsed as SSEEvent
       switch (event.type) {
         case 'content_block_delta':
-          if (event.delta?.type === 'text_delta' && typeof event.delta.text === 'string') {
+          // Only non-empty answer text counts as output; empty/thinking deltas don't.
+          if (event.delta?.type === 'text_delta' && typeof event.delta.text === 'string' && event.delta.text.length > 0) {
             produced = true
             yield { text: event.delta.text }
           }
@@ -80,7 +114,9 @@ export function anthropicStream(deps: AnthropicDeps): VendorStreamFn {
           sawStop = true
           break
         case 'error':
-          throw new ProviderException(makeProviderError('providerDown', { detail: event.error?.type ?? 'stream error' }))
+          throw new ProviderException(
+            makeProviderError(streamErrorKind(event.error?.type), { detail: event.error?.type ?? 'stream error' }),
+          )
         default:
           break // message_start / content_block_start|stop / ping / thinking deltas — ignored
       }
@@ -90,8 +126,8 @@ export function anthropicStream(deps: AnthropicDeps): VendorStreamFn {
     if (stopReason === 'refusal') {
       throw new ProviderException(makeProviderError('refusal', { fallbackable: !produced }))
     }
-    if (stopReason === 'max_tokens') {
-      throw new ProviderException(makeProviderError('incomplete', { detail: 'max_tokens reached' }))
+    if (isTruncationStop(stopReason)) {
+      throw new ProviderException(makeProviderError('incomplete', { detail: stopReason }))
     }
     if (!sawStop) {
       throw new ProviderException(makeProviderError('incomplete', { detail: 'stream ended before message_stop' }))
