@@ -1,8 +1,9 @@
 // Purpose: versioned, tested prompt builders + request validation (rule 65 §7,
-// rule 66 §1). Prompts are not inlined in components; they live here and assert
-// the structure-preservation contract. buildPrompt returns {system, user} — the
-// user content is the source text passed through verbatim (never mangled by us;
-// preserving it is the model's instruction). validateRequest guards the inputs.
+// rule 66 §1/§3). Prompts live here, not in components. buildPrompt returns
+// {system, user}: the user content is the source text passed through verbatim,
+// and language labels are interpolated ONLY from the curated registry below —
+// never raw user input — so a free-form language field can't inject instructions
+// into the system prompt. validateRequest guards the inputs.
 
 import type { LLMRequest, PolishGoal, PolishRequest, ProviderError, TranslateRequest } from '@/providers/types'
 import { POLISH_GOALS } from '@/providers/types'
@@ -13,15 +14,34 @@ export const MAX_INPUT_CHARS = 100_000
 /** Bumped when the prompt templates change (rule 65 §7 — prompts are versioned). */
 export const PROMPT_VERSION = '2026-06-14.1'
 
-// Language labels/codes are interpolated into the system instruction, so they are
-// an injection surface (rule 65 §7). Restrict to letters/marks/digits + a few
-// label punctuation chars, no line breaks or sentence punctuation, capped length —
-// enough for "zh-Hans", "Chinese (Simplified)", "Norwegian Bokmål", "es-419",
-// while making instruction injection impractical.
-const LANG_PATTERN = /^[\p{L}\p{M}\p{N} \-()]{1,40}$/u
+// Curated language registry. Only a canonical label from here is interpolated
+// into the prompt — closing the injection surface a free-form field would open.
+// The UI offers these as a picker; extend the lists as supported languages grow.
+const LANGUAGE_LABELS: ReadonlyArray<readonly [string, string]> = [
+  ['en', 'English'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'],
+  ['it', 'Italian'], ['pt', 'Portuguese'], ['nl', 'Dutch'], ['ru', 'Russian'],
+  ['zh', 'Chinese'], ['ja', 'Japanese'], ['ko', 'Korean'], ['ar', 'Arabic'],
+  ['he', 'Hebrew'], ['hi', 'Hindi'], ['tr', 'Turkish'], ['pl', 'Polish'],
+  ['uk', 'Ukrainian'], ['vi', 'Vietnamese'], ['th', 'Thai'], ['id', 'Indonesian'],
+  ['sv', 'Swedish'], ['no', 'Norwegian'], ['da', 'Danish'], ['fi', 'Finnish'],
+  ['cs', 'Czech'], ['el', 'Greek'], ['ro', 'Romanian'], ['fa', 'Persian'],
+]
+const LANGUAGE_VARIANTS: ReadonlyArray<readonly [readonly string[], string]> = [
+  [['zh-hans', 'chinese (simplified)', 'simplified chinese'], 'Chinese (Simplified)'],
+  [['zh-hant', 'chinese (traditional)', 'traditional chinese'], 'Chinese (Traditional)'],
+  [['pt-br', 'brazilian portuguese'], 'Brazilian Portuguese'],
+]
+const LANGUAGES: Record<string, string> = Object.fromEntries([
+  ...LANGUAGE_LABELS.flatMap(([code, label]) => [
+    [code, label],
+    [label.toLowerCase(), label],
+  ]),
+  ...LANGUAGE_VARIANTS.flatMap(([keys, label]) => keys.map((key) => [key, label])),
+])
 
-function invalidLang(value: string): boolean {
-  return value.trim() === '' || !LANG_PATTERN.test(value)
+/** Map a user-supplied code/name to its canonical English label, or undefined if unknown. */
+export function resolveLanguage(input: string): string | undefined {
+  return LANGUAGES[input.trim().toLowerCase()]
 }
 
 export interface PromptResult {
@@ -44,15 +64,16 @@ const POLISH_GOAL_INSTRUCTION: Record<PolishGoal, string> = {
 }
 
 export function buildTranslatePrompt(req: TranslateRequest): PromptResult {
-  const from = req.sourceLang ? `from ${req.sourceLang} ` : ''
+  const target = resolveLanguage(req.targetLang) ?? 'the requested language'
+  const from = req.sourceLang ? `from ${resolveLanguage(req.sourceLang) ?? 'the source language'} ` : ''
   return {
-    system: `You are a professional translator. Translate the user's text ${from}into ${req.targetLang}. ${STRUCTURE_INSTRUCTION}`,
+    system: `You are a professional translator. Translate the user's text ${from}into ${target}. ${STRUCTURE_INSTRUCTION}`,
     user: req.text,
   }
 }
 
 export function buildPolishPrompt(req: PolishRequest): PromptResult {
-  const lang = req.lang ? ` The text is written in ${req.lang}.` : ''
+  const lang = req.lang ? ` The text is written in ${resolveLanguage(req.lang) ?? 'the source language'}.` : ''
   return {
     system: `You are a professional writing editor. ${POLISH_GOAL_INSTRUCTION[req.goal]}${lang} ${STRUCTURE_INSTRUCTION}`,
     user: req.text,
@@ -75,14 +96,16 @@ export function validateRequest(req: LLMRequest): ProviderError | undefined {
     return makeProviderError('validation', { detail: `input exceeds ${MAX_INPUT_CHARS} chars` })
   }
   if (req.kind === 'translate') {
-    if (invalidLang(req.targetLang)) return makeProviderError('validation', { detail: 'invalid target language' })
-    if (req.sourceLang !== undefined && invalidLang(req.sourceLang)) {
-      return makeProviderError('validation', { detail: 'invalid source language' })
+    if (resolveLanguage(req.targetLang) === undefined) {
+      return makeProviderError('validation', { detail: 'unsupported target language' })
+    }
+    if (req.sourceLang !== undefined && resolveLanguage(req.sourceLang) === undefined) {
+      return makeProviderError('validation', { detail: 'unsupported source language' })
     }
   } else {
     if (!POLISH_GOALS.includes(req.goal)) return makeProviderError('validation', { detail: 'unknown polish goal' })
-    if (req.lang !== undefined && invalidLang(req.lang)) {
-      return makeProviderError('validation', { detail: 'invalid language' })
+    if (req.lang !== undefined && resolveLanguage(req.lang) === undefined) {
+      return makeProviderError('validation', { detail: 'unsupported language' })
     }
   }
   return undefined
