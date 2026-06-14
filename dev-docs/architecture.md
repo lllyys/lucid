@@ -99,7 +99,15 @@ the mapped kind (`streamErrorKind`); malformed/non-object JSON → `requestFaile
 and a missing key, resolves the model, and wires `defineProvider` with the real abort-aware backoff
 sleep (`realSleep`, injectable for tests).
 
+## Provider config store (`src/stores/providerStore.ts`) — WI-6
+
+A Zustand store holding the active `vendor` / `model` / `apiKey` and an `isReady()` check.
+Configuration only — it does **not** own a running operation or live `OperationState` (that
+lands with feature #3). `setVendor` refuses an unimplemented vendor (state unchanged) and
+atomically resets the model to that vendor's default; `isReady()` requires an implemented vendor
+AND a non-empty key. The key is in memory only (secure at-rest storage is future, rule 65 §5).
+Components read via selectors (AGENTS.md) — never destructure the store.
+
 ## Coming next
 
-- _WI-6_ — the Zustand provider config store.
-- _WI-7_ — i18n + App wiring.
+- _WI-7_ — i18n + App wiring (plumbing-only; no product UI per rule 51).
