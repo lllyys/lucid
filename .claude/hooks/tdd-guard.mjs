@@ -65,6 +65,7 @@ const SCOPED = [
   /^src\/providers\/.*\.tsx?$/,
   /^src\/lib\/translation\/.*\.tsx?$/,
   /^src\/lib\/polish\/.*\.tsx?$/,
+  /^src\/lib\/providers\/.*\.tsx?$/,
   /^src\/stores\/.*\.tsx?$/,
 ];
 

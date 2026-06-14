@@ -24,6 +24,12 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  // Generated shadcn/ui primitives are vendored (rule 32 — customize in wrappers,
+  // not here). The react-refresh HMR rule doesn't apply to them; silence only that.
+  {
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
   // Config / tooling files (this eslint config, future *.js scripts) are linted too.
   {
     extends: [js.configs.recommended],
