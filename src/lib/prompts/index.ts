@@ -41,7 +41,10 @@ const LANGUAGES: Record<string, string> = Object.fromEntries([
 
 /** Map a user-supplied code/name to its canonical English label, or undefined if unknown. */
 export function resolveLanguage(input: string): string | undefined {
-  return LANGUAGES[input.trim().toLowerCase()]
+  const key = input.trim().toLowerCase()
+  // Object.hasOwn guards against inherited keys ('constructor', '__proto__', …)
+  // resolving to Object.prototype members and slipping past validation.
+  return Object.hasOwn(LANGUAGES, key) ? LANGUAGES[key] : undefined
 }
 
 export interface PromptResult {
