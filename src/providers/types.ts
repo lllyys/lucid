@@ -20,9 +20,17 @@ export interface TranslateRequest {
 }
 export interface PolishRequest {
   kind: 'polish'
+  /** The DRAFT to polish. */
   text: string
   goal: PolishGoal
   lang?: string
+  /**
+   * Source-meaning reference (the original sentence). Sent to the model — as data,
+   * never as instructions — so it can preserve the draft's intended meaning (feature #2).
+   */
+  original?: string
+  /** Domain anchor terms; sent to the model as data, never as instructions (feature #2). */
+  keywords?: readonly string[]
 }
 export type LLMRequest = TranslateRequest | PolishRequest
 
