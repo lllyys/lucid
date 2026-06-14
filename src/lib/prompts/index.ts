@@ -10,6 +10,20 @@ import { makeProviderError } from '@/providers/errors'
 
 export const MAX_INPUT_CHARS = 100_000
 
+/** Bumped when the prompt templates change (rule 65 §7 — prompts are versioned). */
+export const PROMPT_VERSION = '2026-06-14.1'
+
+// Language labels/codes are interpolated into the system instruction, so they are
+// an injection surface (rule 65 §7). Restrict to letters/marks/digits + a few
+// label punctuation chars, no line breaks or sentence punctuation, capped length —
+// enough for "zh-Hans", "Chinese (Simplified)", "Norwegian Bokmål", "es-419",
+// while making instruction injection impractical.
+const LANG_PATTERN = /^[\p{L}\p{M}\p{N} \-()]{1,40}$/u
+
+function invalidLang(value: string): boolean {
+  return value.trim() === '' || !LANG_PATTERN.test(value)
+}
+
 export interface PromptResult {
   system: string
   user: string
@@ -51,14 +65,25 @@ export function buildPrompt(req: LLMRequest): PromptResult {
 
 /** Returns a `validation` ProviderError for a bad request, or undefined if valid. */
 export function validateRequest(req: LLMRequest): ProviderError | undefined {
+  // Guard the discriminant first — an untrusted runtime value could be neither.
+  const kind: string = req.kind
+  if (kind !== 'translate' && kind !== 'polish') {
+    return makeProviderError('validation', { detail: 'unknown request kind' })
+  }
   if (req.text.trim() === '') return makeProviderError('validation', { detail: 'empty input' })
   if (req.text.length > MAX_INPUT_CHARS) {
     return makeProviderError('validation', { detail: `input exceeds ${MAX_INPUT_CHARS} chars` })
   }
   if (req.kind === 'translate') {
-    if (req.targetLang.trim() === '') return makeProviderError('validation', { detail: 'missing target language' })
-  } else if (!POLISH_GOALS.includes(req.goal)) {
-    return makeProviderError('validation', { detail: 'unknown polish goal' })
+    if (invalidLang(req.targetLang)) return makeProviderError('validation', { detail: 'invalid target language' })
+    if (req.sourceLang !== undefined && invalidLang(req.sourceLang)) {
+      return makeProviderError('validation', { detail: 'invalid source language' })
+    }
+  } else {
+    if (!POLISH_GOALS.includes(req.goal)) return makeProviderError('validation', { detail: 'unknown polish goal' })
+    if (req.lang !== undefined && invalidLang(req.lang)) {
+      return makeProviderError('validation', { detail: 'invalid language' })
+    }
   }
   return undefined
 }
