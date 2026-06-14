@@ -3,8 +3,10 @@
 // vendor SDK. Vendor adapters map their raw responses into these shapes.
 //
 // This module is type-only except for ProviderException (the typed throwable);
-// it is excluded from the coverage gate (vite.config.ts) since it carries no
-// branching logic.
+// it is excluded from the coverage gate (vite.config.ts). Its one runtime path
+// (constructor detail sanitization) is exercised via errors.test / redact.test.
+
+import { sanitizeDetail } from './redact'
 
 export type Vendor = 'anthropic' | 'openai' | 'gemini' | 'ollama'
 export type PolishGoal = 'clarity' | 'tone' | 'grammar' | 'concise'
@@ -75,7 +77,12 @@ export class ProviderException extends Error {
   constructor(providerError: ProviderError) {
     super(providerError.kind)
     this.name = 'ProviderException'
-    this.providerError = providerError
+    // Sanitize at the source so NO ProviderException — however constructed —
+    // can carry a raw credential in detail (rule 65 §5).
+    this.providerError =
+      providerError.detail === undefined
+        ? providerError
+        : { ...providerError, detail: sanitizeDetail(providerError.detail) }
   }
 }
 

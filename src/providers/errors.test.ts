@@ -7,7 +7,6 @@ import {
   errorFromStatus,
   toProviderError,
   isRetryableError,
-  sanitizeDetail,
 } from './errors'
 import { ProviderException } from './types'
 
@@ -197,23 +196,31 @@ describe('isRetryableError', () => {
   })
 })
 
-describe('sanitizeDetail (secret redaction, rule 65 §5)', () => {
-  it('redacts sk- API keys', () => {
-    expect(sanitizeDetail('boom with key sk-ant-api03-AbC123def456')).toBe('boom with key sk-[REDACTED]')
-  })
-  it('redacts Bearer tokens', () => {
-    expect(sanitizeDetail('Authorization header Bearer abc.def-123')).toContain('Bearer [REDACTED]')
-  })
-  it('redacts key=value / key: value secrets', () => {
-    expect(sanitizeDetail('x-api-key: supersecret')).toBe('x-api-key: [REDACTED]')
-    expect(sanitizeDetail('api_key=foo123')).toBe('api_key=[REDACTED]')
-    expect(sanitizeDetail('token = zzz')).toBe('token = [REDACTED]')
-  })
-  it('leaves a benign message untouched', () => {
-    expect(sanitizeDetail('Failed to fetch')).toBe('Failed to fetch')
-  })
-  it('is applied by makeProviderError so detail can never carry a raw key', () => {
+describe('detail sanitization at error boundaries (rule 65 §5)', () => {
+  it('makeProviderError redacts secrets in detail', () => {
     const e = makeProviderError('requestFailed', { detail: 'leaked sk-ant-api03-SECRET99 in body' })
     expect(e.detail).toBe('leaked sk-[REDACTED] in body')
+  })
+  it('errorFromStatus redacts secrets in detail', () => {
+    expect(errorFromStatus(500, { detail: 'Bearer abc.def-123 failed' }).detail).toContain('Bearer [REDACTED]')
+  })
+  it('a directly-constructed ProviderException cannot carry a raw key', () => {
+    const pe = new ProviderException({
+      kind: 'requestFailed',
+      messageKey: 'error.requestFailed',
+      retryable: false,
+      detail: 'url https://x?api_key=topsecret',
+    })
+    expect(pe.providerError.detail).toContain('[REDACTED]')
+    expect(pe.providerError.detail).not.toContain('topsecret')
+  })
+  it('toProviderError surfaces the already-sanitized ProviderException detail', () => {
+    const pe = new ProviderException({
+      kind: 'refusal',
+      messageKey: 'error.refusal',
+      retryable: false,
+      detail: 'token=leaky',
+    })
+    expect(toProviderError(pe).detail).not.toContain('leaky')
   })
 })
