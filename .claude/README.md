@@ -67,8 +67,11 @@ Auto-loaded into every Claude Code session as project context. After de-contamin
 | `47-feature-workflow.md` | The binding 6-gate feature workflow |
 | `48-parallel-execution.md` | Rules for parallel/concurrent task execution |
 | `49-background-shells.md` | Background shell lifecycle (no ghost processes) |
+| `51-no-self-designed-ui.md` | UI/UX only from a committed design bundle (no self-designed UI) |
 | `53-codex-runner-isolation.md` | Codex runner isolation (no stdin-wedge ghosts) |
 | `60-ai-governance.md` | AI governance and audit-loop policy |
+| `65-llm-provider-integration.md` | The single LLM provider abstraction (interface, registry, streaming, resilience) |
+| `66-translation-polish.md` | Translation & polish domain rules (structure preservation, diff/accept, i18n) |
 
 ## Slash Commands (`commands/`)
 
