@@ -109,8 +109,16 @@ export type OperationState =
 export interface LLMProvider {
   readonly vendor: Vendor
   readonly model: string
-  /** Canonical, single-attempt. Throws ProviderException on failure. */
+  /** Canonical, single-attempt raw stream. Throws ProviderException on failure. */
   stream(request: LLMRequest, options?: StreamOptions): AsyncIterable<StreamChunk>
+  /**
+   * Resilient, normalized streaming (feature #2): yields StreamChunks and RETURNS a
+   * terminal ProviderOutcome (mapped + sanitized error, retained partial text) — the
+   * caller maps nothing. Validates the request, applies a default timeout, and does
+   * pre-first-byte retry/fallback; never replays after a chunk is yielded (rule 65 §3/§4).
+   * Consume via manual `.next()` — `for await` discards the generator's return value.
+   */
+  streamOp(request: LLMRequest, options?: StreamOptions): AsyncGenerator<StreamChunk, ProviderOutcome, void>
   /** Collect-to-completion + retry-if-no-bytes. */
   translate(request: TranslateRequest, options?: StreamOptions): Promise<ProviderOutcome>
   polish(request: PolishRequest, options?: StreamOptions): Promise<ProviderOutcome>
