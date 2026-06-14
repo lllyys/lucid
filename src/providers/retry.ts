@@ -5,6 +5,7 @@
 // Distinct from cross-model fallback (withFallback, base.ts, WI-3).
 
 import type { ProviderError, ProviderOutcome } from './types'
+import { isRetryableError } from './errors'
 
 export interface RetryPolicy {
   maxAttempts?: number
@@ -22,6 +23,16 @@ export interface RetryDeps {
 
 const CANCELLED: ProviderOutcome = { status: 'cancelled', text: '' }
 
+// A server-directed Retry-After is honored up to this safety bound — independent
+// of the exponential-backoff cap (maxDelayMs), which must not shorten it.
+const RATE_LIMIT_MAX_MS = 60_000
+
+/** Coerce any delay to a finite, non-negative, bounded value before it reaches sleep(). */
+function clampMs(ms: number, max: number): number {
+  if (!Number.isFinite(ms) || ms < 0) return 0
+  return Math.min(ms, max)
+}
+
 function backoffDelay(
   error: ProviderError,
   attemptIndex: number,
@@ -30,10 +41,10 @@ function backoffDelay(
   random: () => number,
 ): number {
   if (error.kind === 'rateLimited' && error.retryAfterMs != null) {
-    return Math.min(error.retryAfterMs, max)
+    return clampMs(error.retryAfterMs, RATE_LIMIT_MAX_MS)
   }
   const exp = Math.min(base * 2 ** attemptIndex, max)
-  return random() * exp
+  return clampMs(random() * exp, max)
 }
 
 export async function withRetry(
@@ -52,8 +63,8 @@ export async function withRetry(
 
     const outcome = await attempt()
 
-    // Retry only a retryable error that streamed nothing yet.
-    if (outcome.status !== 'error' || !outcome.error.retryable || outcome.text !== '') {
+    // Retry only a transient (retryable kind + flag) error that streamed nothing yet.
+    if (outcome.status !== 'error' || !isRetryableError(outcome.error) || outcome.text !== '') {
       return outcome
     }
 

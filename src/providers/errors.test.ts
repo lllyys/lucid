@@ -6,6 +6,8 @@ import {
   makeProviderError,
   errorFromStatus,
   toProviderError,
+  isRetryableError,
+  sanitizeDetail,
 } from './errors'
 import { ProviderException } from './types'
 
@@ -67,6 +69,9 @@ describe('parseRetryAfter', () => {
   })
   it('huge seconds -> bounded to the max', () => {
     expect(parseRetryAfter('99999')).toBe(60000)
+  })
+  it('astronomically long digit string overflows to Infinity, then clamps to the max', () => {
+    expect(parseRetryAfter('9'.repeat(400))).toBe(60000)
   })
   it('HTTP-date in the future -> positive bounded delta', () => {
     const now = 1_000_000
@@ -171,5 +176,44 @@ describe('toProviderError', () => {
     expect(toProviderError({ weird: true }).detail).toBeUndefined()
     expect(toProviderError(null).kind).toBe('unknown')
     expect(toProviderError(null).detail).toBeUndefined()
+  })
+})
+
+describe('isRetryableError', () => {
+  it.each(['rateLimited', 'providerDown', 'timeout'] as const)('%s + retryable flag -> true', (k) => {
+    expect(isRetryableError(makeProviderError(k))).toBe(true)
+  })
+  it.each(['invalidKey', 'requestFailed', 'refusal', 'incomplete', 'validation', 'aborted', 'unknown'] as const)(
+    '%s -> false',
+    (k) => {
+      expect(isRetryableError(makeProviderError(k))).toBe(false)
+    },
+  )
+  it('contradictory: a transient kind with retryable=false -> false', () => {
+    expect(isRetryableError({ kind: 'providerDown', messageKey: 'error.providerDown', retryable: false })).toBe(false)
+  })
+  it('contradictory: a non-transient kind with retryable=true -> false', () => {
+    expect(isRetryableError({ kind: 'invalidKey', messageKey: 'error.invalidKey', retryable: true })).toBe(false)
+  })
+})
+
+describe('sanitizeDetail (secret redaction, rule 65 §5)', () => {
+  it('redacts sk- API keys', () => {
+    expect(sanitizeDetail('boom with key sk-ant-api03-AbC123def456')).toBe('boom with key sk-[REDACTED]')
+  })
+  it('redacts Bearer tokens', () => {
+    expect(sanitizeDetail('Authorization header Bearer abc.def-123')).toContain('Bearer [REDACTED]')
+  })
+  it('redacts key=value / key: value secrets', () => {
+    expect(sanitizeDetail('x-api-key: supersecret')).toBe('x-api-key: [REDACTED]')
+    expect(sanitizeDetail('api_key=foo123')).toBe('api_key=[REDACTED]')
+    expect(sanitizeDetail('token = zzz')).toBe('token = [REDACTED]')
+  })
+  it('leaves a benign message untouched', () => {
+    expect(sanitizeDetail('Failed to fetch')).toBe('Failed to fetch')
+  })
+  it('is applied by makeProviderError so detail can never carry a raw key', () => {
+    const e = makeProviderError('requestFailed', { detail: 'leaked sk-ant-api03-SECRET99 in body' })
+    expect(e.detail).toBe('leaked sk-[REDACTED] in body')
   })
 })

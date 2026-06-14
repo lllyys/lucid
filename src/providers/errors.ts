@@ -23,6 +23,19 @@ const RETRYABLE: ReadonlySet<ErrorKind> = new Set<ErrorKind>(['rateLimited', 'pr
 
 const MAX_RETRY_AFTER_MS = 60_000
 
+/**
+ * Redact credential-like substrings before they ever land in a ProviderError
+ * (rule 65 §5). `detail` is dev-only diagnostics; vendor/fetch error text can
+ * carry API keys, bearer tokens, or `key=value` secrets. All detail is funneled
+ * through here by makeProviderError.
+ */
+export function sanitizeDetail(detail: string): string {
+  return detail
+    .replace(/sk-[A-Za-z0-9_-]{6,}/g, 'sk-[REDACTED]')
+    .replace(/\b(Bearer)\s+[A-Za-z0-9._-]+/gi, '$1 [REDACTED]')
+    .replace(/\b(x-api-key|api[_-]?key|authorization|token|password|secret)\b(\s*[:=]\s*)\S+/gi, '$1$2[REDACTED]')
+}
+
 export interface ProviderErrorOptions {
   fallbackable?: boolean
   retryAfterMs?: number
@@ -37,8 +50,17 @@ export function makeProviderError(kind: ErrorKind, opts: ProviderErrorOptions = 
   }
   if (opts.fallbackable !== undefined) error.fallbackable = opts.fallbackable
   if (opts.retryAfterMs !== undefined) error.retryAfterMs = opts.retryAfterMs
-  if (opts.detail !== undefined) error.detail = opts.detail
+  if (opts.detail !== undefined) error.detail = sanitizeDetail(opts.detail)
   return error
+}
+
+/**
+ * Authoritative retry-eligibility check: a transient error KIND AND the
+ * retryable flag must agree. Guards against a directly-constructed or malformed
+ * ProviderError that contradicts itself (e.g. invalidKey marked retryable).
+ */
+export function isRetryableError(error: ProviderError): boolean {
+  return RETRYABLE.has(error.kind) && error.retryable === true
 }
 
 /** True only for a user-initiated abort (AbortError) — not a timeout. */

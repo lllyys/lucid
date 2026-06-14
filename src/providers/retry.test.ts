@@ -67,6 +67,8 @@ describe('withRetry', () => {
     ['refusal', errOutcome('refusal')],
     ['incomplete', errOutcome('incomplete')],
     ['validation', errOutcome('validation')],
+    ['aborted', errOutcome('aborted')],
+    ['unknown', errOutcome('unknown')],
   ])('does not retry %s', async (_label, outcome) => {
     const attempt = vi.fn<() => Promise<ProviderOutcome>>().mockResolvedValue(outcome)
     const d = deps()
@@ -142,5 +144,45 @@ describe('withRetry', () => {
     expect(out).toEqual({ status: 'cancelled', text: '' })
     expect(attempt).toHaveBeenCalledTimes(1)
     expect(d.sleep).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry a self-contradictory error (non-transient kind flagged retryable)', async () => {
+    // A directly-constructed ProviderError that lies about retryability.
+    const outcome: ProviderOutcome = {
+      status: 'error',
+      text: '',
+      error: { kind: 'invalidKey', messageKey: 'error.invalidKey', retryable: true },
+    }
+    const attempt = vi.fn<() => Promise<ProviderOutcome>>().mockResolvedValue(outcome)
+    const d = deps()
+    const out = await withRetry(attempt, { maxAttempts: 3 }, d)
+    expect(out).toBe(outcome)
+    expect(attempt).toHaveBeenCalledTimes(1)
+    expect(d.sleep).not.toHaveBeenCalled()
+  })
+
+  it('honors a Retry-After longer than the exponential cap (maxDelayMs)', async () => {
+    const attempt = vi
+      .fn<() => Promise<ProviderOutcome>>()
+      .mockResolvedValueOnce(errOutcome('rateLimited', { retryAfterMs: 45_000 }))
+      .mockResolvedValueOnce({ status: 'done', text: 'x' })
+    const d = deps()
+    await withRetry(attempt, { maxAttempts: 3, maxDelayMs: 30_000 }, d)
+    // Retry-After (45s) must not be shortened to the 30s exp cap; bounded only by 60s.
+    expect(d.sleep).toHaveBeenCalledWith(45_000, undefined)
+  })
+
+  it.each<[string, number]>([
+    ['negative', -100],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+  ])('clamps an invalid retryAfterMs (%s) to 0', async (_label, bad) => {
+    const attempt = vi
+      .fn<() => Promise<ProviderOutcome>>()
+      .mockResolvedValueOnce(errOutcome('rateLimited', { retryAfterMs: bad }))
+      .mockResolvedValueOnce({ status: 'done', text: 'x' })
+    const d = deps()
+    await withRetry(attempt, { maxAttempts: 3 }, d)
+    expect(d.sleep).toHaveBeenCalledWith(0, undefined)
   })
 })
