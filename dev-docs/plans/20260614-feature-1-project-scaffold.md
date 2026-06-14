@@ -251,6 +251,14 @@ Tier definition: **foundational** = no user-facing UI surface; verified by unit 
 
 7 WIs, each independently green.
 
+> **WI-7 is plumbing-only (rule 51).** "App wiring" means wiring i18n + the provider config store
+> into the existing minimal shell and adding the integration test — it does **not** build any
+> translation/polish product surface (editor, diff/result/accept-reject pane, language/goal pickers,
+> provider/settings config). Those are feature #3+ and require a committed `dev-docs/designs/` bundle
+> before implementation. WI-7 introduces no new visible product surface, so feature #1 needs no
+> design bundle. If WI-7 ever needs to render a real product surface, stop and file `needs-design`
+> per rule 51.
+
 ## Test catalogue
 
 - `errors.test.ts` — `classifyStatus` 401/403/429(+Retry-After)/500/overloaded/other-4xx;
