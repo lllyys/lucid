@@ -85,8 +85,21 @@ as canonical labels from a curated registry (`resolveLanguage`) — never raw us
 prompt-injection surface. `validateRequest` rejects empty/oversized input, an unsupported language,
 an unknown polish goal, or an unknown request kind (a `validation` ProviderError; never leaks the input).
 
+## Anthropic provider + factory (`src/providers/anthropicProvider.ts`, `index.ts`) — WI-5
+
+`anthropicStream` maps an `LLMRequest` to the Messages API request (`model` + clamped `max_tokens`
+from the registry capability; `system` + one user message; `stream: true`; **no** `thinking`/
+`temperature` — Fable 5 thinking is always-on), streams via `fetchStream` + `readSSE`, and translates
+events: `text_delta` → chunk (non-empty only); `thinking_delta`/`message_start`/`content_block_*`
+ignored; `message_delta.stop_reason` (`refusal` → fallbackable iff zero output; `max_tokens` /
+`model_context_window_exceeded` → `incomplete`); `message_stop` → done; a mid-stream `error` →
+the mapped kind (`streamErrorKind`); malformed/non-object JSON → `requestFailed`; EOF without
+`message_stop` → `incomplete`. The API key appears only in the `x-api-key` header.
+`createProvider(vendor, config, deps?)` is the public entry point: it refuses unimplemented vendors
+and a missing key, resolves the model, and wires `defineProvider` with the real abort-aware backoff
+sleep (`realSleep`, injectable for tests).
+
 ## Coming next
 
-- _WI-5_ — `anthropicProvider.ts` + the `createProvider` factory.
 - _WI-6_ — the Zustand provider config store.
 - _WI-7_ — i18n + App wiring.

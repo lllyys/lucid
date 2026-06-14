@@ -38,6 +38,7 @@ describe('classifyStatus', () => {
     [429, 'rateLimited'],
     [500, 'providerDown'],
     [503, 'providerDown'],
+    [504, 'timeout'], // Gateway Timeout — retried once
     [529, 'providerDown'], // Anthropic "overloaded" surfaces as 5xx
     [400, 'requestFailed'],
     [404, 'requestFailed'],
