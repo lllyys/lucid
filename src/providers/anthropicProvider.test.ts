@@ -139,6 +139,9 @@ describe('anthropicStream — completion & error mapping', () => {
     ['invalid_request_error', 'requestFailed'],
     ['not_found_error', 'requestFailed'],
     ['rate_limit_error', 'rateLimited'],
+    ['billing_error', 'requestFailed'],
+    ['request_too_large', 'requestFailed'],
+    ['timeout_error', 'timeout'],
     ['api_error', 'providerDown'],
     ['overloaded_error', 'providerDown'],
   ])('maps a streamed %s error to %s (not blindly providerDown)', async (errType, kind) => {
@@ -155,7 +158,7 @@ describe('anthropicStream — completion & error mapping', () => {
     if (out.status === 'error') expect(out.error.kind).toBe('incomplete')
   })
 
-  it.each(['data: 123\n\n', 'data: null\n\n'])('non-object SSE payload (%j) -> requestFailed', async (frame) => {
+  it.each(['data: 123\n\n', 'data: null\n\n', 'data: []\n\n'])('non-object SSE payload (%j) -> requestFailed', async (frame) => {
     const { outcome } = run([frame])
     const out = await outcome
     if (out.status === 'error') expect(out.error.kind).toBe('requestFailed')

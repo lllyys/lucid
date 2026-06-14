@@ -39,9 +39,13 @@ function streamErrorKind(type: string | undefined): ErrorKind {
       return 'invalidKey'
     case 'invalid_request_error':
     case 'not_found_error':
+    case 'billing_error':
+    case 'request_too_large':
       return 'requestFailed'
     case 'rate_limit_error':
       return 'rateLimited'
+    case 'timeout_error':
+      return 'timeout'
     default:
       return 'providerDown' // overloaded_error, api_error, and unknown server errors
   }
@@ -95,7 +99,7 @@ export function anthropicStream(deps: AnthropicDeps): VendorStreamFn {
       } catch {
         throw new ProviderException(makeProviderError('requestFailed', { detail: 'malformed SSE JSON' }))
       }
-      if (typeof parsed !== 'object' || parsed === null) {
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
         throw new ProviderException(makeProviderError('requestFailed', { detail: 'non-object SSE payload' }))
       }
       const event = parsed as SSEEvent
