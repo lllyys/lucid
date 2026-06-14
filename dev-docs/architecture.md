@@ -43,22 +43,41 @@ ProviderException vs unknown). `isRetryableError` = a transient-KIND allowlist *
 `sanitizeDetail` redacts sk-/API keys, Bearer tokens, OAuth `access_token`/`refresh_token`/
 `client_secret`, and quoted-JSON `key:value` secrets. It is funneled through by
 `makeProviderError`, `errorFromStatus`, `toProviderError`, and the `ProviderException`
-constructor — no construction path can carry a raw key. (Outcome-boundary sanitization in
-`collectStream` is a planned defense-in-depth net — _WI-3_.)
+constructor — no construction path can carry a raw key. `collectStream` also sanitizes
+`error.detail` at the outcome boundary (WI-3) as a defense-in-depth net.
 
-## Resilience (`src/providers/retry.ts`) — WI-2; `base.ts` — _WI-3_
+## Transport & framing (`src/providers/stream.ts`) — WI-3
+
+`fetchStream` composes the caller signal with a request deadline (kept active through body
+consumption; `TimeoutError` vs `AbortError` provenance preserved), throws `ProviderHttpError`
+on non-2xx, yields raw body bytes, and runs idempotent best-effort cleanup (fire-and-forget
+`reader.cancel()` + `releaseLock()`). `readSSE` is a **vendor-agnostic, line-based** SSE
+framer: a streaming `TextDecoder` reassembles partial/multi-byte chunks, a blank line ends an
+event (CRLF counts as one terminator, a trailing CR is deferred), and a single event's
+multiple `data:` fields join with `\n`. It yields every payload verbatim — the OpenAI `[DONE]`
+sentinel is the OpenAI adapter's concern (#2).
+
+## Resilience (`src/providers/retry.ts`, `base.ts`) — WI-2 + WI-3
 
 - **`withRetry`** (same model): retries only a retryable, zero-byte error; never an abort,
   4xx, refusal, incomplete, validation, or any outcome with partial text; timeout once;
   exponential backoff + jitter; honors `Retry-After` up to a 60s bound; abort-aware.
-- **`withFallback`** _(WI-3)_: walks the ordered registry model chain, advancing only on a
-  zero-output fallbackable error — distinct from same-model retry.
+- **`withFallback`** (cross model): walks the ordered registry chain (`modelChain`), advancing
+  only on a zero-output fallbackable error — distinct from same-model retry.
+- **`collectStream`** turns one stream attempt into a terminal `ProviderOutcome`; **`defineProvider`**
+  composes `withFallback ∘ withRetry ∘ collectStream` over a vendor's stream function (a lazy
+  wrapper guarantees translate/polish always resolve to a `ProviderOutcome`, never reject).
+
+## Model registry (`src/providers/modelRegistry.ts`) — WI-3
+
+`ModelCapability` (context window, max output, streaming, vision, cost tier) + `VendorRegistryEntry`
+(`implemented` flag, default model, ordered fallbacks). Anthropic defaults to `claude-fable-5`
+(1M context / 128K output) with Opus 4.8 / Sonnet 4.6 fallbacks, per the claude-api skill
+catalog. `resolveModel` / `capabilityOf` / `modelChain` (de-duped, order preserved); the other
+vendors are registered but flagged unimplemented until #2.
 
 ## Coming next
 
-- _WI-3_ — `stream.ts` (event-framed SSE transport, abort/timeout), `base.ts`
-  (`collectStream`, `defineProvider`, `withFallback`), `modelRegistry.ts` (capabilities +
-  ordered fallbacks + `implemented` flag).
 - _WI-4_ — `lib/prompts` (versioned builders + request validation).
 - _WI-5_ — `anthropicProvider.ts` + the `createProvider` factory.
 - _WI-6_ — the Zustand provider config store.

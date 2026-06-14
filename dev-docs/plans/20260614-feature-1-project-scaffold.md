@@ -142,8 +142,9 @@ export interface VendorRegistryEntry {
   delimiter (a blank line: `\n\n`, `\r\n\r\n`, or `\r\r`), and for each event **joins its `data:` fields
   with `\n`** (per the SSE spec a single event may carry multiple `data:` lines) into one payload before
   yielding. A trailing partial event stays buffered until more bytes arrive — a `data:` line or JSON
-  object split across two network reads is reassembled, never parsed half-formed. `[DONE]` is
-  recognized only as an OpenAI sentinel (ignored for Anthropic; kept for #2).
+  object split across two network reads is reassembled, never parsed half-formed. `readSSE` is
+  **vendor-agnostic** — it yields every `data:` payload verbatim (including a literal `[DONE]`);
+  filtering the OpenAI `[DONE]` sentinel is the OpenAI adapter's concern (#2), not the framer's.
 - **Anthropic** (`anthropicProvider.ts`) switches on the parsed JSON `type` of each event payload:
   - `content_block_delta` → yield `delta.text`.
   - `message_delta` → capture `stop_reason` (`end_turn` | `max_tokens` | `refusal` | …).
@@ -275,7 +276,8 @@ Tier definition: **foundational** = no user-facing UI surface; verified by unit 
   `reader.cancel()` rejection after success / after timeout / after provider error does NOT mask the
   primary outcome); `readSSE` **event framing**: multi-`data:` fields joined with `\n`, event split
   across two reads, JSON split across two reads, **mid-UTF-8 code point split**, **CR-only / LF / CRLF
-  / mixed** line endings, ignored non-data fields / comments / `ping`, OpenAI `[DONE]` sentinel.
+  / mixed** line endings, ignored non-data fields / comments, colonless/no-space `data` fields,
+  `[DONE]` yielded verbatim (OpenAI sentinel filtering deferred to the OpenAI adapter, #2).
 - `base.test.ts` — `collectStream` done / cancelled (mid-abort + thrown-abort) / error
   (`ProviderHttpError` + `ProviderException` + generic) / **incomplete (EOF, partial retained)**;
   `withFallback` advances on zero-output fallbackable error, STOPS on partial/cancelled/non-fallbackable,
