@@ -179,6 +179,7 @@ describe('anthropicStream — completion & error mapping', () => {
   it.each([
     [429, 'rateLimited'],
     [500, 'providerDown'],
+    [504, 'timeout'],
     [401, 'invalidKey'],
   ])('HTTP %i -> %s', async (status, kind) => {
     const { outcome } = run(['error body'], { status })

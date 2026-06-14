@@ -64,6 +64,7 @@ export function isAbortError(err: unknown): boolean {
 export function classifyStatus(status: number): ErrorKind {
   if (status === 401 || status === 403) return 'invalidKey'
   if (status === 429) return 'rateLimited'
+  if (status === 504) return 'timeout' // Gateway Timeout — retried once, not as a 5xx outage
   if (status >= 500) return 'providerDown'
   if (status >= 400) return 'requestFailed'
   return 'unknown'
