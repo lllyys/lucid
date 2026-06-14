@@ -11,6 +11,9 @@ argument-hint: "[issue description or error message]"
 $ARGUMENTS
 ```
 
+**If `$ARGUMENTS` is empty**, don't guess: ask the user which issue to fix — or, if a failing
+test or error is already visible in this session, confirm you'll fix that — before proceeding.
+
 ## Fixing Philosophy
 
 **No half measures.** Every fix must be complete and correct.
@@ -88,3 +91,12 @@ $ARGUMENTS
 - The code is sound but has a small oversight
 - The fix is isolated and obvious
 - Rewriting would introduce unnecessary risk
+
+## Output
+
+When the fix is done, report:
+
+- The **root cause** in one sentence, and the change that addresses it.
+- The **RED test** that captured the bug (file path) and that it now passes.
+- The `pnpm check:all` result (lint, coverage, build).
+- Any related code you checked for the same bug, and follow-ups (or "none").
