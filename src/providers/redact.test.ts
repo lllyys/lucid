@@ -29,6 +29,11 @@ describe('sanitizeDetail', () => {
   it('redacts a secret in a query string', () => {
     expect(sanitizeDetail('GET https://api.x/v1?api-key=leaky failed')).not.toContain('leaky')
   })
+  it('redacts OAuth access_token / refresh_token / client_secret', () => {
+    expect(sanitizeDetail('https://x?access_token=abc.def-123&next=ok')).not.toContain('abc.def-123')
+    expect(sanitizeDetail('refresh_token=rrr')).toBe('refresh_token=[REDACTED]')
+    expect(sanitizeDetail('{"client_secret":"shh"}')).not.toContain('shh')
+  })
   it('leaves a benign message untouched', () => {
     expect(sanitizeDetail('Failed to fetch')).toBe('Failed to fetch')
   })

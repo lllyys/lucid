@@ -12,8 +12,10 @@ export function sanitizeDetail(detail: string): string {
       // Bearer tokens, including the full base64url/base64 + padding charset.
       .replace(/\b(bearer)\s+[a-z0-9._~+/=-]+/gi, '$1 [REDACTED]')
       // key: value / key=value / "key":"value" (JSON), case-insensitive.
+      // Explicit OAuth names (access_token, …) are listed because the bare
+      // `token` rule won't fire across an underscore word-boundary.
       .replace(
-        /("?\b(?:x-api-key|api[_-]?key|authorization|token|password|secret)\b"?\s*[:=]\s*)"?[^"\s,}]+"?/gi,
+        /("?\b(?:x-api-key|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|authorization|token|password|secret)\b"?\s*[:=]\s*)"?[^"\s,}]+"?/gi,
         '$1[REDACTED]',
       )
   )
