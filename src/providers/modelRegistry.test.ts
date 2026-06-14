@@ -31,6 +31,12 @@ describe('REGISTRY', () => {
     expect(models[defaultModel]).toBeDefined()
     for (const f of fallbacks) expect(models[f]).toBeDefined()
   })
+  it('matches the documented Anthropic limits (claude-api skill catalog)', () => {
+    const m = REGISTRY.anthropic.models
+    expect(m['claude-fable-5']).toMatchObject({ contextWindow: 1_000_000, maxOutputTokens: 128_000, costTier: 'high' })
+    expect(m['claude-opus-4-8']).toMatchObject({ contextWindow: 1_000_000, maxOutputTokens: 128_000, costTier: 'high' })
+    expect(m['claude-sonnet-4-6']).toMatchObject({ contextWindow: 1_000_000, maxOutputTokens: 64_000, costTier: 'medium' })
+  })
 })
 
 describe('isVendorImplemented', () => {

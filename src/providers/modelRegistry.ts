@@ -26,26 +26,29 @@ export interface VendorRegistryEntry {
   models: Record<string, ModelCapability>
 }
 
+// Limits per the claude-api skill catalog (shared/models.md): 1M context window;
+// Fable 5 / Opus 4.8 = 128K max output, Sonnet 4.6 = 64K. costTier follows pricing
+// (Fable $10/$50 & Opus $5/$25 = high; Sonnet $3/$15 = medium).
 const ANTHROPIC_MODELS: Record<string, ModelCapability> = {
   'claude-fable-5': {
     id: 'claude-fable-5',
-    contextWindow: 200_000,
-    maxOutputTokens: 64_000,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     streaming: true,
     vision: true,
     costTier: 'high',
   },
   'claude-opus-4-8': {
     id: 'claude-opus-4-8',
-    contextWindow: 200_000,
-    maxOutputTokens: 32_000,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     streaming: true,
     vision: true,
     costTier: 'high',
   },
   'claude-sonnet-4-6': {
     id: 'claude-sonnet-4-6',
-    contextWindow: 200_000,
+    contextWindow: 1_000_000,
     maxOutputTokens: 64_000,
     streaming: true,
     vision: true,

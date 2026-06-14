@@ -64,7 +64,12 @@ export async function* fetchStream(
     if (options.signal) options.signal.removeEventListener('abort', onAbort)
     // Fire-and-forget: awaiting cancel() could hang and mask the primary outcome.
     // The .catch keeps the rejection from going unhandled (idempotent best-effort).
-    if (reader) void reader.cancel().catch(() => {})
+    // releaseLock then frees the reader so a never-settling cancel can't retain the
+    // locked stream; cleanup runs only with no in-flight read, so it won't throw.
+    if (reader) {
+      void reader.cancel().catch(() => {})
+      reader.releaseLock()
+    }
     if (!controller.signal.aborted) controller.abort()
   }
 }
