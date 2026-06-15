@@ -40,18 +40,14 @@ describe('REGISTRY', () => {
 })
 
 describe('isVendorImplemented', () => {
-  it('anthropic + custom are implemented; openai/gemini/ollama stay dormant until WI-4 wires the factory', () => {
-    // WI-1 populates their model DATA but keeps implemented:false — flipping it without the
-    // createProvider switch (WI-4) would build the wrong adapter. WI-4 flips these to true.
-    expect(isVendorImplemented('anthropic')).toBe(true)
-    expect(isVendorImplemented('custom')).toBe(true)
-    for (const v of ['openai', 'gemini', 'ollama'] as Vendor[]) {
-      expect(isVendorImplemented(v)).toBe(false)
+  it('all registered vendors are implemented (#5 WI-4 wired openai/gemini/ollama into the factory)', () => {
+    for (const v of ['anthropic', 'openai', 'gemini', 'ollama', 'custom'] as Vendor[]) {
+      expect(isVendorImplemented(v)).toBe(true)
     }
   })
 })
 
-describe('openai/gemini/ollama model data (#5 WI-1 — populated, allowAnyModel, dormant)', () => {
+describe('openai/gemini/ollama model data (#5 — real IDs, allowAnyModel)', () => {
   it('openai defaults to gpt-5.5 with the cheaper fallbacks, allowAnyModel', () => {
     expect(REGISTRY.openai.defaultModel).toBe('gpt-5.5')
     expect(REGISTRY.openai.fallbacks).toEqual(['gpt-5.4-mini', 'gpt-5.4-nano'])

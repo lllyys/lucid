@@ -60,11 +60,12 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
   setApiKey: (apiKey) => set((s) => ({ apiKey, apiKeys: { ...s.apiKeys, [s.vendor]: apiKey } })),
   setBaseUrl: (baseUrl) => set({ baseUrl }), // for the custom provider (#7); in-memory like apiKey
   clearKey: () => set((s) => ({ apiKey: '', apiKeys: { ...s.apiKeys, [s.vendor]: '' } })), // active vendor only
-  // Ready needs an implemented vendor + a key; the custom provider also needs a base URL + a model.
-  // (Ollama's no-key path lands in WI-4 with its implemented flip — unreachable while implemented:false.)
+  // Ready needs an implemented vendor; remote vendors need a key, the custom provider also needs a
+  // base URL + model, and local Ollama needs neither — only a model (it runs on-device, no key #5).
   isReady: () => {
     const s = get()
     if (!isVendorImplemented(s.vendor)) return false
+    if (s.vendor === 'ollama') return s.model.trim() !== ''
     if (s.apiKeys[s.vendor].trim() === '') return false
     if (s.vendor === 'custom') return s.baseUrl.trim() !== '' && s.model.trim() !== ''
     return true

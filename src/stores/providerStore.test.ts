@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useProviderStore } from './providerStore'
+import * as registry from '@/providers/modelRegistry'
 
 beforeEach(() => {
   useProviderStore.getState().reset()
@@ -33,28 +34,34 @@ describe('providerStore', () => {
     expect(useProviderStore.getState().model).toBe('claude-opus-4-8')
   })
 
-  it('refuses to switch to an unimplemented vendor (state unchanged)', () => {
-    useProviderStore.getState().setApiKey('sk-test')
-    for (const vendor of ['openai', 'gemini', 'ollama'] as const) {
-      useProviderStore.getState().setVendor(vendor)
-      expect(useProviderStore.getState().vendor).toBe('anthropic')
-      expect(useProviderStore.getState().model).toBe('claude-fable-5')
+  it('switches freely between all implemented vendors (#5 — openai/gemini/ollama now wired)', () => {
+    const { setVendor } = useProviderStore.getState()
+    for (const v of ['openai', 'gemini', 'ollama', 'custom', 'anthropic'] as const) {
+      setVendor(v)
+      expect(useProviderStore.getState().vendor).toBe(v)
     }
   })
 
-  it('rapid repeated switching converges (refused switches are no-ops)', () => {
-    const { setVendor } = useProviderStore.getState()
-    setVendor('openai')
-    setVendor('gemini')
-    setVendor('anthropic')
-    setVendor('ollama')
-    expect(useProviderStore.getState().vendor).toBe('anthropic')
+  it('refuses setVendor for a vendor that is not implemented (defense-in-depth via the registry guard)', () => {
+    const spy = vi.spyOn(registry, 'isVendorImplemented').mockReturnValue(false)
+    useProviderStore.getState().setVendor('openai')
+    expect(useProviderStore.getState().vendor).toBe('anthropic') // unchanged
+    spy.mockRestore()
   })
 
-  it('isReady() is false if the active vendor is somehow not implemented', () => {
-    // Defense-in-depth: even if state is forced to an unimplemented vendor.
-    useProviderStore.setState({ vendor: 'openai', apiKey: 'sk-test' })
+  it('isReady() is false when the active vendor is not implemented (defense-in-depth)', () => {
+    useProviderStore.getState().setApiKey('sk-test')
+    const spy = vi.spyOn(registry, 'isVendorImplemented').mockReturnValue(false)
     expect(useProviderStore.getState().isReady()).toBe(false)
+    spy.mockRestore()
+  })
+
+  it('ollama is ready with no key (local, on-device) once it has a model', () => {
+    useProviderStore.getState().setVendor('ollama')
+    const s = useProviderStore.getState()
+    expect(s.apiKeys.ollama).toBe('') // no key
+    expect(s.model).toBe('llama3.2') // default model present
+    expect(s.isReady()).toBe(true)
   })
 
   it('setModel updates the model', () => {

@@ -25,13 +25,13 @@ describe('SettingsDialog', () => {
     expect(screen.getByText(/providers & keys/i)).toBeInTheDocument()
   })
 
-  it('lists only implemented providers (Anthropic), not unimplemented ones', async () => {
+  it('lists the implemented named providers (#5 — Anthropic, OpenAI, Google, Local)', async () => {
     const user = userEvent.setup()
     render(<SettingsDialog />)
     await open(user)
     expect(screen.getAllByText('Anthropic').length).toBeGreaterThanOrEqual(1)
-    expect(screen.queryByText('OpenAI')).toBeNull()
-    expect(screen.queryByText('Google')).toBeNull()
+    expect(screen.getAllByText('OpenAI').length).toBeGreaterThanOrEqual(1) // now implemented (#5 WI-4)
+    expect(screen.getAllByText('Google').length).toBeGreaterThanOrEqual(1)
   })
 
   it('saves a valid key and shows it masked with a saved badge', async () => {

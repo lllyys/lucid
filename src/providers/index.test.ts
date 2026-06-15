@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createProvider, realSleep } from './index'
 import { ProviderException, type Vendor } from './types'
 import { streamResponse } from '@/test/providerTestUtils'
+import * as registry from './modelRegistry'
 import type { RetryDeps } from './retry'
 
 const fakeDeps: RetryDeps = { sleep: async () => {}, random: () => 0.5 }
@@ -25,13 +26,61 @@ describe('createProvider', () => {
       expect((e as ProviderException).providerError.kind).toBe('invalidKey')
     }
   })
-  it.each(['openai', 'gemini', 'ollama'] as Vendor[])('throws for the unimplemented vendor %s', (vendor) => {
+  it('builds an OpenAI provider (resolved default model) and streams via the OpenAI-compatible engine', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(streamResponse(sse({ choices: [{ delta: { content: 'hi' } }] }).concat('data: [DONE]\n\n'))),
+    )
+    const p = createProvider('openai', { apiKey: 'sk-test', fetch: fetchMock as unknown as typeof fetch }, fakeDeps)
+    expect(p.vendor).toBe('openai')
+    expect(p.model).toBe('gpt-5.5')
+    expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'hi' })
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('https://api.openai.com/v1/chat/completions')
+  })
+
+  it('builds an Ollama provider WITHOUT a key (local, no-key) and points at localhost', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(streamResponse(sse({ choices: [{ delta: { content: 'hola' } }] }).concat('data: [DONE]\n\n'))),
+    )
+    const p = createProvider('ollama', { fetch: fetchMock as unknown as typeof fetch }, fakeDeps) // no apiKey
+    expect(p.vendor).toBe('ollama')
+    expect(p.model).toBe('llama3.2')
+    expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'hola' })
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('http://localhost:11434/v1/chat/completions')
+  })
+
+  it('builds a Gemini provider and streams via the Gemini engine (generateContent)', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Hola' }] }, finishReason: 'STOP' }] })}\n\n`,
+        ]),
+      ),
+    )
+    const p = createProvider('gemini', { apiKey: 'AIzaTEST', fetch: fetchMock as unknown as typeof fetch }, fakeDeps)
+    expect(p.vendor).toBe('gemini')
+    expect(p.model).toBe('gemini-3.5-flash')
+    expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'Hola' })
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toContain(':streamGenerateContent?alt=sse')
+  })
+
+  it.each(['openai', 'gemini'] as Vendor[])('still throws invalidKey for the keyed vendor %s with no key', (vendor) => {
     try {
-      createProvider(vendor, { apiKey: 'sk-test' })
+      createProvider(vendor)
       throw new Error('should have thrown')
     } catch (e) {
-      expect(e).toBeInstanceOf(ProviderException)
+      expect((e as ProviderException).providerError.kind).toBe('invalidKey')
+    }
+  })
+
+  it('throws requestFailed for a vendor the registry reports unimplemented (defense-in-depth)', () => {
+    const spy = vi.spyOn(registry, 'isVendorImplemented').mockReturnValue(false)
+    try {
+      createProvider('openai', { apiKey: 'sk-test' })
+      throw new Error('should have thrown')
+    } catch (e) {
       expect((e as ProviderException).providerError.kind).toBe('requestFailed')
+    } finally {
+      spy.mockRestore()
     }
   })
   it('builds a custom provider with a user-supplied baseUrl + model (OpenAI-compatible)', () => {
