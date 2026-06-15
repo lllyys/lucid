@@ -12,6 +12,53 @@
 | v1 | 2026-06-15 | Initial Gate-1 plan (5 WIs). |
 | v2 | 2026-06-15 | Gate-2 round 1 (Codex `019ec907`, MAJOR GAPS). **Credential model:** Settings lists **implemented providers only** (like the switcher) → the existing single `apiKey` suffices; vendor-keyed credentials deferred until a 2nd provider ships (no new credential WI). **Dark (#16):** use the already-installed **next-themes** (`attribute="class"`, `defaultTheme="system"`) — OS `prefers-color-scheme`, no invented toggle (a manual toggle is undesigned → future needs-design); add **role tokens** (accent-ink/fill, success-text/solid, on-accent, danger-border) since components reuse `--accent-primary`/`--success` for two roles; theme pref persists via next-themes (a preference, not a secret). **Direction (#17):** a NEW `bidi.ts` (`resolveBidiDirection(text, override)` → `ltr|rtl`) **separate from** `detectDirection` (translation route `zh-en|en-zh`); forced direction is **visual-only, never the request language**; bidi is **per-surface, content-detected**, with a Translate override; `unicode-bidi: plaintext` + logical alignment + isolated controls. **Per-hunk (#15):** a NEW tested `groupHunks(segments)` that pairs adjacent del/add into atomic hunks (raw segment IDs alone give incoherent `oldnew`); `acceptedIds` reset by `runId`+diff identity. **Error (#14):** render every error via `error.messageKey`; **Retry only when `isRetryableError`**; cancelled → "Stopped"; corrected the architecture note (mapping is in `streamOp`, the store preserves the normalized outcome). **Key handling:** never called "secure storage" — explicit session-memory exception (rule 65 §5), test no persistence API is used, aborts in-flight panels on key change; provider-specific masking/validation. Added prior-art, backward-compat, PR sizes; re-split to **7 WIs**. Token table = design artifact (no product surface) — excluded. |
 
+## Gate-2 round-2 resolutions (v3)
+
+Round 2 (Codex `019ec907`) = NEEDS REVISION — 11 resolved, the 6 remaining addressed here (authoritative
+over the prose below where they differ):
+
+1. **Retry vs rule 65 §4 no-replay (High).** The banner's **Retry shows only when
+   `isRetryableError(op.error) && op.text === ''`** (a zero-byte transient failure). When partial text
+   was streamed, NO Retry is offered — the user uses **Regenerate** (a fresh request that *replaces*
+   the result, never appends). Tested: retryable+empty ⇒ Retry; retryable+partial ⇒ no Retry;
+   non-retryable ⇒ no Retry. (WI-5)
+2. **Abort-on-key-change coordinator (Medium).** The Settings save path computes
+   `changed = newKey !== currentKey`; only if `changed` does it **abort the panels whose `status ===
+   'streaming'`** (translate / polish / draftTranslate) and then call `setApiKey`; `clearKey` behaves
+   the same. **Idle/done panels are never touched** (no spurious `cancelled`). Tests: a streaming panel
+   → cancelled; idle/done panels unchanged; a same-value save aborts nothing. (WI-1)
+3. **Bidi = Unicode first-strong (Medium).** `resolveBidiDirection(text, override)`: `override !== 'auto'`
+   ⇒ forced; else scan for the FIRST **strong** directional codepoint — first char in an RTL script
+   (`\p{Script=Arabic}|Hebrew|Syriac|Thaana`) ⇒ `rtl`; first strong-LTR `\p{Letter}` (non-RTL script)
+   ⇒ `ltr`; no strong char (neutrals/digits/empty) ⇒ `ltr` (default). Deterministic first-strong, not
+   "majority". Fixtures: first-strong-RTL, first-strong-LTR, leading-neutral-then-RTL, digits-only,
+   neutral-only, mixed-order. (WI-3)
+4. **Runtime-invalid credential (Medium).** Settings derives a **rejected** state from the panel ops: if
+   any panel op is `{status:'error', error.kind:'invalidKey'}` for the active provider, the saved key is
+   shown **invalid** (distinct from shape-invalid); entering a new key clears it. Tested: a
+   correctly-shaped key + an `invalidKey` panel outcome ⇒ Settings shows invalid; replacing the key
+   clears it. (WI-1)
+5. **Role-token map (Medium, WI-2).** New role tokens (exact light/dark hexes transcribed from the
+   design's committed token table in WI-2; legacy names keep their current value + add the dark value):
+
+   | token | role | legacy alias (current consumer) | value source |
+   |---|---|---|---|
+   | `--accent-primary` | accent **fill** (buttons, dots) | (existing) | design table |
+   | `--accent-ink` | accent **as text** (links, diff-add fg) | was `--accent-primary` in `--diff-add-fg`, `--accent-foreground` | design table |
+   | `--success` | success **text/icon** | (existing) | design table |
+   | `--success-solid` | success **button fill** (Accept) | was `--success` in `TranslateResult`/`PolishResult` Accept bg | design table |
+   | `--on-accent` | text **on** accent/success fills | was hardcoded `white` | design table |
+   | `--danger-border` | error banner border | (new) | design table |
+
+   Consumer inventory to update for the split: `TranslateResult`/`PolishResult` Accept buttons
+   (`--success` → `--success-solid` bg, `white` → `--on-accent` fg), `--diff-add-fg`/`--accent-foreground`
+   (→ `--accent-ink`), the new `ResultBanner`. shadcn `@theme inline` bridge + Tailwind exports updated
+   for the new names. All other tokens keep their names; dark values added under `.dark` from the table.
+6. **Banner title + body (Medium).** The design's banner has a localized **title + body**. Add
+   `banner.<kind>.title` keys (Rate limited / Provider unavailable / Invalid key / Timed out / Request
+   failed / Stopped) for the title; `t(error.messageKey)` is the body. `ResultBanner` renders both and
+   **never** renders `error.detail`. Tested: title+body per kind; detail never shown. (WI-5)
+
 ## Problem
 
 Feature #2 shipped the workspace but deferred six surfaces as `needs-design`. The loop completed
