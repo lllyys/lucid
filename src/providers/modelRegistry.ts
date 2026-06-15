@@ -4,8 +4,12 @@
 // what `withFallback` (base.ts) walks so a model degrades without code changes.
 //
 // Anthropic IDs are per the claude-api skill (latest: claude-fable-5, then
-// claude-opus-4-8, claude-sonnet-4-6). The other vendors are registered but not
-// yet implemented (#2) — the store/factory refuse to select or construct them.
+// claude-opus-4-8, claude-sonnet-4-6). OpenAI / Gemini / Ollama carry real model
+// IDs (verified mid-2026) but stay `implemented:false` until #5 WI-4 wires the
+// factory switch — flipping `implemented` without the switch would build the wrong
+// adapter. They use `allowAnyModel` (like `custom`): no fabricated capability
+// figures, the user/registry model is sent as-is, and a drifted ID is a zero-code
+// change (rule 65 §2). The Settings model picker offers `modelChain(vendor)`.
 
 import type { Vendor } from './types'
 
@@ -66,10 +70,35 @@ export const REGISTRY: Record<Vendor, VendorRegistryEntry> = {
     fallbacks: ['claude-opus-4-8', 'claude-sonnet-4-6'],
     models: ANTHROPIC_MODELS,
   },
-  // Registered but not implemented until #5; model IDs are populated then.
-  openai: { vendor: 'openai', implemented: false, defaultModel: '', fallbacks: [], models: {} },
-  gemini: { vendor: 'gemini', implemented: false, defaultModel: '', fallbacks: [], models: {} },
-  ollama: { vendor: 'ollama', implemented: false, defaultModel: '', fallbacks: [], models: {} },
+  // #5 WI-1: model DATA populated (real IDs), but implemented:false until WI-4 wires the
+  // factory switch. allowAnyModel — no fixed catalog, no fabricated capability figures.
+  // OpenAI: OpenAI-compatible chat/completions; gpt-5-pro is Responses-API-only (excluded).
+  openai: {
+    vendor: 'openai',
+    implemented: false,
+    defaultModel: 'gpt-5.5',
+    fallbacks: ['gpt-5.4-mini', 'gpt-5.4-nano'],
+    models: {},
+    allowAnyModel: true,
+  },
+  // Gemini: generateContent (own adapter, WI-2). GA default; the Pro tier is preview-only.
+  gemini: {
+    vendor: 'gemini',
+    implemented: false,
+    defaultModel: 'gemini-3.5-flash',
+    fallbacks: ['gemini-3.1-flash-lite'],
+    models: {},
+    allowAnyModel: true,
+  },
+  // Ollama: OpenAI-compatible at localhost; models are user-installed (no remote catalog).
+  ollama: {
+    vendor: 'ollama',
+    implemented: false,
+    defaultModel: 'llama3.2',
+    fallbacks: [],
+    models: {},
+    allowAnyModel: true,
+  },
   // Custom / OpenAI-compatible (#7): implemented; the model is user-supplied (no fixed catalog).
   custom: { vendor: 'custom', implemented: true, defaultModel: '', fallbacks: [], models: {}, allowAnyModel: true },
 }

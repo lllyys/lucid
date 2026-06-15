@@ -40,12 +40,47 @@ describe('REGISTRY', () => {
 })
 
 describe('isVendorImplemented', () => {
-  it('anthropic + custom are implemented; openai/gemini/ollama are not (until #5)', () => {
+  it('anthropic + custom are implemented; openai/gemini/ollama stay dormant until WI-4 wires the factory', () => {
+    // WI-1 populates their model DATA but keeps implemented:false — flipping it without the
+    // createProvider switch (WI-4) would build the wrong adapter. WI-4 flips these to true.
     expect(isVendorImplemented('anthropic')).toBe(true)
     expect(isVendorImplemented('custom')).toBe(true)
     for (const v of ['openai', 'gemini', 'ollama'] as Vendor[]) {
       expect(isVendorImplemented(v)).toBe(false)
     }
+  })
+})
+
+describe('openai/gemini/ollama model data (#5 WI-1 — populated, allowAnyModel, dormant)', () => {
+  it('openai defaults to gpt-5.5 with the cheaper fallbacks, allowAnyModel', () => {
+    expect(REGISTRY.openai.defaultModel).toBe('gpt-5.5')
+    expect(REGISTRY.openai.fallbacks).toEqual(['gpt-5.4-mini', 'gpt-5.4-nano'])
+    expect(REGISTRY.openai.allowAnyModel).toBe(true)
+  })
+  it('gemini defaults to the GA gemini-3.5-flash (+ flash-lite), allowAnyModel (Pro tier is preview-only)', () => {
+    expect(REGISTRY.gemini.defaultModel).toBe('gemini-3.5-flash')
+    expect(REGISTRY.gemini.fallbacks).toEqual(['gemini-3.1-flash-lite'])
+    expect(REGISTRY.gemini.allowAnyModel).toBe(true)
+  })
+  it('ollama defaults to llama3.2, allowAnyModel (models are user-installed, no fixed catalog)', () => {
+    expect(REGISTRY.ollama.defaultModel).toBe('llama3.2')
+    expect(REGISTRY.ollama.fallbacks).toEqual([])
+    expect(REGISTRY.ollama.allowAnyModel).toBe(true)
+  })
+  it('resolveModel returns a user-supplied model as-is for these (allowAnyModel — IDs drift, registry is the swap point)', () => {
+    expect(resolveModel('openai', 'gpt-6')).toBe('gpt-6')
+    expect(resolveModel('gemini', 'gemini-4-pro')).toBe('gemini-4-pro')
+    expect(resolveModel('ollama', 'mistral-large')).toBe('mistral-large')
+  })
+  it('resolveModel falls back to the default when nothing is requested', () => {
+    expect(resolveModel('openai')).toBe('gpt-5.5')
+    expect(resolveModel('gemini')).toBe('gemini-3.5-flash')
+    expect(resolveModel('ollama')).toBe('llama3.2')
+  })
+  it('modelChain gives the picker list [default, ...fallbacks]', () => {
+    expect(modelChain('openai')).toEqual(['gpt-5.5', 'gpt-5.4-mini', 'gpt-5.4-nano'])
+    expect(modelChain('gemini')).toEqual(['gemini-3.5-flash', 'gemini-3.1-flash-lite'])
+    expect(modelChain('ollama')).toEqual(['llama3.2'])
   })
 })
 
