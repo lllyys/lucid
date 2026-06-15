@@ -43,7 +43,7 @@ export function LanguagePicker({
         {POLISH_LANGS.map((l) => (
           <DropdownMenuItem key={l.code} className="gap-2" onSelect={() => onChange(l.code)}>
             <span className="flex-1">{l.native}</span>
-            {l.code === value && <Check className="size-3 text-[var(--accent-primary)]" aria-hidden />}
+            {l.code === value && <Check className="size-3 text-[var(--accent-ink)]" aria-hidden />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

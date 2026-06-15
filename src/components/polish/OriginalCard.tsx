@@ -31,6 +31,8 @@ export function OriginalCard({
         onChange={(e) => onChange(e.target.value)}
         placeholder={t('polish.originalPlaceholder')}
         spellCheck={false}
+        dir="auto"
+        style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
         className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-serif text-[18px] leading-[1.7]"
       />
     </div>

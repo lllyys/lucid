@@ -49,7 +49,7 @@ export function DraftCard({
             <button
               type="button"
               onClick={onTranslateOriginal}
-              className="rounded-md border bg-[var(--bg-color)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--accent-primary)] hover:bg-[var(--hover-bg)]"
+              className="rounded-md border bg-[var(--bg-color)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--accent-ink)] hover:bg-[var(--hover-bg)]"
             >
               ↻ {t('polish.translateOriginal')}
             </button>
@@ -63,6 +63,8 @@ export function DraftCard({
         onChange={(e) => onChange(e.target.value)}
         placeholder={t('polish.draftPlaceholder')}
         spellCheck={false}
+        dir="auto"
+        style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
         className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-serif text-[18px] leading-[1.7]"
       />
     </div>

@@ -99,12 +99,17 @@ export function PolishPanel() {
     resetForInput()
     notify(t('toast.polishAccepted'))
   }
+  const onReject = () => {
+    // Discard the polish result entirely; the draft is left exactly as-is (rule 66 §2).
+    resetPolish()
+    notify(t('toast.polishRejected'))
+  }
 
   return (
     <section className="flex min-h-[420px] flex-1 flex-col">
       <div className="flex items-center justify-between px-[22px] pb-1 pt-2.5">
         <div className="flex items-center gap-2.5">
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-primary)]">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-ink)]">
             {t('polish.label')}
           </span>
           <span className="text-[11.5px] text-[var(--text-disabled)]">{t('polish.subtitle')}</span>
@@ -113,8 +118,11 @@ export function PolishPanel() {
           type="button"
           onClick={onPolish}
           disabled={translating}
-          className="rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold text-white disabled:opacity-40"
-          style={{ background: isPolishing ? 'var(--text-secondary)' : 'var(--accent-primary)' }}
+          className={`rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold disabled:opacity-40 ${
+            isPolishing
+              ? 'border bg-[var(--bg-tertiary)] text-[var(--text-color)] hover:bg-[var(--hover-bg)]'
+              : 'bg-[var(--accent-primary)] text-[var(--on-accent)]'
+          }`}
         >
           {isPolishing ? t('polish.stop') : t('polish.run')}
         </button>
@@ -138,7 +146,7 @@ export function PolishPanel() {
           <span className="mb-2 font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
             {t('polish.polished')}
           </span>
-          <PolishResult draft={draft} onAccept={onAccept} onRegenerate={onPolish} />
+          <PolishResult draft={draft} onAccept={onAccept} onRegenerate={onPolish} onReject={onReject} />
         </section>
       </div>
     </section>

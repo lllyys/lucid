@@ -39,6 +39,13 @@
   --accent-border: #c9c6e9;
   --primary-color: var(--accent-primary);   /* rules 32/33 focus patterns */
 
+  /* role split (feature #4, WI-2): accent/success serve TWO roles — a FILL and an INK.
+     In light they coincide; in dark the ink lifts for AA while the fill stays saturated. */
+  --accent-ink: #574fd6;        /* accent as TEXT/icon/link/diff-add fg + focus ring */
+  --success-solid: #2f7d5b;     /* success FILL (Accept button) — white text clears AA */
+  --on-accent: #ffffff;         /* text/icon placed ON an accent/success fill */
+  --toast-bg: #ffffff;          /* sonner toast surface */
+
   /* status */
   --success: #2f7d5b;
   --success-bg: #e8f3ec;
@@ -46,6 +53,7 @@
   --warning: #c28a2e;
   --error-color: #b23a48;
   --error-bg: #fbeaec;
+  --danger-border: #f0cdd2;     /* error-banner border (feature #4, WI-5) */
   --status-info: var(--accent-primary);
   --status-success: var(--success);
   --status-warning: var(--warning);
@@ -53,7 +61,7 @@
 
   /* diff highlights (rule 34) */
   --diff-add-bg: #edecfb;
-  --diff-add-fg: var(--accent-primary);
+  --diff-add-fg: var(--accent-ink);   /* added-word TEXT → ink role (lifts in dark for AA) */
   --diff-del-fg: var(--error-color);
 
   /* selection */
@@ -81,53 +89,72 @@
   --popover: var(--bg-color);
   --popover-foreground: var(--text-color);
   --primary: var(--accent-primary);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--on-accent);
   --secondary: var(--bg-tertiary);
   --secondary-foreground: var(--text-color);
   --muted: var(--bg-secondary);
   --muted-foreground: var(--text-secondary);
   --accent: var(--accent-bg);
-  --accent-foreground: var(--accent-primary);
+  --accent-foreground: var(--accent-ink);
   --destructive: var(--error-color);
   --destructive-foreground: #ffffff;
   --border: var(--border-color);
   --input: var(--border-control);
-  --ring: var(--accent-primary);
+  --ring: var(--accent-ink);
   --radius: var(--radius-md);
 }
 
 /*
- * Dark theme: the rule-34 MECHANISM ships now, but the committed bundle is
- * light-only, so authoring bespoke dark values would be self-designed UI (rule 51).
- * The dark palette is needs-design #16. Until it lands, .dark is a literal mirror
- * of the light values (so components reading var(--token) don't break under .dark);
- * do NOT treat these as the final dark palette.
+ * Dark theme (feature #4, WI-2 — designed surface #16). The real warm-charcoal palette,
+ * transcribed from the committed bundle's [data-theme="dark"] block and AA-verified (every
+ * live text/fill pair clears WCAG AA; lowest live pair is white-on-accent-fill at 4.55:1).
+ * Only BASE tokens get literals here; var(...) aliases (--primary-color, --diff-add-fg,
+ * --diff-del-fg, --status-*, the shadcn bridge, --on-accent) inherit and must NOT be redefined.
  */
 .dark {
-  --bg-canvas: #faf9f6;
-  --bg-color: #ffffff;
-  --bg-secondary: #f5f3ef;
-  --bg-tertiary: #f0ede7;
-  --hover-bg: #f5f3ef;
-  --row-hover: #f3f2fe;
-  --text-color: #1e1c19;
-  --text-secondary: #6b6760;
-  --text-tertiary: #9a958c;
-  --text-disabled: #b6b1a7;
-  --border-color: #e9e6e0;
-  --border-control: #e2dfd8;
-  --border-separator: #f0ede7;
-  --border-strong: #dad6ce;
-  --border-dashed: #cfcac1;
-  --accent-hover: #4a43c2;
-  --accent-bg: #edecfb;
-  --accent-subtle: #f3f2fe;
-  --accent-border: #c9c6e9;
-  --success-bg: #e8f3ec;
-  --success-hover: #286b4e;
-  --error-bg: #fbeaec;
-  --diff-add-bg: #edecfb;
-  --selection-color: #dddbf7;
+  /* surfaces */
+  --bg-canvas: #1a1814;
+  --bg-color: #23211c;
+  --bg-secondary: #2c2922;
+  --bg-tertiary: #2a2720;
+  --hover-bg: #2c2922;
+  --row-hover: #221f40;
+  /* text ramp */
+  --text-color: #f2efe9;
+  --text-secondary: #cbc6bc;
+  --text-tertiary: #948f86;
+  --text-disabled: #8e8980; /* AA on dark surfaces (4.63:1) — design t7 #726d65 fails for live hints */
+  /* borders */
+  --border-color: #322e27;
+  --border-control: #3c3830;
+  --border-separator: #2a2720;
+  --border-strong: #3c3830;
+  --border-dashed: #454037;
+  /* accent (fill stays saturated; ink lifts for AA) */
+  --accent-primary: #6e66de;
+  --accent-hover: #847dcb;
+  --accent-bg: #2a2649;
+  --accent-subtle: #221f40;
+  --accent-border: #3c3768;
+  --accent-ink: #aea7f7;
+  /* status */
+  --success: #5fbe90;
+  --success-solid: #2e7d5a;
+  --success-bg: #16291e;
+  --success-hover: #246b49;
+  --warning: #d7a648;
+  --error-color: #e27182;
+  --error-bg: #2e1a1d;
+  --danger-border: #4a2a2f;
+  /* diff bg + selection + toast */
+  --diff-add-bg: #2a2649;
+  --selection-color: #353160;
+  --toast-bg: #38342c;
+  /* shadows deepen toward near-black on dark surfaces */
+  --popup-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+  --shadow-menu: 0 14px 36px rgba(0, 0, 0, 0.55);
+  --shadow-toast: 0 14px 36px rgba(0, 0, 0, 0.65);
+  --shadow-tab: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 /* Expose lucid + shadcn tokens as Tailwind v4 utilities + fonts. */
@@ -163,6 +190,12 @@
   --color-success-bg: var(--success-bg);
   --color-warning: var(--warning);
   --color-accent-bg: var(--accent-bg);
+  /* role-split tokens (feature #4, WI-2) → utilities */
+  --color-accent-ink: var(--accent-ink);
+  --color-success-solid: var(--success-solid);
+  --color-on-accent: var(--on-accent);
+  --color-danger-border: var(--danger-border);
+  --color-toast-bg: var(--toast-bg);
 
   /* radii → rounded-* utilities */
   --radius-sm: var(--radius-sm);
