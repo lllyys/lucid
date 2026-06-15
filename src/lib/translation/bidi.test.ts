@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveBidiDirection } from './bidi'
+import { resolveBidiDirection, bidiAttrs } from './bidi'
 
 describe('resolveBidiDirection', () => {
   describe('override (visual-only, route-independent)', () => {
@@ -47,6 +47,16 @@ describe('resolveBidiDirection', () => {
     it('emoji before a letter is skipped (not strong)', () => {
       expect(resolveBidiDirection('👍 שלום', 'auto')).toBe('rtl')
       expect(resolveBidiDirection('👍 hello', 'auto')).toBe('ltr')
+    })
+  })
+
+  describe('bidiAttrs (v4 §4 — isolate for forced, plaintext for auto)', () => {
+    it('auto ⇒ dir="auto" + unicode-bidi plaintext (browser detects)', () => {
+      expect(bidiAttrs('auto')).toEqual({ dir: 'auto', style: { unicodeBidi: 'plaintext' } })
+    })
+    it('forced ltr/rtl ⇒ explicit dir + unicode-bidi isolate (honors the forced direction)', () => {
+      expect(bidiAttrs('ltr')).toEqual({ dir: 'ltr', style: { unicodeBidi: 'isolate' } })
+      expect(bidiAttrs('rtl')).toEqual({ dir: 'rtl', style: { unicodeBidi: 'isolate' } })
     })
   })
 })

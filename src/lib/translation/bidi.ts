@@ -31,3 +31,20 @@ export function resolveBidiDirection(text: string, override: BidiOverride): Bidi
   }
   return 'ltr'
 }
+
+export interface BidiAttrs {
+  dir: 'auto' | BidiDirection
+  style: { unicodeBidi: 'plaintext' | 'isolate' }
+}
+
+/**
+ * The `dir` + `unicode-bidi` to put on an editable/result surface (plan v4 §4). In `auto` mode
+ * the browser detects each paragraph's base direction (`dir="auto"` + `unicode-bidi: plaintext`).
+ * A FORCED direction must use `unicode-bidi: isolate` with an explicit `dir` — `plaintext` would
+ * make the browser re-detect from content and IGNORE the forced direction. Pair with logical
+ * (start/end) text alignment so the override changes layout, never the request language.
+ */
+export function bidiAttrs(override: BidiOverride): BidiAttrs {
+  if (override === 'auto') return { dir: 'auto', style: { unicodeBidi: 'plaintext' } }
+  return { dir: override, style: { unicodeBidi: 'isolate' } }
+}

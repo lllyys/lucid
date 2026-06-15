@@ -78,7 +78,11 @@ export function PolishResult({
         </div>
       )}
 
-      <div className="whitespace-pre-wrap font-serif text-[20px] leading-[1.78]">
+      <div
+        dir="auto"
+        style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
+        className="whitespace-pre-wrap font-serif text-[20px] leading-[1.78]"
+      >
         {view === 'compare' && isDone ? (
           segs.map((s) => (
             <span key={s.id} style={segStyle(s.type)}>

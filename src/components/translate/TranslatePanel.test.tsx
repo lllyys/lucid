@@ -43,7 +43,7 @@ describe('TranslatePanel', () => {
   it('detects the direction live from the source text', async () => {
     const user = userEvent.setup()
     render(<TranslatePanel />)
-    await user.type(screen.getByLabelText(/source/i), '你好')
+    await user.type(screen.getByLabelText('Source'), '你好')
     expect(screen.getByText('中文')).toBeInTheDocument()
     expect(screen.getByText('English')).toBeInTheDocument()
   })
@@ -53,7 +53,7 @@ describe('TranslatePanel', () => {
     mockCreate.mockReturnValue(okProvider('Hola mundo'))
     const user = userEvent.setup()
     render(<TranslatePanel />)
-    await user.type(screen.getByLabelText(/source/i), 'Hello world')
+    await user.type(screen.getByLabelText('Source'), 'Hello world')
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /^translate$/i }))
       await tick()
@@ -71,7 +71,7 @@ describe('TranslatePanel', () => {
     mockCreate.mockReturnValue(okProvider('Hola mundo'))
     const user = userEvent.setup()
     render(<TranslatePanel />)
-    await user.type(screen.getByLabelText(/source/i), 'Hello world')
+    await user.type(screen.getByLabelText('Source'), 'Hello world')
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /^translate$/i }))
       await tick()
@@ -82,10 +82,22 @@ describe('TranslatePanel', () => {
     expect(mockNotify).toHaveBeenCalledTimes(1)
   })
 
+  // WI-4: the direction override changes the source editor's visual dir (never the request).
+  it('forces the source editor direction via the override (default auto → rtl)', async () => {
+    const user = userEvent.setup()
+    render(<TranslatePanel />)
+    const ta = screen.getByLabelText('Source')
+    expect(ta).toHaveAttribute('dir', 'auto')
+    await user.click(screen.getByRole('button', { name: /override source direction/i }))
+    await user.click(screen.getByRole('menuitem', { name: /force rtl/i }))
+    expect(ta).toHaveAttribute('dir', 'rtl')
+    expect(ta).toHaveStyle({ unicodeBidi: 'isolate' })
+  })
+
   it('Clear empties the source textarea', async () => {
     const user = userEvent.setup()
     render(<TranslatePanel />)
-    const ta = screen.getByLabelText(/source/i)
+    const ta = screen.getByLabelText('Source')
     await user.type(ta, 'text')
     await user.click(screen.getByRole('button', { name: /clear/i }))
     expect(ta).toHaveValue('')

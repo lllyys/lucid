@@ -3,24 +3,29 @@ import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
 import { usePanelRun } from '@/hooks/usePanelRun'
 import { detectDirection, directionLabels } from '@/lib/translation/detectDirection'
+import { bidiAttrs, type BidiOverride } from '@/lib/translation/bidi'
 import { notify } from '@/components/workspace/notify'
 import { TranslateResult } from './TranslateResult'
+import { DirectionOverride } from './DirectionOverride'
 
 /**
- * Translate panel (feature #2, WI-8) — automatic two-way 中↔EN. The direction is detected
- * live from the source (no manual override — needs-design #17; Swap feeds the result back as
- * the new source). Run streams via the provider through usePanelRun → operationStore; while
- * streaming the button becomes Stop. Editing the source resets the op (stale-input guard).
+ * Translate panel (feature #2, WI-8; direction override added feature #4, WI-4) — automatic
+ * two-way 中↔EN. The translation route is detected from the source; the direction override
+ * (#17b) changes only the source editor's VISUAL layout (dir + unicode-bidi), never the request
+ * language (plan v4 §3). Run streams via usePanelRun → operationStore; editing the source resets
+ * the op (stale-input guard).
  */
 export function TranslatePanel() {
   const { t } = useTranslation()
   const [source, setSource] = useState('')
   const [acceptedText, setAcceptedText] = useState<string | null>(null)
+  const [dirOverride, setDirOverride] = useState<BidiOverride>('auto')
   const op = useOperationStore((s) => s.translate)
   const { run, abort } = usePanelRun()
 
   const labels = directionLabels(detectDirection(source))
   const isStreaming = op.status === 'streaming'
+  const srcBidi = bidiAttrs(dirOverride)
 
   const onRun = () => {
     if (isStreaming) {
@@ -68,6 +73,7 @@ export function TranslatePanel() {
           <span className="rounded-md bg-[var(--success-bg)] px-1.5 py-[3px] font-mono text-[9.5px] uppercase tracking-[0.05em] text-[var(--success)]">
             {t('translate.auto')}
           </span>
+          <DirectionOverride value={dirOverride} onChange={setDirOverride} sampleText={source} />
           <button
             type="button"
             onClick={swap}
@@ -108,6 +114,8 @@ export function TranslatePanel() {
             onChange={(e) => onSourceChange(e.target.value)}
             placeholder={t('translate.sourcePlaceholder')}
             spellCheck={false}
+            dir={srcBidi.dir}
+            style={{ ...srcBidi.style, textAlign: 'start' }}
             className="min-h-0 flex-1 resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75]"
           />
         </section>

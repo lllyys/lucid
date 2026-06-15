@@ -44,7 +44,11 @@ export function TranslateResult({
 
   return (
     <div>
-      <div className="whitespace-pre-wrap font-serif text-[20px] leading-[1.78]">
+      <div
+        dir="auto"
+        style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
+        className="whitespace-pre-wrap font-serif text-[20px] leading-[1.78]"
+      >
         {op.text}
         {op.status === 'streaming' && (
           <span className="ml-px inline-block h-[0.95em] w-0.5 translate-y-0.5 bg-[var(--accent-primary)] [animation:lucid-caret_1s_steps(1)_infinite]" />
