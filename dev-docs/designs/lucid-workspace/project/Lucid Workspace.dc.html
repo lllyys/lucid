@@ -12,64 +12,109 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
   <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --ink:#1E1C19; --on-accent:#FFFFFF;
+      --border:#E9E6E0; --border-strong:#E2DFD8; --border-dashed:#CFCAC1; --fill-muted:#F0EDE7; --conn-idle:#E0DCD4; --dot-idle:#D2CEC6;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7; --faint:#C4BFB5;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-tint:#F3F2FE; --accent-soft2:#ECEBFC; --accent-border:#DDDCFB; --accent-muted:#C9C6E9; --accent-dash:#B9B4F0; --accent-mid:#8A83E0; --selection:#DDDBF7;
+      --hover:#F5F3EF; --hover2:#F3F1EC; --hover3:#F7F6F2;
+      --ok:#2F7D5B; --ok-solid:#2F7D5B; --ok-strong:#286B4E; --ok-soft:#E8F3EC; --ok-conn:#9FCDB4;
+      --warn:#C28A2E; --danger:#B23A48; --danger-soft:#FBEAEC; --danger-border:#F0CDD2;
+      --toast-bg:#1E1C19;
+      --shadow-c1:rgba(30,28,25,0.13); --shadow-c2:rgba(30,28,25,0.08); --shadow-c3:rgba(30,28,25,0.22);
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --ink:#F2EFE9; --on-accent:#FFFFFF;
+      --border:#322E27; --border-strong:#3C3830; --border-dashed:#454037; --fill-muted:#2A2720; --conn-idle:#332F28; --dot-idle:#4A453C;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t3:#A6A199; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --t7:#726D65; --faint:#5E5A51;
+      --accent:#6E66DE; --accent-ink:#AEA7F7; --accent-soft:#2A2649; --accent-tint:#221F40; --accent-soft2:#322D57; --accent-border:#3C3768; --accent-muted:#423D64; --accent-dash:#564F94; --accent-mid:#847DCB; --selection:#353160;
+      --hover:#2C2922; --hover2:#2F2B24; --hover3:#2A2720;
+      --ok:#5FBE90; --ok-solid:#2E7D5A; --ok-strong:#246B49; --ok-soft:#16291E; --ok-conn:#305C46;
+      --warn:#D7A648; --danger:#E27182; --danger-soft:#2E1A1D; --danger-border:#4A2A2F;
+      --toast-bg:#38342C;
+      --shadow-c1:rgba(0,0,0,0.55); --shadow-c2:rgba(0,0,0,0.45); --shadow-c3:rgba(0,0,0,0.65);
+    }
+    html,body{background:var(--canvas);}
     * { box-sizing: border-box; }
     body { margin: 0; }
     @keyframes lucid-caret { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
     @keyframes lucid-toast { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     @keyframes lucid-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-    textarea::placeholder, input::placeholder { color: #B6B1A7; }
+    textarea::placeholder, input::placeholder { color: var(--t7); }
     textarea:focus, input:focus { outline: none; }
-    ::selection { background: #DDDBF7; }
+    ::selection { background: var(--selection); }
     ::-webkit-scrollbar { width: 9px; height: 9px; }
-    ::-webkit-scrollbar-thumb { background: #E2DED7; border-radius: 6px; border: 2px solid #FAF9F6; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid var(--canvas); }
   </style>
 </helmet>
 
-<div style="display:flex;flex-direction:column;height:100vh;min-height:100vh;background:#FAF9F6;color:#1E1C19;font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;">
+<div data-theme="{{ themeAttr }}" style="display:flex;flex-direction:column;height:100vh;min-height:100vh;background:var(--canvas);color:var(--ink);font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;">
 
   <!-- HEADER -->
-  <header style="display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 20px;border-bottom:1px solid #E9E6E0;background:#FFFFFF;flex:0 0 auto;">
+  <header style="display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 20px;border-bottom:1px solid var(--border);background:var(--surface);flex:0 0 auto;">
     <div style="display:flex;align-items:center;gap:18px;">
       <div style="display:flex;align-items:center;gap:11px;">
-        <span style="position:relative;width:18px;height:18px;border-radius:50%;border:1.5px solid #574FD6;display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:#574FD6;"></span></span>
+        <span style="position:relative;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span></span>
         <span style="font-size:18px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
-        <span style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:0.04em;color:#B0ABA1;text-transform:uppercase;padding-top:2px;">translate &amp; polish</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:0.04em;color:var(--t6);text-transform:uppercase;padding-top:2px;">translate &amp; polish</span>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:14px;">
-      <span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:#A8A399;">{{ runHint }}</span>
-      <span style="width:1px;height:18px;background:#E9E6E0;"></span>
-      <button style="display:flex;align-items:center;gap:7px;border:1px solid #E2DFD8;background:#FFFFFF;border-radius:8px;padding:6px 10px;font-family:Geist,sans-serif;font-size:12.5px;color:#6B6760;cursor:pointer;" style-hover="background:#F5F3EF;"><span style="width:13px;height:13px;border:1.5px solid #9A958C;border-radius:50%;"></span>Settings</button>
+      <span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--t5);">{{ runHint }}</span>
+      <span style="width:1px;height:18px;background:var(--border);"></span>
+      <button onClick="{{ openSettings }}" style="display:flex;align-items:center;gap:7px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:6px 10px;font-family:Geist,sans-serif;font-size:12.5px;color:var(--t1);cursor:pointer;" style-hover="background:var(--hover);"><span style="width:13px;height:13px;border:1.5px solid var(--t4);border-radius:50%;"></span>Settings</button>
     </div>
   </header>
 
   <div style="flex:1;display:flex;min-height:0;">
 
-    <!-- ===== SIDEBAR ===== -->
-    <aside style="width:268px;flex:0 0 auto;display:flex;flex-direction:column;border-right:1px solid #E9E6E0;background:#FFFFFF;min-height:0;">
+    <!-- ===== SIDEBAR (issue #18: full / shell / hidden) ===== -->
+    <sc-if value="{{ showSidebar }}" hint-placeholder-val="{{ true }}">
+    <aside style="width:268px;flex:0 0 auto;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);min-height:0;">
       <div style="padding:12px;flex:0 0 auto;">
-        <div style="display:flex;background:#F0EDE7;border-radius:9px;padding:3px;gap:2px;">
+        <div style="display:flex;background:var(--fill-muted);border-radius:9px;padding:3px;gap:2px;">
           <button onClick="{{ sidebarSessions }}" style="{{ sbSessionsStyle }}">Sessions</button>
           <button onClick="{{ sidebarGlossary }}" style="{{ sbGlossaryStyle }}">Glossary</button>
         </div>
       </div>
 
+      <!-- SHELL-ONLY truthful state (issue #18) -->
+      <sc-if value="{{ shellMode }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;min-height:0;flex:1;padding:0 12px 12px;">
+          <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 12px;border:1px dashed var(--accent-dash);background:var(--accent-tint);border-radius:11px;margin-bottom:12px;">
+            <span style="font-size:13px;color:var(--accent-ink);flex:0 0 auto;">◷</span>
+            <span style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+              <span style="font-size:12.5px;font-weight:600;color:var(--ink);">Shell preview</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.55;color:var(--t4);">History &amp; saved glossary land with feature #3. The controls below are placeholders — not yet interactive.</span>
+            </span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:7px;border:1px dashed var(--border-dashed);background:var(--canvas);border-radius:9px;padding:8px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;color:var(--t6);cursor:not-allowed;opacity:0.65;">＋ New session</div>
+          <div style="display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:9px;padding:7px 10px;margin-top:8px;opacity:0.65;"><span style="color:var(--t7);font-size:12px;">⌕</span><span style="flex:1;font-family:Geist,sans-serif;font-size:12.5px;color:var(--t7);">Search sessions…</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:11px;padding:26px 14px;">
+            <span style="width:42px;height:42px;border-radius:12px;background:var(--fill-muted);display:inline-flex;align-items:center;justify-content:center;font-size:17px;color:var(--faint);">❑</span>
+            <span style="font-size:13px;font-weight:600;color:var(--t1);">Nothing saved yet</span>
+            <sc-if value="{{ sidebarIsSessions }}" hint-placeholder-val="{{ true }}"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;line-height:1.6;color:var(--t5);max-width:30ch;">Sessions and their tasks will appear here once persistence ships.</span></sc-if>
+            <sc-if value="{{ sidebarIsGlossary }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;line-height:1.6;color:var(--t5);max-width:30ch;">Saved domain terms will live here, synced across sessions.</span></sc-if>
+          </div>
+        </div>
+      </sc-if>
+
       <!-- SESSIONS -->
-      <sc-if value="{{ sidebarIsSessions }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ sessionsFull }}" hint-placeholder-val="{{ true }}">
         <div style="display:flex;flex-direction:column;min-height:0;flex:1;">
 
           <!-- list -->
           <sc-if value="{{ sessionListView }}" hint-placeholder-val="{{ true }}">
             <div style="padding:0 12px 10px;flex:0 0 auto;display:flex;flex-direction:column;gap:8px;">
-              <button onClick="{{ newSession }}" style="display:flex;align-items:center;justify-content:center;gap:7px;border:1px dashed #CFCAC1;background:#FAF9F6;border-radius:9px;padding:8px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;color:#6B6760;cursor:pointer;" style-hover="background:#F3F1EC;color:#1E1C19;">＋ New session</button>
-              <div style="display:flex;align-items:center;gap:7px;border:1px solid #E9E6E0;border-radius:9px;padding:6px 10px;"><span style="color:#B6B1A7;font-size:12px;">⌕</span><input onChange="{{ onSearch }}" value="{{ search }}" placeholder="Search sessions…" style="flex:1;border:none;background:transparent;font-family:Geist,sans-serif;font-size:12.5px;color:#1E1C19;" /></div>
+              <button onClick="{{ newSession }}" style="display:flex;align-items:center;justify-content:center;gap:7px;border:1px dashed var(--border-dashed);background:var(--canvas);border-radius:9px;padding:8px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;color:var(--t1);cursor:pointer;" style-hover="background:var(--hover2);color:var(--ink);">＋ New session</button>
+              <div style="display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:9px;padding:6px 10px;"><span style="color:var(--t7);font-size:12px;">⌕</span><input onChange="{{ onSearch }}" value="{{ search }}" placeholder="Search sessions…" style="flex:1;border:none;background:transparent;font-family:Geist,sans-serif;font-size:12.5px;color:var(--ink);" /></div>
             </div>
             <div style="flex:1;overflow:auto;padding:0 8px 12px;display:flex;flex-direction:column;gap:3px;">
               <sc-for list="{{ sessionList }}" as="x" hint-placeholder-count="3">
                 <button onClick="{{ x.onOpen }}" style="{{ x.rowStyle }}">
-                  <span style="width:28px;height:28px;flex:0 0 auto;border-radius:8px;background:#F3F2FE;color:#574FD6;display:inline-flex;align-items:center;justify-content:center;font-size:12px;">❑</span>
-                  <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;text-align:left;"><span style="font-size:13px;color:#1E1C19;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ x.name }}</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#A8A399;">{{ x.meta }}</span></span>
-                  <span style="color:#C4BFB5;font-size:14px;flex:0 0 auto;">›</span>
+                  <span style="width:28px;height:28px;flex:0 0 auto;border-radius:8px;background:var(--accent-tint);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:12px;">❑</span>
+                  <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;text-align:left;"><span style="font-size:13px;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ x.name }}</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">{{ x.meta }}</span></span>
+                  <span style="color:var(--faint);font-size:14px;flex:0 0 auto;">›</span>
                 </button>
               </sc-for>
             </div>
@@ -78,27 +123,27 @@
           <!-- detail -->
           <sc-if value="{{ sessionDetailView }}" hint-placeholder-val="{{ false }}">
             <div style="padding:0 12px 10px;flex:0 0 auto;display:flex;flex-direction:column;gap:9px;">
-              <button onClick="{{ backToList }}" style="display:flex;align-items:center;gap:5px;border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:#A8A399;cursor:pointer;padding:0;align-self:flex-start;" style-hover="color:#1E1C19;">‹ All sessions</button>
+              <button onClick="{{ backToList }}" style="display:flex;align-items:center;gap:5px;border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;align-self:flex-start;" style-hover="color:var(--ink);">‹ All sessions</button>
               <sc-if value="{{ renaming }}" hint-placeholder-val="{{ false }}">
-                <input onChange="{{ onRenameInput }}" onKeyDown="{{ onRenameKey }}" onBlur="{{ commitRename }}" value="{{ renameValue }}" placeholder="Session name…" style="width:100%;border:1px solid #C9C6E9;background:#FFFFFF;border-radius:8px;padding:7px 10px;font-family:Geist,sans-serif;font-size:14px;font-weight:600;color:#1E1C19;" />
+                <input onChange="{{ onRenameInput }}" onKeyDown="{{ onRenameKey }}" onBlur="{{ commitRename }}" value="{{ renameValue }}" placeholder="Session name…" style="width:100%;border:1px solid var(--accent-muted);background:var(--surface);border-radius:8px;padding:7px 10px;font-family:Geist,sans-serif;font-size:14px;font-weight:600;color:var(--ink);" />
               </sc-if>
               <sc-if value="{{ notRenaming }}" hint-placeholder-val="{{ true }}">
                 <div style="display:flex;align-items:center;gap:7px;">
-                  <span style="flex:1;font-size:14.5px;font-weight:600;color:#1E1C19;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ activeSessionName }}</span>
-                  <button onClick="{{ startRename }}" title="Rename" style="border:none;background:transparent;color:#A8A399;cursor:pointer;font-size:13px;padding:2px;" style-hover="color:#574FD6;">✎</button>
+                  <span style="flex:1;font-size:14.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ activeSessionName }}</span>
+                  <button onClick="{{ startRename }}" title="Rename" style="border:none;background:transparent;color:var(--t5);cursor:pointer;font-size:13px;padding:2px;" style-hover="color:var(--accent-ink);">✎</button>
                 </div>
               </sc-if>
-              <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#A8A399;">{{ detailTaskCount }}</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">{{ detailTaskCount }}</span>
             </div>
             <div style="flex:1;overflow:auto;padding:0 8px 12px;display:flex;flex-direction:column;gap:3px;">
               <sc-for list="{{ taskList }}" as="t" hint-placeholder-count="3">
                 <button onClick="{{ t.onClick }}" style="{{ t.rowStyle }}">
                   <span style="{{ t.badgeStyle }}">{{ t.icon }}</span>
-                  <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;text-align:left;"><span style="font-size:12.5px;color:#1E1C19;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.title }}</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#A8A399;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.meta }}</span></span>
+                  <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;text-align:left;"><span style="font-size:12.5px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.title }}</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.meta }}</span></span>
                 </button>
               </sc-for>
               <sc-if value="{{ taskEmpty }}" hint-placeholder-val="{{ false }}">
-                <div style="padding:26px 16px;text-align:center;font-family:Geist,sans-serif;font-size:12.5px;color:#B6B1A7;line-height:1.6;">No tasks yet.<br />Run a translation or polish and it lands here.</div>
+                <div style="padding:26px 16px;text-align:center;font-family:Geist,sans-serif;font-size:12.5px;color:var(--t7);line-height:1.6;">No tasks yet.<br />Run a translation or polish and it lands here.</div>
               </sc-if>
             </div>
           </sc-if>
@@ -106,46 +151,47 @@
       </sc-if>
 
       <!-- GLOSSARY -->
-      <sc-if value="{{ sidebarIsGlossary }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ glossaryFull }}" hint-placeholder-val="{{ false }}">
         <div style="display:flex;flex-direction:column;min-height:0;flex:1;">
           <div style="padding:0 14px 10px;flex:0 0 auto;">
-            <div style="margin-bottom:9px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#9A958C;text-transform:uppercase;letter-spacing:0.07em;">{{ glossaryCount }} domain terms</span></div>
-            <button onClick="{{ extractKeywords }}" style="display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:1px solid #DDDCFB;background:#F3F2FE;border-radius:9px;padding:8px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;color:#574FD6;cursor:pointer;" style-hover="background:#ECEBFC;">✦ Extract from current text</button>
+            <div style="margin-bottom:9px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.07em;">{{ glossaryCount }} domain terms</span></div>
+            <button onClick="{{ extractKeywords }}" style="display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;color:var(--accent-ink);cursor:pointer;" style-hover="background:var(--accent-soft2);">✦ Extract from current text</button>
           </div>
           <sc-if value="{{ hasSuggested }}" hint-placeholder-val="{{ false }}">
-            <div style="padding:2px 14px 12px;flex:0 0 auto;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#B0ABA1;text-transform:uppercase;letter-spacing:0.06em;">Suggested</span><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"><sc-for list="{{ suggestedList }}" as="g" hint-placeholder-count="3"><button onClick="{{ g.onSave }}" style="display:inline-flex;align-items:center;gap:6px;background:#FFFFFF;border:1px dashed #B9B4F0;color:#574FD6;border-radius:8px;padding:5px 9px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;" style-hover="background:#F3F2FE;">{{ g.label }} <span style="font-size:13px;">＋</span></button></sc-for></div></div>
+            <div style="padding:2px 14px 12px;flex:0 0 auto;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);text-transform:uppercase;letter-spacing:0.06em;">Suggested</span><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"><sc-for list="{{ suggestedList }}" as="g" hint-placeholder-count="3"><button onClick="{{ g.onSave }}" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px dashed var(--accent-dash);color:var(--accent-ink);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;" style-hover="background:var(--accent-tint);">{{ g.label }} <span style="font-size:13px;">＋</span></button></sc-for></div></div>
           </sc-if>
           <div style="flex:1;overflow:auto;padding:0 10px 12px;display:flex;flex-direction:column;gap:2px;">
-            <sc-for list="{{ glossaryList }}" as="g" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;" style-hover="background:#F7F6F2;"><span style="width:5px;height:5px;border-radius:50%;background:#C9C6E9;flex:0 0 auto;"></span><span style="flex:1;font-size:13px;color:#1E1C19;">{{ g.label }}</span><sc-if value="{{ g.canAdd }}" hint-placeholder-val="{{ false }}"><button onClick="{{ g.onAdd }}" title="Add to current keywords" style="border:none;background:transparent;color:#574FD6;cursor:pointer;font-size:12px;font-family:'Geist Mono',monospace;padding:2px 4px;" style-hover="text-decoration:underline;">use</button></sc-if><button onClick="{{ g.onRemove }}" style="border:none;background:transparent;color:#C4BFB5;cursor:pointer;font-size:14px;line-height:1;padding:0 2px;" style-hover="color:#B23A48;">×</button></div></sc-for>
+            <sc-for list="{{ glossaryList }}" as="g" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;" style-hover="background:var(--hover3);"><span style="width:5px;height:5px;border-radius:50%;background:var(--accent-muted);flex:0 0 auto;"></span><span style="flex:1;font-size:13px;color:var(--ink);">{{ g.label }}</span><sc-if value="{{ g.canAdd }}" hint-placeholder-val="{{ false }}"><button onClick="{{ g.onAdd }}" title="Add to current keywords" style="border:none;background:transparent;color:var(--accent-ink);cursor:pointer;font-size:12px;font-family:'Geist Mono',monospace;padding:2px 4px;" style-hover="text-decoration:underline;">use</button></sc-if><button onClick="{{ g.onRemove }}" style="border:none;background:transparent;color:var(--faint);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;" style-hover="color:var(--danger);">×</button></div></sc-for>
           </div>
-          <div style="flex:0 0 auto;padding:10px 14px;border-top:1px solid #F0EDE7;"><input onChange="{{ onGlInput }}" onKeyDown="{{ onGlKey }}" value="{{ glInput }}" placeholder="Add a domain term + Enter…" style="width:100%;border:none;background:transparent;font-family:Geist,sans-serif;font-size:13px;color:#1E1C19;" /></div>
+          <div style="flex:0 0 auto;padding:10px 14px;border-top:1px solid var(--fill-muted);"><input onChange="{{ onGlInput }}" onKeyDown="{{ onGlKey }}" value="{{ glInput }}" placeholder="Add a domain term + Enter…" style="width:100%;border:none;background:transparent;font-family:Geist,sans-serif;font-size:13px;color:var(--ink);" /></div>
         </div>
       </sc-if>
     </aside>
+    </sc-if>
 
     <!-- ===== MAIN ===== -->
     <div style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;">
 
       <!-- TOOLBAR -->
-      <div style="display:flex;align-items:center;gap:12px;padding:11px 22px;border-bottom:1px solid #E9E6E0;background:#FAF9F6;flex:0 0 auto;">
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 22px;border-bottom:1px solid var(--border);background:var(--canvas);flex:0 0 auto;">
 
-        <button onClick="{{ openActiveDetail }}" title="Active session — new tasks save here" style="display:flex;align-items:center;gap:8px;padding:6px 11px;border:1px solid #E2DFD8;background:#FFFFFF;border-radius:9px;cursor:pointer;max-width:210px;flex:0 0 auto;" style-hover="background:#F5F3EF;">
-          <span style="width:14px;height:14px;border-radius:4px;background:#EDECFB;flex:0 0 auto;"></span>
-          <span style="font-size:12.5px;font-weight:500;color:#1E1C19;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ activeSessionName }}</span>
-          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:#A8A399;flex:0 0 auto;">{{ activeTaskCount }}</span>
+        <button onClick="{{ openActiveDetail }}" title="Active session — new tasks save here" style="display:flex;align-items:center;gap:8px;padding:6px 11px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;cursor:pointer;max-width:210px;flex:0 0 auto;" style-hover="background:var(--hover);">
+          <span style="width:14px;height:14px;border-radius:4px;background:var(--accent-soft);flex:0 0 auto;"></span>
+          <span style="font-size:12.5px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ activeSessionName }}</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);flex:0 0 auto;">{{ activeTaskCount }}</span>
         </button>
-        <span style="width:1px;height:24px;background:#E5E2DB;flex:0 0 auto;"></span>
+        <span style="width:1px;height:24px;background:var(--border-strong);flex:0 0 auto;"></span>
 
-        <span style="font-family:'Geist Mono',monospace;font-size:11px;color:#A8A399;">Translate and polish · one workspace</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);">Translate and polish · one workspace</span>
 
         <div style="flex:1;"></div>
 
         <div style="position:relative;">
-          <button onClick="{{ toggleProviderMenu }}" style="display:flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid #E2DFD8;background:#FFFFFF;border-radius:9px;cursor:pointer;" style-hover="background:#F5F3EF;"><span style="width:8px;height:8px;border-radius:50%;background:{{ providerDot }};"></span><span style="font-size:13px;font-weight:500;color:#1E1C19;">{{ providerLabel }}</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #9A958C;margin-left:1px;"></span></button>
+          <button onClick="{{ toggleProviderMenu }}" style="display:flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;cursor:pointer;" style-hover="background:var(--hover);"><span style="width:8px;height:8px;border-radius:50%;background:{{ providerDot }};"></span><span style="font-size:13px;font-weight:500;color:var(--ink);">{{ providerLabel }}</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);margin-left:1px;"></span></button>
           <sc-if value="{{ providerOpen }}" hint-placeholder-val="{{ false }}">
-            <div style="position:absolute;top:calc(100% + 6px);right:0;min-width:280px;background:#FFFFFF;border:1px solid #E9E6E0;border-radius:12px;box-shadow:0 14px 36px rgba(30,28,25,0.13);padding:6px;z-index:40;">
-              <div style="font-family:'Geist Mono',monospace;font-size:10px;color:#B0ABA1;text-transform:uppercase;letter-spacing:0.06em;padding:7px 10px 5px;">Provider</div>
-              <sc-for list="{{ providers }}" as="p" hint-placeholder-count="4"><button onClick="{{ p.onClick }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-family:Geist,sans-serif;" style-hover="background:#F5F3EF;"><span style="width:8px;height:8px;border-radius:50%;background:{{ p.dot }};flex:0 0 auto;"></span><span style="display:flex;flex-direction:column;gap:1px;flex:1;"><span style="font-size:13.5px;color:#1E1C19;font-weight:500;">{{ p.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#A8A399;">{{ p.model }}</span></span><sc-if value="{{ p.isLocal }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:#2F7D5B;background:#E8F3EC;padding:2px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:0.04em;">private</span></sc-if><sc-if value="{{ p.active }}" hint-placeholder-val="{{ false }}"><span style="color:#574FD6;font-size:13px;">✓</span></sc-if></button></sc-for>
+            <div style="position:absolute;top:calc(100% + 6px);right:0;min-width:280px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 36px var(--shadow-c1);padding:6px;z-index:40;">
+              <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);text-transform:uppercase;letter-spacing:0.06em;padding:7px 10px 5px;">Provider</div>
+              <sc-for list="{{ providers }}" as="p" hint-placeholder-count="4"><button onClick="{{ p.onClick }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-family:Geist,sans-serif;" style-hover="background:var(--hover);"><span style="width:8px;height:8px;border-radius:50%;background:{{ p.dot }};flex:0 0 auto;"></span><span style="display:flex;flex-direction:column;gap:1px;flex:1;"><span style="font-size:13.5px;color:var(--ink);font-weight:500;">{{ p.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);">{{ p.model }}</span></span><sc-if value="{{ p.isLocal }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--ok);background:var(--ok-soft);padding:2px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:0.04em;">private</span></sc-if><sc-if value="{{ p.active }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent-ink);font-size:13px;">✓</span></sc-if></button></sc-for>
             </div>
           </sc-if>
         </div>
@@ -153,26 +199,47 @@
 
       <!-- ===== TRANSLATE PANEL ===== -->
       <sc-if value="{{ isTranslate }}" hint-placeholder-val="{{ true }}">
-        <div style="flex:0 0 296px;display:flex;flex-direction:column;min-height:0;border-bottom:1px solid #E9E6E0;">
+        <div style="flex:0 0 296px;display:flex;flex-direction:column;min-height:0;border-bottom:1px solid var(--border);">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 22px 4px;flex:0 0 auto;">
             <div style="display:flex;align-items:center;gap:10px;">
-              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:#574FD6;text-transform:uppercase;letter-spacing:0.09em;font-weight:600;">Translate</span>
-              <div style="display:flex;align-items:center;gap:8px;padding:5px 11px;border:1px solid #E2DFD8;background:#FFFFFF;border-radius:8px;"><span style="font-size:12.5px;font-weight:600;color:#1E1C19;">{{ srcNative }}</span><span style="font-size:12px;color:#574FD6;">→</span><span style="font-size:12.5px;font-weight:600;color:#1E1C19;">{{ tgtNative }}</span></div>
-              <span style="display:inline-flex;align-items:center;gap:5px;font-family:'Geist Mono',monospace;font-size:9.5px;color:#2F7D5B;background:#E8F3EC;padding:3px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:0.05em;"><span style="width:5px;height:5px;border-radius:50%;background:#2F7D5B;"></span>auto</span>
-              <button onClick="{{ swapTranslate }}" title="Reverse direction" style="width:28px;height:28px;border:1px solid #E2DFD8;background:#FFFFFF;border-radius:8px;color:#6B6760;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:#F5F3EF;color:#1E1C19;">⇄</button>
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);text-transform:uppercase;letter-spacing:0.09em;font-weight:600;">Translate</span>
+              <div style="display:flex;align-items:center;gap:8px;padding:5px 11px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;"><span style="font-size:12.5px;font-weight:600;color:var(--ink);">{{ srcNative }}</span><span style="font-size:12px;color:var(--accent-ink);">→</span><span style="font-size:12.5px;font-weight:600;color:var(--ink);">{{ tgtNative }}</span></div>
+              <!-- direction / source override (issue #17) -->
+              <div style="position:relative;">
+                <button onClick="{{ toggleDirMenu }}" title="Override detected source language & direction" style="display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:0.04em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:4px 9px;border-radius:6px;cursor:pointer;" style-hover="background:var(--accent-soft2);">{{ dirChipLabel }}<span style="display:inline-block;width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--accent-ink);"></span></button>
+                <sc-if value="{{ dirMenuOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:calc(100% + 6px);left:0;min-width:236px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 36px var(--shadow-c1);padding:6px;z-index:40;">
+                    <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);text-transform:uppercase;letter-spacing:0.06em;padding:7px 10px 5px;">Source direction</div>
+                    <sc-for list="{{ dirOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.onClick }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-family:Geist,sans-serif;" style-hover="background:var(--hover);"><span style="display:flex;flex-direction:column;gap:1px;flex:1;"><span style="font-size:13px;color:var(--ink);font-weight:500;">{{ o.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">{{ o.sub }}</span></span><sc-if value="{{ o.active }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent-ink);font-size:12px;">✓</span></sc-if></button></sc-for>
+                    <div style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t6);line-height:1.5;padding:7px 10px 4px;border-top:1px solid var(--border);margin-top:4px;">Detection is overridable — Arabic / Hebrew fixtures load from the review dock.</div>
+                  </div>
+                </sc-if>
+              </div>
+              <button onClick="{{ swapTranslate }}" title="Reverse direction" style="width:28px;height:28px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t1);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;" style-hover="background:var(--hover);color:var(--ink);">⇄</button>
             </div>
             <button onClick="{{ tBtnClick }}" style="{{ tBtnStyle }}"><span>{{ tBtnLabel }}</span><sc-if value="{{ tBtnStreaming }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:2px;background:currentColor;"></span></sc-if><sc-if value="{{ tBtnArrow }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;">→</span></sc-if></button>
           </div>
           <div style="flex:1;display:flex;min-height:0;">
-          <section style="flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid #E9E6E0;background:#FFFFFF;">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 22px 9px;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#9A958C;text-transform:uppercase;letter-spacing:0.09em;font-weight:500;">Source</span><span style="font-size:12px;color:#B0ABA1;">·</span><span style="font-size:12px;color:#A8A399;">{{ srcNative }} detected</span></div><div style="display:flex;align-items:center;gap:12px;"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#B0ABA1;">{{ tSourceCount }}</span><button onClick="{{ clearTranslate }}" style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:#A8A399;cursor:pointer;padding:0;" style-hover="color:#1E1C19;">Clear</button></div></div>
-            <div style="flex:1;overflow:auto;padding:6px 24px 24px;"><textarea onChange="{{ onTSource }}" value="{{ tSource }}" placeholder="Type or paste text in Chinese or English — Lucid detects the direction…" spellcheck="false" style="width:100%;height:100%;min-height:100%;border:none;background:transparent;resize:none;font-family:Newsreader,'Hiragino Mincho ProN','Yu Mincho','Songti SC',serif;font-size:19px;line-height:1.75;color:#1E1C19;"></textarea></div>
+          <section style="flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border);background:var(--surface);">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 22px 9px;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:0.09em;font-weight:500;">Source</span><span style="font-size:12px;color:var(--t6);">·</span><span style="font-size:12px;color:var(--t5);">{{ srcNative }} detected</span></div><div style="display:flex;align-items:center;gap:12px;"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t6);">{{ tSourceCount }}</span><button onClick="{{ clearTranslate }}" style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;" style-hover="color:var(--ink);">Clear</button></div></div>
+            <div style="flex:1;overflow:auto;padding:6px 24px 24px;"><textarea onChange="{{ onTSource }}" value="{{ tSource }}" dir="{{ tSrcDir }}" placeholder="Type or paste text in Chinese or English — Lucid detects the direction…" spellcheck="false" style="width:100%;height:100%;min-height:100%;border:none;background:transparent;resize:none;font-family:Newsreader,'Hiragino Mincho ProN','Yu Mincho','Songti SC',serif;font-size:19px;line-height:1.75;color:var(--ink);"></textarea></div>
           </section>
-          <section style="flex:1;display:flex;flex-direction:column;min-width:0;background:#FAF9F6;">
+          <section style="flex:1;display:flex;flex-direction:column;min-width:0;background:var(--canvas);">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 22px 9px;flex:0 0 auto;">
-              <div style="display:flex;align-items:center;gap:10px;"><span style="width:7px;height:7px;border-radius:50%;background:{{ tDotColor }};{{ tDotAnim }}"></span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#9A958C;text-transform:uppercase;letter-spacing:0.09em;font-weight:500;">Translation</span><span style="font-size:11.5px;color:#B0ABA1;">{{ tgtNative }}</span><sc-if value="{{ tLatShown }}" hint-placeholder-val="{{ false }}"><span style="{{ tLatStyle }}">⏱ {{ tLatency }}</span></sc-if></div>
-              <sc-if value="{{ tDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;"><button onClick="{{ tCopy }}" style="border:1px solid #E2DFD8;background:#FFFFFF;border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:12px;color:#6B6760;cursor:pointer;" style-hover="background:#F5F3EF;color:#1E1C19;">{{ tCopyLabel }}</button><button onClick="{{ tAccept }}" style="border:none;background:#2F7D5B;border-radius:8px;padding:5px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:#FFFFFF;cursor:pointer;" style-hover="background:#286B4E;">Accept ✓</button></div></sc-if>
+              <div style="display:flex;align-items:center;gap:10px;"><span style="width:7px;height:7px;border-radius:50%;background:{{ tDotColor }};{{ tDotAnim }}"></span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:0.09em;font-weight:500;">Translation</span><span style="font-size:11.5px;color:var(--t6);">{{ tgtNative }}</span><sc-if value="{{ tLatShown }}" hint-placeholder-val="{{ false }}"><span style="{{ tLatStyle }}">⏱ {{ tLatency }}</span></sc-if></div>
+              <sc-if value="{{ tDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;"><button onClick="{{ tCopy }}" style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:12px;color:var(--t1);cursor:pointer;" style-hover="background:var(--hover);color:var(--ink);">{{ tCopyLabel }}</button><button onClick="{{ tAccept }}" style="border:none;background:var(--ok-solid);border-radius:8px;padding:5px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--on-accent);cursor:pointer;" style-hover="background:var(--ok-strong);">Accept ✓</button></div></sc-if>
             </div>
+            <sc-if value="{{ tBannerShown }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ tBannerStyle }}">
+                <sc-if value="{{ tBannerIsError }}" hint-placeholder-val="{{ true }}"><span style="flex:0 0 auto;font-size:14px;line-height:1.2;color:var(--danger);">⚠</span></sc-if>
+                <sc-if value="{{ tBannerIsCancel }}" hint-placeholder-val="{{ false }}"><span style="flex:0 0 auto;font-size:13px;line-height:1.2;color:var(--t3);">◼</span></sc-if>
+                <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+                  <span style="font-size:12.5px;font-weight:600;color:var(--ink);">{{ tBannerTitle }}</span>
+                  <span style="font-size:11.5px;line-height:1.5;color:var(--t2);">{{ tBannerMsg }}</span>
+                </div>
+                <sc-if value="{{ tBannerRetry }}" hint-placeholder-val="{{ false }}"><button onClick="{{ retryResult }}" style="flex:0 0 auto;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 11px;font-family:Geist,sans-serif;font-size:12px;font-weight:500;color:var(--ink);cursor:pointer;" style-hover="background:var(--hover);">Retry</button></sc-if>
+              </div>
+            </sc-if>
             <div style="flex:1;overflow:auto;padding:8px 24px 24px;">{{ translateNode }}</div>
           </section>
           </div>
@@ -184,37 +251,48 @@
         <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 22px 4px;flex:0 0 auto;">
             <div style="display:flex;align-items:center;gap:10px;">
-              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:#574FD6;text-transform:uppercase;letter-spacing:0.09em;font-weight:600;">Polish</span>
-              <span style="font-size:11.5px;color:#B0ABA1;">refine a draft against its meaning &amp; domain</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);text-transform:uppercase;letter-spacing:0.09em;font-weight:600;">Polish</span>
+              <span style="font-size:11.5px;color:var(--t6);">refine a draft against its meaning &amp; domain</span>
             </div>
             <button onClick="{{ pBtnClick }}" style="{{ pBtnStyle }}"><span>{{ pBtnLabel }}</span><sc-if value="{{ pBtnStreaming }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:2px;background:currentColor;"></span></sc-if><sc-if value="{{ pBtnArrow }}" hint-placeholder-val="{{ true }}"><span style="font-size:14px;">→</span></sc-if></button>
           </div>
           <div style="flex:1;display:flex;min-height:0;">
           <div style="flex:1;display:flex;flex-direction:column;gap:14px;padding:16px;overflow:auto;min-width:0;">
 
-            <div style="flex:1;display:flex;flex-direction:column;min-height:130px;background:#FFFFFF;border:1px solid #E9E6E0;border-radius:14px;overflow:hidden;">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #F0EDE7;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#9A958C;text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Original</span><span style="font-size:11.5px;color:#B0ABA1;">meaning reference</span></div><div style="position:relative;"><button onClick="{{ toggleSrcMenu }}" style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid #E2DFD8;background:#FFFFFF;border-radius:8px;cursor:pointer;white-space:nowrap;flex:0 0 auto;" style-hover="background:#F5F3EF;"><span style="font-size:12.5px;font-weight:500;color:#1E1C19;">{{ pSrcNative }}</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #9A958C;"></span></button><sc-if value="{{ srcOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:calc(100% + 6px);right:0;min-width:170px;background:#FFFFFF;border:1px solid #E9E6E0;border-radius:12px;box-shadow:0 14px 36px rgba(30,28,25,0.13);padding:6px;z-index:40;"><sc-for list="{{ srcLangs }}" as="l" hint-placeholder-count="4"><button onClick="{{ l.onClick }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-family:Geist,sans-serif;" style-hover="background:#F5F3EF;"><span style="font-size:13px;color:#1E1C19;flex:1;">{{ l.native }}</span><sc-if value="{{ l.active }}" hint-placeholder-val="{{ false }}"><span style="color:#574FD6;font-size:12px;">✓</span></sc-if></button></sc-for></div></sc-if></div></div>
-              <div style="flex:1;overflow:auto;padding:12px 16px;"><textarea onChange="{{ onPOriginal }}" value="{{ pOriginal }}" placeholder="The original sentence, in its source language…" spellcheck="false" style="width:100%;height:100%;min-height:100%;border:none;background:transparent;resize:none;font-family:Newsreader,'Hiragino Mincho ProN','Yu Mincho','Songti SC',serif;font-size:18px;line-height:1.7;color:#1E1C19;"></textarea></div>
+            <div style="flex:1;display:flex;flex-direction:column;min-height:130px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Original</span><span style="font-size:11.5px;color:var(--t6);">meaning reference</span></div><div style="position:relative;"><button onClick="{{ toggleSrcMenu }}" style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;white-space:nowrap;flex:0 0 auto;" style-hover="background:var(--hover);"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">{{ pSrcNative }}</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button><sc-if value="{{ srcOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:calc(100% + 6px);right:0;min-width:170px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 36px var(--shadow-c1);padding:6px;z-index:40;"><sc-for list="{{ srcLangs }}" as="l" hint-placeholder-count="4"><button onClick="{{ l.onClick }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-family:Geist,sans-serif;" style-hover="background:var(--hover);"><span style="font-size:13px;color:var(--ink);flex:1;">{{ l.native }}</span><sc-if value="{{ l.active }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent-ink);font-size:12px;">✓</span></sc-if></button></sc-for></div></sc-if></div></div>
+              <div style="flex:1;overflow:auto;padding:12px 16px;"><textarea onChange="{{ onPOriginal }}" value="{{ pOriginal }}" dir="{{ pOrigDir }}" placeholder="The original sentence, in its source language…" spellcheck="false" style="width:100%;height:100%;min-height:100%;border:none;background:transparent;resize:none;font-family:Newsreader,'Hiragino Mincho ProN','Yu Mincho','Songti SC',serif;font-size:18px;line-height:1.7;color:var(--ink);"></textarea></div>
             </div>
 
-            <div style="flex:1;display:flex;flex-direction:column;min-height:130px;background:#FFFFFF;border:1px solid #E9E6E0;border-radius:14px;overflow:hidden;">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #F0EDE7;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#9A958C;text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span><span style="font-size:11.5px;color:#B0ABA1;">translation · editable</span></div><div style="display:flex;align-items:center;gap:8px;"><sc-if value="{{ draftStreaming }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#A8A399;">translating…</span></sc-if><sc-if value="{{ draftIdle }}" hint-placeholder-val="{{ true }}"><button onClick="{{ genDraft }}" title="Translate the original into a draft" style="display:flex;align-items:center;gap:5px;border:1px solid #E2DFD8;background:#FFFFFF;border-radius:8px;padding:5px 9px;font-family:Geist,sans-serif;font-size:11.5px;color:#574FD6;font-weight:500;cursor:pointer;white-space:nowrap;" style-hover="background:#F5F3EF;">↻ Translate original</button></sc-if><div style="position:relative;"><button onClick="{{ toggleTgtMenu }}" style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid #E2DFD8;background:#FFFFFF;border-radius:8px;cursor:pointer;white-space:nowrap;flex:0 0 auto;" style-hover="background:#F5F3EF;"><span style="font-size:12.5px;font-weight:500;color:#1E1C19;">{{ pTgtNative }}</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #9A958C;"></span></button><sc-if value="{{ tgtOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:calc(100% + 6px);right:0;min-width:170px;background:#FFFFFF;border:1px solid #E9E6E0;border-radius:12px;box-shadow:0 14px 36px rgba(30,28,25,0.13);padding:6px;z-index:40;"><sc-for list="{{ tgtLangs }}" as="l" hint-placeholder-count="4"><button onClick="{{ l.onClick }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-family:Geist,sans-serif;" style-hover="background:#F5F3EF;"><span style="font-size:13px;color:#1E1C19;flex:1;">{{ l.native }}</span><sc-if value="{{ l.active }}" hint-placeholder-val="{{ false }}"><span style="color:#574FD6;font-size:12px;">✓</span></sc-if></button></sc-for></div></sc-if></div></div></div>
-              <div style="flex:1;overflow:auto;padding:12px 16px;"><textarea onChange="{{ onPDraft }}" value="{{ pDraft }}" placeholder="The draft translation you want to refine…" spellcheck="false" style="width:100%;height:100%;min-height:100%;border:none;background:transparent;resize:none;font-family:Newsreader,'Hiragino Mincho ProN','Yu Mincho',serif;font-size:18px;line-height:1.7;color:#1E1C19;"></textarea></div>
+            <div style="flex:1;display:flex;flex-direction:column;min-height:130px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span><span style="font-size:11.5px;color:var(--t6);">translation · editable</span></div><div style="display:flex;align-items:center;gap:8px;"><sc-if value="{{ draftStreaming }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);">translating…</span></sc-if><sc-if value="{{ draftIdle }}" hint-placeholder-val="{{ true }}"><button onClick="{{ genDraft }}" title="Translate the original into a draft" style="display:flex;align-items:center;gap:5px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 9px;font-family:Geist,sans-serif;font-size:11.5px;color:var(--accent-ink);font-weight:500;cursor:pointer;white-space:nowrap;" style-hover="background:var(--hover);">↻ Translate original</button></sc-if><div style="position:relative;"><button onClick="{{ toggleTgtMenu }}" style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;white-space:nowrap;flex:0 0 auto;" style-hover="background:var(--hover);"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">{{ pTgtNative }}</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button><sc-if value="{{ tgtOpen }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:calc(100% + 6px);right:0;min-width:170px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 36px var(--shadow-c1);padding:6px;z-index:40;"><sc-for list="{{ tgtLangs }}" as="l" hint-placeholder-count="4"><button onClick="{{ l.onClick }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-family:Geist,sans-serif;" style-hover="background:var(--hover);"><span style="font-size:13px;color:var(--ink);flex:1;">{{ l.native }}</span><sc-if value="{{ l.active }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent-ink);font-size:12px;">✓</span></sc-if></button></sc-for></div></sc-if></div></div></div>
+              <div style="flex:1;overflow:auto;padding:12px 16px;"><textarea onChange="{{ onPDraft }}" value="{{ pDraft }}" dir="{{ pDraftDir }}" placeholder="The draft translation you want to refine…" spellcheck="false" style="width:100%;height:100%;min-height:100%;border:none;background:transparent;resize:none;font-family:Newsreader,'Hiragino Mincho ProN','Yu Mincho',serif;font-size:18px;line-height:1.7;color:var(--ink);"></textarea></div>
             </div>
 
-            <div style="flex:0 0 auto;display:flex;flex-direction:column;background:#FFFFFF;border:1px solid #E9E6E0;border-radius:14px;overflow:hidden;">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px 6px;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:#9A958C;text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Domain keywords</span><span style="font-size:11.5px;color:#B0ABA1;">tell the model which domain you're in</span></div><button onClick="{{ sidebarGlossary }}" style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11px;color:#574FD6;cursor:pointer;padding:0;" style-hover="text-decoration:underline;">＋ from glossary</button></div>
-              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:4px 14px 14px;"><sc-for list="{{ pKeywords }}" as="k" hint-placeholder-count="4"><span style="display:inline-flex;align-items:center;gap:6px;background:#EDECFB;color:#574FD6;border-radius:8px;padding:5px 9px;font-size:12.5px;font-weight:500;white-space:nowrap;">{{ k.label }}<button onClick="{{ k.onRemove }}" style="border:none;background:transparent;color:#8A83E0;cursor:pointer;font-size:13px;line-height:1;padding:0;" style-hover="color:#574FD6;">×</button></span></sc-for><input onChange="{{ onPKwInput }}" onKeyDown="{{ onPKwKey }}" value="{{ pKwInput }}" placeholder="Add term + Enter…" style="flex:1;min-width:130px;border:none;background:transparent;font-family:Geist,sans-serif;font-size:13px;color:#1E1C19;padding:5px 2px;" /></div>
+            <div style="flex:0 0 auto;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px 6px;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Domain keywords</span><span style="font-size:11.5px;color:var(--t6);">tell the model which domain you're in</span></div><button onClick="{{ sidebarGlossary }}" style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);cursor:pointer;padding:0;" style-hover="text-decoration:underline;">＋ from glossary</button></div>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:4px 14px 14px;"><sc-for list="{{ pKeywords }}" as="k" hint-placeholder-count="4"><span style="display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent-ink);border-radius:8px;padding:5px 9px;font-size:12.5px;font-weight:500;white-space:nowrap;">{{ k.label }}<button onClick="{{ k.onRemove }}" style="border:none;background:transparent;color:var(--accent-mid);cursor:pointer;font-size:13px;line-height:1;padding:0;" style-hover="color:var(--accent-ink);">×</button></span></sc-for><input onChange="{{ onPKwInput }}" onKeyDown="{{ onPKwKey }}" value="{{ pKwInput }}" placeholder="Add term + Enter…" style="flex:1;min-width:130px;border:none;background:transparent;font-family:Geist,sans-serif;font-size:13px;color:var(--ink);padding:5px 2px;" /></div>
             </div>
           </div>
 
-          <section style="flex:1;display:flex;flex-direction:column;min-width:0;border-left:1px solid #E9E6E0;background:#FFFFFF;">
+          <section style="flex:1;display:flex;flex-direction:column;min-width:0;border-left:1px solid var(--border);background:var(--surface);">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 22px 9px;flex:0 0 auto;">
-              <div style="display:flex;align-items:center;gap:10px;"><span style="width:7px;height:7px;border-radius:50%;background:{{ pDotColor }};{{ pDotAnim }}"></span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#9A958C;text-transform:uppercase;letter-spacing:0.09em;font-weight:500;">Polished</span><span style="font-size:11.5px;color:#B0ABA1;">{{ pTgtNative }}</span><sc-if value="{{ pLatShown }}" hint-placeholder-val="{{ false }}"><span style="{{ pLatStyle }}">⏱ {{ pLatency }}</span></sc-if><sc-if value="{{ pDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;background:#F0EDE7;border-radius:7px;padding:2px;gap:2px;margin-left:2px;"><button onClick="{{ pShowResult }}" style="{{ pResultStyle }}">Result</button><button onClick="{{ pShowDiff }}" style="{{ pDiffStyle }}">Compare</button></div></sc-if></div>
-              <sc-if value="{{ pDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;"><button onClick="{{ primaryClick }}" style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:#A8A399;cursor:pointer;padding:4px 6px;" style-hover="color:#1E1C19;">Regenerate</button><button onClick="{{ pCopy }}" style="border:1px solid #E2DFD8;background:#FFFFFF;border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:12px;color:#6B6760;cursor:pointer;" style-hover="background:#F5F3EF;color:#1E1C19;">{{ pCopyLabel }}</button><button onClick="{{ pAccept }}" style="border:none;background:#2F7D5B;border-radius:8px;padding:5px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:#FFFFFF;cursor:pointer;" style-hover="background:#286B4E;">Accept ✓</button></div></sc-if>
+              <div style="display:flex;align-items:center;gap:10px;"><span style="width:7px;height:7px;border-radius:50%;background:{{ pDotColor }};{{ pDotAnim }}"></span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t4);text-transform:uppercase;letter-spacing:0.09em;font-weight:500;">Polished</span><span style="font-size:11.5px;color:var(--t6);">{{ pTgtNative }}</span><sc-if value="{{ pLatShown }}" hint-placeholder-val="{{ false }}"><span style="{{ pLatStyle }}">⏱ {{ pLatency }}</span></sc-if><sc-if value="{{ pDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;background:var(--fill-muted);border-radius:7px;padding:2px;gap:2px;margin-left:2px;"><button onClick="{{ pShowResult }}" style="{{ pResultStyle }}">Result</button><button onClick="{{ pShowDiff }}" style="{{ pDiffStyle }}">Compare</button></div></sc-if><sc-if value="{{ hunkBarShown }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);white-space:nowrap;">{{ hunkSummary }}</span><button onClick="{{ acceptAllHunks }}" style="border:1px solid var(--border-strong);background:var(--surface);border-radius:7px;padding:3px 8px;font-family:Geist,sans-serif;font-size:11px;color:var(--t1);cursor:pointer;" style-hover="background:var(--hover);">Keep all</button><button onClick="{{ rejectAllHunks }}" style="border:1px solid var(--border-strong);background:var(--surface);border-radius:7px;padding:3px 8px;font-family:Geist,sans-serif;font-size:11px;color:var(--t1);cursor:pointer;" style-hover="background:var(--hover);">Reject all</button></div></sc-if></div>
+              <sc-if value="{{ pDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;"><button onClick="{{ primaryClick }}" style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:4px 6px;" style-hover="color:var(--ink);">Regenerate</button><button onClick="{{ pCopy }}" style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:12px;color:var(--t1);cursor:pointer;" style-hover="background:var(--hover);color:var(--ink);">{{ pCopyLabel }}</button><button onClick="{{ pRejectClick }}" title="Discard the polish — keep your draft" style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 11px;font-family:Geist,sans-serif;font-size:12px;color:var(--ink);cursor:pointer;" style-hover="background:var(--hover);">Reject</button><button onClick="{{ pAccept }}" style="border:none;background:var(--ok-solid);border-radius:8px;padding:5px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--on-accent);cursor:pointer;" style-hover="background:var(--ok-strong);">Accept ✓</button></div></sc-if>
             </div>
+            <sc-if value="{{ pBannerShown }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ pBannerStyle }}">
+                <sc-if value="{{ pBannerIsError }}" hint-placeholder-val="{{ true }}"><span style="flex:0 0 auto;font-size:14px;line-height:1.2;color:var(--danger);">⚠</span></sc-if>
+                <sc-if value="{{ pBannerIsCancel }}" hint-placeholder-val="{{ false }}"><span style="flex:0 0 auto;font-size:13px;line-height:1.2;color:var(--t3);">◼</span></sc-if>
+                <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+                  <span style="font-size:12.5px;font-weight:600;color:var(--ink);">{{ pBannerTitle }}</span>
+                  <span style="font-size:11.5px;line-height:1.5;color:var(--t2);">{{ pBannerMsg }}</span>
+                </div>
+                <sc-if value="{{ pBannerRetry }}" hint-placeholder-val="{{ false }}"><button onClick="{{ retryResult }}" style="flex:0 0 auto;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 11px;font-family:Geist,sans-serif;font-size:12px;font-weight:500;color:var(--ink);cursor:pointer;" style-hover="background:var(--hover);">Retry</button></sc-if>
+              </div>
+            </sc-if>
             <div style="flex:1;overflow:auto;padding:8px 24px 20px;">{{ polishNode }}</div>
-            <sc-if value="{{ pDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;padding:12px 22px;border-top:1px solid #F0EDE7;flex:0 0 auto;"><span style="display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:11px;color:#2F7D5B;background:#E8F3EC;padding:3px 9px;border-radius:7px;">✓ meaning preserved</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#B0ABA1;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">vs {{ pSrcNative }}: {{ pOriginalShort }}</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#B0ABA1;">{{ pMeta }}</span></div></sc-if>
+            <sc-if value="{{ pDone }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;padding:12px 22px;border-top:1px solid var(--fill-muted);flex:0 0 auto;"><span style="display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:11px;color:var(--t2);background:var(--fill-muted);padding:3px 9px;border-radius:7px;">Review the diff before accepting</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t6);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">vs {{ pSrcNative }}: {{ pOriginalShort }}</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t6);">{{ pMeta }}</span></div></sc-if>
           </section>
           </div>
         </div>
@@ -222,10 +300,132 @@
     </div>
   </div>
 
-  <footer style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px;border-top:1px solid #E9E6E0;background:#FFFFFF;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:50%;background:{{ privacyDot }};"></span><span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:#7A766E;">{{ privacyText }}</span></div><button onClick="{{ privacyAction }}" style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11.5px;color:#574FD6;cursor:pointer;padding:0;" style-hover="text-decoration:underline;">{{ privacyCta }}</button></footer>
+  <footer style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px;border-top:1px solid var(--border);background:var(--surface);flex:0 0 auto;"><div style="display:flex;align-items:center;gap:9px;"><span style="width:8px;height:8px;border-radius:50%;background:{{ privacyDot }};"></span><span style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--t2);">{{ privacyText }}</span></div><button onClick="{{ privacyAction }}" style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--accent-ink);cursor:pointer;padding:0;" style-hover="text-decoration:underline;">{{ privacyCta }}</button></footer>
+
+  <!-- ===== DESIGN-REVIEW DOCK (state switcher for issues #13–#18) ===== -->
+  <sc-if value="{{ reviewOpen }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed;right:16px;bottom:16px;width:274px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 40px var(--shadow-c1);z-index:55;overflow:hidden;font-family:Geist,sans-serif;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border-bottom:1px solid var(--border);background:var(--canvas);">
+        <span style="display:flex;align-items:center;gap:8px;"><span style="width:7px;height:7px;border-radius:2px;background:var(--accent);"></span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink);font-weight:600;">Design review</span></span>
+        <button onClick="{{ toggleReview }}" title="Collapse" style="border:none;background:transparent;color:var(--t4);font-size:16px;cursor:pointer;line-height:1;padding:0 4px;" style-hover="color:var(--ink);">‹</button>
+      </div>
+      <div style="padding:12px 13px;display:flex;flex-direction:column;gap:11px;">
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:0.05em;text-transform:uppercase;color:var(--t5);">Theme · #16</span>
+          <div style="display:flex;background:var(--fill-muted);border-radius:8px;padding:3px;gap:2px;">
+            <button onClick="{{ setLight }}" style="{{ thLightStyle }}">Light</button><button onClick="{{ setDark }}" style="{{ thDarkStyle }}">Dark</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:0.05em;text-transform:uppercase;color:var(--t5);">Sidebar · #18</span>
+          <div style="display:flex;background:var(--fill-muted);border-radius:8px;padding:3px;gap:2px;">
+            <button onClick="{{ setFull }}" style="{{ sbFullStyle }}">Full</button><button onClick="{{ setShell }}" style="{{ sbShellStyle }}">Shell</button><button onClick="{{ setHidden }}" style="{{ sbHiddenStyle }}">Hidden</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:0.05em;text-transform:uppercase;color:var(--t5);">Result state · #14 / #15</span>
+          <div style="display:flex;flex-wrap:wrap;background:var(--fill-muted);border-radius:8px;padding:3px;gap:2px;">
+            <button onClick="{{ setIdle }}" style="{{ rsIdleStyle }}">Idle</button><button onClick="{{ setStream }}" style="{{ rsStreamStyle }}">Stream</button><button onClick="{{ setDone }}" style="{{ rsDoneStyle }}">Done</button><button onClick="{{ setErr }}" style="{{ rsErrStyle }}">Error</button><button onClick="{{ setCancel }}" style="{{ rsCancelStyle }}">Cancel</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:0.05em;text-transform:uppercase;color:var(--t5);">Direction · #17</span>
+          <div style="display:flex;background:var(--fill-muted);border-radius:8px;padding:3px;gap:2px;">
+            <button onClick="{{ setRtlOff }}" style="{{ rtlOffStyle }}">Off</button><button onClick="{{ setRtlAr }}" style="{{ rtlArStyle }}">عربي</button><button onClick="{{ setRtlHe }}" style="{{ rtlHeStyle }}">עברית</button><button onClick="{{ setRtlMixed }}" style="{{ rtlMixedStyle }}">Mixed</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;padding-top:3px;">
+          <button onClick="{{ openSettings }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px;font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.03em;color:var(--ink);cursor:pointer;" style-hover="background:var(--hover);">Settings · #13</button>
+          <button onClick="{{ openTokens }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px;font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.03em;color:var(--ink);cursor:pointer;" style-hover="background:var(--hover);">Tokens · #16</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ reviewClosed }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ toggleReview }}" style="position:fixed;right:16px;bottom:16px;z-index:55;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:0 14px 36px var(--shadow-c1);padding:10px 13px;cursor:pointer;font-family:'Geist Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink);font-weight:600;"><span style="width:7px;height:7px;border-radius:2px;background:var(--accent);"></span>Design review</button>
+  </sc-if>
+
+  <!-- ===== SETTINGS — providers & API keys (issue #13) ===== -->
+  <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Geist,sans-serif;">
+      <div onClick="{{ closeSettings }}" style="position:absolute;inset:0;background:rgba(18,16,12,0.46);"></div>
+      <div style="position:relative;width:580px;max-width:100%;max-height:86vh;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 30px 80px var(--shadow-c3);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);flex:0 0 auto;">
+          <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:15px;font-weight:600;color:var(--ink);">Settings</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Providers &amp; keys</span></div>
+          <button onClick="{{ closeSettings }}" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t3);font-size:15px;cursor:pointer;" style-hover="background:var(--hover);color:var(--ink);">×</button>
+        </div>
+        <div style="display:flex;min-height:0;flex:1;">
+          <div style="width:212px;flex:0 0 auto;border-right:1px solid var(--border);padding:13px;display:flex;flex-direction:column;gap:7px;overflow:auto;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;padding:2px 2px 4px;">Provider</span>
+            <sc-for list="{{ keyProviders }}" as="p" hint-placeholder-count="4">
+              <button onClick="{{ p.onPick }}" style="{{ p.rowStyle }}">
+                <span style="width:8px;height:8px;border-radius:50%;background:{{ p.dot }};flex:0 0 auto;"></span>
+                <span style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;"><span style="font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:{{ p.statusColor }};">{{ p.statusText }}</span></span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="flex:1;min-width:0;padding:18px;display:flex;flex-direction:column;gap:14px;overflow:auto;">
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:15px;font-weight:600;color:var(--ink);">{{ activeKeyLabel }}</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);">{{ activeKeyModel }}</span></div>
+            <sc-if value="{{ activeIsLocal }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:13px;border:1px solid var(--border);background:var(--ok-soft);border-radius:12px;"><span style="font-size:14px;color:var(--ok);">⬤</span><div style="display:flex;flex-direction:column;gap:4px;"><span style="font-size:13px;font-weight:600;color:var(--ink);">No key needed</span><span style="font-size:12px;line-height:1.55;color:var(--t2);">Runs on this device via Ollama. Your text never leaves the machine — the privacy-preserving path.</span></div></div>
+            </sc-if>
+            <sc-if value="{{ activeRemote }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <sc-if value="{{ activeHasKey }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--border);background:var(--canvas);border-radius:11px;"><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--ink);flex:1;letter-spacing:0.02em;">{{ activeMaskedKey }}</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--ok);background:var(--ok-soft);padding:3px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:0.04em;">saved</span><button onClick="{{ clearActiveKey }}" style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 9px;font-family:Geist,sans-serif;font-size:11.5px;color:var(--danger);cursor:pointer;" style-hover="background:var(--hover);">Clear</button></div>
+                </sc-if>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">API key</span>
+                  <div style="display:flex;align-items:center;gap:8px;border:1px solid {{ keyFieldBorder }};background:var(--surface);border-radius:11px;padding:4px 4px 4px 12px;">
+                    <input type="{{ keyInputType }}" value="{{ keyDraft }}" onChange="{{ onKeyDraft }}" placeholder="Paste your key…" spellcheck="false" style="flex:1;border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:13px;color:var(--ink);padding:7px 0;" />
+                    <button onClick="{{ toggleReveal }}" style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11px;color:var(--t3);cursor:pointer;padding:6px 8px;" style-hover="color:var(--ink);">{{ revealLabel }}</button>
+                    <button onClick="{{ saveKey }}" style="border:none;background:var(--accent);color:var(--on-accent);border-radius:8px;padding:7px 14px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;">Save</button>
+                  </div>
+                  <sc-if value="{{ hasKeyError }}" hint-placeholder-val="{{ false }}"><span style="font-size:11.5px;color:var(--danger);">{{ keyError }}</span></sc-if>
+                </div>
+                <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 12px;border:1px solid var(--border);border-radius:11px;background:var(--canvas);">
+                  <span style="font-size:13px;color:var(--t3);">🔒</span>
+                  <span style="font-size:11.5px;line-height:1.6;color:var(--t2);">Stored in this browser's secure storage — never written in plaintext, never logged, sent only to {{ activeKeyLabel }} to run your requests.</span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== TOKEN REFERENCE TABLE (issue #16) ===== -->
+  <sc-if value="{{ tokenTableOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Geist,sans-serif;">
+      <div onClick="{{ closeTokens }}" style="position:absolute;inset:0;background:rgba(18,16,12,0.46);"></div>
+      <div style="position:relative;width:740px;max-width:100%;max-height:88vh;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 30px 80px var(--shadow-c3);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex:0 0 auto;">
+          <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:15px;font-weight:600;color:var(--ink);">Design tokens — light &amp; dark</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">Single <code>.dark</code> scope · WCAG AA on surfaces (issue #16)</span></div>
+          <button onClick="{{ closeTokens }}" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t3);font-size:15px;cursor:pointer;" style-hover="background:var(--hover);color:var(--ink);">×</button>
+        </div>
+        <div style="flex:1;overflow:auto;padding:8px 20px 20px;">
+          <div style="display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--surface);padding:10px 0 8px;font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--t5);border-bottom:1px solid var(--border);">
+            <span style="width:188px;flex:0 0 auto;">Token</span><span style="width:118px;flex:0 0 auto;">Light</span><span style="width:118px;flex:0 0 auto;">Dark</span><span style="flex:1;">Usage</span>
+          </div>
+          <sc-for list="{{ tokenGroups }}" as="g" hint-placeholder-count="6">
+            <div style="padding:14px 0 4px;font-family:'Geist Mono',monospace;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--accent-ink);">{{ g.name }}</div>
+            <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--fill-muted);">
+                <span style="width:188px;flex:0 0 auto;font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink);">{{ r.name }}</span>
+                <span style="width:118px;flex:0 0 auto;display:flex;align-items:center;gap:7px;"><span style="{{ r.lightSwatch }}"></span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);">{{ r.light }}</span></span>
+                <span style="width:118px;flex:0 0 auto;display:flex;align-items:center;gap:7px;"><span style="{{ r.darkSwatch }}"></span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);">{{ r.dark }}</span></span>
+                <span style="flex:1;font-size:12px;color:var(--t2);">{{ r.note }}</span>
+              </div>
+            </sc-for>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
 
   <sc-if value="{{ anyMenuOpen }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeMenus }}" style="position:fixed;inset:0;z-index:30;"></div></sc-if>
-  <sc-if value="{{ toastShown }}" hint-placeholder-val="{{ false }}"><div style="position:fixed;bottom:58px;left:50%;transform:translateX(-50%);background:#1E1C19;color:#FFFFFF;padding:11px 18px;border-radius:11px;box-shadow:0 14px 36px rgba(30,28,25,0.22);font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:9px;z-index:50;animation:lucid-toast 0.22s ease;"><span style="width:18px;height:18px;border-radius:50%;background:#2F7D5B;display:inline-flex;align-items:center;justify-content:center;font-size:11px;">✓</span>{{ toast }}</div></sc-if>
+  <sc-if value="{{ toastShown }}" hint-placeholder-val="{{ false }}"><div style="position:fixed;bottom:58px;left:50%;transform:translateX(-50%);background:var(--toast-bg);color:var(--on-accent);padding:11px 18px;border-radius:11px;box-shadow:0 14px 36px var(--shadow-c3);font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:9px;z-index:50;animation:lucid-toast 0.22s ease;"><span style="width:18px;height:18px;border-radius:50%;background:var(--ok-solid);display:inline-flex;align-items:center;justify-content:center;font-size:11px;">✓</span>{{ toast }}</div></sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:880}}">
@@ -244,15 +444,39 @@ class Component extends DCLogic {
   ];
   LANGS = [{ label: "Chinese", native: "中文" }, { label: "English", native: "English" }, { label: "Spanish", native: "Español" }, { label: "Japanese", native: "日本語" }];
   PROVIDERS = [
-    { key: "anthropic", label: "Anthropic", model: "Claude Fable 5", dot: "#C28A2E", local: false },
-    { key: "openai", label: "OpenAI", model: "GPT-5", dot: "#C28A2E", local: false },
-    { key: "google", label: "Google", model: "Gemini 3 Pro", dot: "#C28A2E", local: false },
-    { key: "local", label: "Local", model: "Ollama · Llama 4", dot: "#2F7D5B", local: true }
+    { key: "anthropic", label: "Anthropic", model: "Claude Fable 5", dot: "var(--warn)", local: false },
+    { key: "openai", label: "OpenAI", model: "GPT-5", dot: "var(--warn)", local: false },
+    { key: "google", label: "Google", model: "Gemini 3 Pro", dot: "var(--warn)", local: false },
+    { key: "local", label: "Local", model: "Ollama · Llama 4", dot: "var(--ok)", local: true }
   ];
   LEXICON = ["inference", "attention mechanism", "weights", "long-context", "throughput", "latency", "fine-tuning", "embedding", "tokenizer", "quantization", "two-way sync", "cloud"];
 
+  // ---- RTL / bidi fixtures (issue #17) ----
+  AR_SOURCE = "يرجى تفعيل المزامنة الثنائية في إعدادات النظام، وإلا فلن يتم حفظ تغييراتك في السحابة.";
+  HE_SOURCE = "אנא הפעל סנכרון דו-כיווני בהגדרות המערכת, אחרת השינויים שלך לא יישמרו בענן.";
+  MIXED_SOURCE = "الإصدار 2.0 من Lucid يدعم اتجاه RTL بالكامل — راجع التذكرة #2 على GitHub.";
+  AR_POLISHED = "أثناء الاستدلال، يضبط النموذج أوزانه ديناميكيًا عبر آلية الانتباه، مما يحسّن كفاءة معالجة السياقات الطويلة بشكل ملحوظ.";
+  AR_DIFF = [
+    { t:"same", v:"أثناء الاستدلال، يضبط النموذج " }, { t:"del", v:"الوزن" }, { t:"add", v:"أوزانه" },
+    { t:"same", v:" ديناميكيًا عبر آلية الانتباه، مما " }, { t:"del", v:"يزيد" }, { t:"add", v:"يحسّن" },
+    { t:"same", v:" كفاءة معالجة " }, { t:"del", v:"النص الطويل" }, { t:"add", v:"السياقات الطويلة" },
+    { t:"same", v:" بشكل ملحوظ." }
+  ];
+  // error copy (issue #14) — localized, honest, never a green success toast
+  ERRORS = {
+    rateLimited: { title: "Rate limited", msg: "Anthropic is rate-limiting requests (429). Retrying shortly, or switch provider.", retry: true },
+    providerDown: { title: "Provider unavailable", msg: "Couldn't reach Anthropic (503). The service may be down — try again or switch provider.", retry: true },
+    invalidKey: { title: "Invalid API key", msg: "Anthropic rejected the key (401). Check it in Settings → Providers.", retry: false },
+    timeout: { title: "Timed out", msg: "No response within 30s. The network or provider may be slow.", retry: true },
+    requestFailed: { title: "Request failed", msg: "The request couldn't be completed. Check your connection and try again.", retry: true }
+  };
+
   state = {
     view: "polish", sidebar: "sessions", sessionView: "list",
+    theme: "light", sidebarMode: "full", rtl: "off", dirOverride: "auto", reviewOpen: true,
+    settingsOpen: false, tokenTableOpen: false,
+    apiKeys: { anthropic: "", openai: "", google: "" }, keyDraft: "", keyReveal: false, keyError: "", keyProvider: "anthropic",
+    rejectedHunks: {},
     provider: "anthropic", openMenu: null, toast: "", search: "",
     renaming: false, renameValue: "",
     tSource: this.ZH_SAMPLE, tResult: { status: "idle", text: "", ms: 0 }, tCopied: false,
@@ -347,6 +571,64 @@ class Component extends DCLogic {
   sidebarSessions = () => this.setState({ sidebar: "sessions" });
   sidebarGlossary = () => this.setState({ sidebar: "glossary" });
 
+  // ===== Design-review dock + issue states =====
+  toggleReview = () => this.setState({ reviewOpen: !this.state.reviewOpen });
+  setTheme = (t) => () => this.setState({ theme: t });
+  setSidebarMode = (m) => () => this.setState({ sidebarMode: m });
+  setDirOverride = (d) => () => this.setState({ dirOverride: d, openMenu: null });
+  // RTL fixtures (issue #17): load real bidi text so layout is exercised
+  setRtl = (r) => () => {
+    const map = { ar: this.AR_SOURCE, he: this.HE_SOURCE, mixed: this.MIXED_SOURCE };
+    if (r === "off") { this.setState({ rtl: "off", dirOverride: "auto", tSource: this.ZH_SAMPLE, pOriginal: this.P_ORIGINAL, pDraft: this.P_DRAFT, tResult: { status: "idle", text: "", ms: 0 }, pResult: { status: "idle", text: "", showDiff: false, ms: 0 } }); return; }
+    const src = map[r] || this.AR_SOURCE;
+    this.setState({ rtl: r, dirOverride: r === "mixed" ? "auto" : "rtl",
+      tSource: src, tResult: { status: "done", text: this.EN_RESULT, ms: 940 },
+      pOriginal: src, pDraft: this.AR_POLISHED, pResult: { status: "done", text: this.AR_POLISHED, showDiff: true, ms: 1280 }, view: "polish" });
+  };
+  // result-pane states (issue #14): drive the visible panes for review
+  setResult = (kind) => () => {
+    this.clearT("t"); this.clearT("p");
+    if (kind === "idle") { this.setState({ tResult: { status: "idle", text: "", ms: 0 }, pResult: { status: "idle", text: "", showDiff: false, ms: 0 } }); return; }
+    if (kind === "streaming") { this.streamTranslate(); this.streamPolish(); return; }
+    if (kind === "done") { this.setState({ tResult: { status: "done", text: this.EN_RESULT, ms: 940 }, pResult: { status: "done", text: this.P_POLISHED, showDiff: false, ms: 1280 } }); return; }
+    if (kind === "cancelled") {
+      const tp = this.EN_RESULT.slice(0, 41), pp = this.P_POLISHED.slice(0, 47);
+      this.setState({ tResult: { status: "cancelled", text: tp, ms: 520 }, pResult: { status: "cancelled", text: pp, showDiff: false, ms: 610 } }); return;
+    }
+    if (kind === "error") {
+      const ek = this.state._errKind || "rateLimited";
+      const tp = this.EN_RESULT.slice(0, 28), pp = this.P_POLISHED.slice(0, 33);
+      this.setState({ tResult: { status: "error", text: tp, ms: 0, errKind: ek }, pResult: { status: "error", text: pp, showDiff: false, ms: 0, errKind: ek } }); return;
+    }
+  };
+  setErrKind = (k) => () => { this.setState({ _errKind: k }, () => this.setResult("error")()); };
+  retryResult = () => this.setResult("done")();
+
+  // diff accept / reject (issue #15)
+  rejectPolish = () => { this.setState({ pResult: { status: "idle", text: "", showDiff: false, ms: 0 }, rejectedHunks: {} }); this.toast("Discarded — your draft is unchanged"); };
+  toggleHunk = (i) => () => this.setState((s) => { const r = { ...s.rejectedHunks }; r[i] = !r[i]; return { rejectedHunks: r }; });
+  acceptAllHunks = () => this.setState({ rejectedHunks: {} });
+  rejectAllHunks = () => { const hs = this.hunkIndices(); const r = {}; hs.forEach((i) => r[i] = true); this.setState({ rejectedHunks: r }); };
+  hunkIndices = () => { const d = (this.state.rtl !== "off") ? this.AR_DIFF : this.DIFF; const out = []; d.forEach((seg, i) => { if (seg.t === "add") out.push(i); }); return out; };
+
+  // settings / API keys (issue #13)
+  openSettings = () => this.setState({ settingsOpen: true, keyProvider: this.state.provider, keyDraft: "", keyReveal: false, keyError: "", openMenu: null });
+  closeSettings = () => this.setState({ settingsOpen: false });
+  pickKeyProvider = (k) => () => this.setState({ keyProvider: k, keyDraft: "", keyReveal: false, keyError: "" });
+  onKeyDraft = (e) => this.setState({ keyDraft: e.target.value, keyError: "" });
+  toggleReveal = () => this.setState({ keyReveal: !this.state.keyReveal });
+  saveKey = () => {
+    const k = this.state.keyDraft.trim(); const p = this.state.keyProvider;
+    const prefix = { anthropic: "sk-ant-", openai: "sk-", google: "AIza" }[p] || "";
+    if (!k) { this.setState({ keyError: "Enter a key first." }); return; }
+    if (prefix && !k.startsWith(prefix)) { this.setState({ keyError: 'Doesn\u2019t look like a ' + p + ' key (expected ' + prefix + '\u2026).' }); return; }
+    this.setState((s) => ({ apiKeys: { ...s.apiKeys, [p]: k }, keyDraft: "", keyReveal: false, keyError: "" }));
+    this.toast("Key saved to this browser\u2019s secure storage");
+  };
+  clearKey = (p) => () => { this.setState((s) => ({ apiKeys: { ...s.apiKeys, [p]: "" } })); this.toast("Key removed"); };
+  openTokens = () => this.setState({ tokenTableOpen: true, openMenu: null });
+  closeTokens = () => this.setState({ tokenTableOpen: false });
+
   // sessions (containers of tasks)
   openSessionDetail = (id) => () => this.setState({ activeSessionId: id, sessionView: "detail", renaming: false });
   openActiveDetail = () => this.setState({ sidebar: "sessions", sessionView: "detail", renaming: false });
@@ -384,45 +666,221 @@ class Component extends DCLogic {
     this.setState({ sidebar: "glossary", suggested: found });
   };
 
+  isRtl = (t) => { const o = this.state.dirOverride; if (o === "rtl") return true; if (o === "ltr") return false; return /[\u0590-\u08FF]/.test(t || ""); };
+  caretEl() { const R = React.createElement; return R("span", { key: "c", style: { display: "inline-block", width: "2px", height: "0.95em", background: "var(--accent)", marginLeft: "1px", transform: "translateY(2px)", animation: "lucid-caret 1s steps(1) infinite" } }); }
+  diffNodes(diff) {
+    const R = React.createElement; const rej = this.state.rejectedHunks;
+    const add = { background: "var(--accent-soft)", color: "var(--accent-ink)", borderRadius: "3px", padding: "0 2px", fontWeight: 500 };
+    const del = { color: "var(--danger)", textDecoration: "line-through", textDecorationThickness: "1px", opacity: 0.72 };
+    const chip = (rejected) => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "16px", height: "16px", borderRadius: "5px", border: "1px solid var(--border-strong)", background: "var(--surface)", color: rejected ? "var(--ok)" : "var(--danger)", fontSize: "9px", lineHeight: 1, cursor: "pointer", margin: "0 4px", verticalAlign: "middle", transform: "translateY(-1px)" });
+    const out = [];
+    diff.forEach((d, i) => {
+      if (d.t === "same") { out.push(R("span", { key: i }, d.v)); return; }
+      if (d.t === "del") { const nx = diff[i + 1]; const aIdx = (nx && nx.t === "add") ? i + 1 : null; const rejected = aIdx != null ? !!rej[aIdx] : false; out.push(R("span", { key: i, style: rejected ? {} : del }, d.v)); return; }
+      if (d.t === "add") {
+        const rejected = !!rej[i];
+        if (!rejected) out.push(R("span", { key: i, style: add }, d.v));
+        out.push(R("button", { key: "h" + i, onClick: this.toggleHunk(i), title: rejected ? "Restore this change" : "Reject this change", style: chip(rejected) }, rejected ? "↺" : "✕"));
+      }
+    });
+    return out;
+  }
   polishNodeEl() {
-    const sec = this.state.pResult; const accent = "#574FD6"; const R = React.createElement;
-    const txt = { fontFamily: "Newsreader,'Hiragino Mincho ProN','Yu Mincho',serif", fontSize: "20px", lineHeight: 1.78, color: "#1E1C19", whiteSpace: "pre-wrap" };
-    if (sec.status === "idle" && !sec.text) return R("div", { style: { fontFamily: "Newsreader,serif", fontSize: "17px", lineHeight: 1.65, color: "#B6B1A7", fontStyle: "italic", maxWidth: "44ch" } }, "The polished sentence will stream in here — refined for fluency while preserving the original meaning and honoring your domain keywords. Switch to Compare to see exactly what changed.");
-    if (sec.showDiff && sec.status === "done") { const sp = { same: {}, add: { background: "#EDECFB", color: accent, borderRadius: "3px", padding: "0 2px", fontWeight: 500 }, del: { color: "#B23A48", textDecoration: "line-through", textDecorationThickness: "1px", opacity: 0.72 } }; return R("div", { style: txt }, this.DIFF.map((d, i) => R("span", { key: i, style: sp[d.t] }, d.v))); }
-    const caret = sec.status === "streaming" ? R("span", { key: "c", style: { display: "inline-block", width: "2px", height: "0.95em", background: accent, marginLeft: "1px", transform: "translateY(2px)", animation: "lucid-caret 1s steps(1) infinite" } }) : null;
+    const sec = this.state.pResult; const R = React.createElement; const rtl = this.isRtl(sec.text);
+    const txt = { fontFamily: "Newsreader,'Hiragino Mincho ProN','Yu Mincho',serif", fontSize: "20px", lineHeight: 1.78, color: "var(--ink)", whiteSpace: "pre-wrap", direction: rtl ? "rtl" : "ltr", textAlign: rtl ? "right" : "left", unicodeBidi: "plaintext" };
+    if ((sec.status === "idle" || sec.status === "error") && !sec.text) return R("div", { style: { fontFamily: "Newsreader,serif", fontSize: "17px", lineHeight: 1.65, color: "var(--t7)", fontStyle: "italic", maxWidth: "44ch" } }, "The polished sentence will stream in here — refined for fluency while preserving the original meaning and honoring your domain keywords. Switch to Compare to see exactly what changed.");
+    if (sec.showDiff && sec.status === "done") { const d = (this.state.rtl !== "off") ? this.AR_DIFF : this.DIFF; return R("div", { style: txt }, this.diffNodes(d)); }
+    const caret = sec.status === "streaming" ? this.caretEl() : null;
     return R("div", { style: txt }, sec.text, caret);
   }
   translateNodeEl() {
-    const sec = this.state.tResult; const accent = "#574FD6"; const R = React.createElement;
-    const txt = { fontFamily: "Newsreader,'Hiragino Mincho ProN','Yu Mincho','Songti SC',serif", fontSize: "20px", lineHeight: 1.78, color: "#1E1C19", whiteSpace: "pre-wrap" };
-    if (sec.status === "idle" && !sec.text) return R("div", { style: { fontFamily: "Newsreader,serif", fontSize: "17px", lineHeight: 1.6, color: "#B6B1A7", fontStyle: "italic", maxWidth: "42ch" } }, "The translation will stream in here. Lucid detects whether your text is Chinese or English and translates the other way automatically.");
-    const caret = sec.status === "streaming" ? R("span", { key: "c", style: { display: "inline-block", width: "2px", height: "0.95em", background: accent, marginLeft: "1px", transform: "translateY(2px)", animation: "lucid-caret 1s steps(1) infinite" } }) : null;
+    const sec = this.state.tResult; const R = React.createElement; const rtl = this.isRtl(sec.text);
+    const txt = { fontFamily: "Newsreader,'Hiragino Mincho ProN','Yu Mincho','Songti SC',serif", fontSize: "20px", lineHeight: 1.78, color: "var(--ink)", whiteSpace: "pre-wrap", direction: rtl ? "rtl" : "ltr", textAlign: rtl ? "right" : "left", unicodeBidi: "plaintext" };
+    if ((sec.status === "idle" || sec.status === "error") && !sec.text) return R("div", { style: { fontFamily: "Newsreader,serif", fontSize: "17px", lineHeight: 1.6, color: "var(--t7)", fontStyle: "italic", maxWidth: "42ch" } }, "The translation will stream in here. Lucid detects whether your text is Chinese or English and translates the other way automatically.");
+    const caret = sec.status === "streaming" ? this.caretEl() : null;
     return R("div", { style: txt }, sec.text, caret);
   }
 
+  TOKENS_DOC = [
+    { g: "Surfaces", rows: [
+      ["--canvas", "#FAF9F6", "#1A1814", "App background"],
+      ["--surface", "#FFFFFF", "#23211C", "Panels · cards · menus"],
+      ["--ink", "#1E1C19", "#F2EFE9", "Primary text · AA 12.6 / 13.9"],
+      ["--on-accent", "#FFFFFF", "#FFFFFF", "Text on accent / status fills"],
+      ["--toast-bg", "#1E1C19", "#38342C", "Toast surface"]
+    ] },
+    { g: "Text ramp", rows: [
+      ["--t1", "#6B6760", "#CBC6BC", "Secondary · strong labels"],
+      ["--t2", "#7A766E", "#BBB6AC", "Footer · muted body"],
+      ["--t3", "#8C887F", "#A6A199", "Inactive tab text"],
+      ["--t4", "#9A958C", "#948F86", "Mono section labels"],
+      ["--t5", "#A8A399", "#8E8980", "Meta · timestamps"],
+      ["--t6", "#B0ABA1", "#847F77", "Faint captions"],
+      ["--t7", "#B6B1A7", "#726D65", "Placeholder text"],
+      ["--faint", "#C4BFB5", "#5E5A51", "Chevrons · glyph dividers"]
+    ] },
+    { g: "Borders & lines", rows: [
+      ["--border", "#E9E6E0", "#322E27", "Default divider"],
+      ["--border-strong", "#E2DFD8", "#3C3830", "Button · input border"],
+      ["--border-dashed", "#CFCAC1", "#454037", "Dashed affordance"],
+      ["--fill-muted", "#F0EDE7", "#2A2720", "Track · segment fill"],
+      ["--conn-idle", "#E0DCD4", "#332F28", "Stepper connector (idle)"],
+      ["--dot-idle", "#D2CEC6", "#4A453C", "Idle status dot"]
+    ] },
+    { g: "Accent — indigo", rows: [
+      ["--accent", "#574FD6", "#6E66DE", "Buttons · dots · caret (fill)"],
+      ["--accent-ink", "#574FD6", "#AEA7F7", "Accent text & icons · AA on surface"],
+      ["--accent-soft", "#EDECFB", "#2A2649", "Keyword chips · diff-add bg"],
+      ["--accent-tint", "#F3F2FE", "#221F40", "Active row tint"],
+      ["--accent-soft2", "#ECEBFC", "#322D57", "Accent hover"],
+      ["--accent-border", "#DDDCFB", "#3C3768", "Accent control border"],
+      ["--accent-muted", "#C9C6E9", "#423D64", "Disabled button fill"],
+      ["--accent-dash", "#B9B4F0", "#564F94", "Suggested dashed border"],
+      ["--accent-mid", "#8A83E0", "#847DCB", "Chip close glyph"],
+      ["--selection", "#DDDBF7", "#353160", "::selection highlight"]
+    ] },
+    { g: "Status & diff", rows: [
+      ["--ok", "#2F7D5B", "#5FBE90", "Success text & dots"],
+      ["--ok-solid", "#2F7D5B", "#2E7D5A", "Accept button fill"],
+      ["--ok-strong", "#286B4E", "#246B49", "Accept hover"],
+      ["--ok-soft", "#E8F3EC", "#16291E", "Success chip bg"],
+      ["--ok-conn", "#9FCDB4", "#305C46", "Stepper connector (done)"],
+      ["--warn", "#C28A2E", "#D7A648", "Remote-provider privacy dot"],
+      ["--danger", "#B23A48", "#E27182", "Deletions · destructive"],
+      ["--danger-soft", "#FBEAEC", "#2E1A1D", "Error banner bg"],
+      ["--danger-border", "#F0CDD2", "#4A2A2F", "Error banner border"]
+    ] },
+    { g: "Shadows (focus ring = --accent-ink)", rows: [
+      ["--shadow-c1", "rgba(30,28,25,.13)", "rgba(0,0,0,.55)", "Menu · popover"],
+      ["--shadow-c2", "rgba(30,28,25,.08)", "rgba(0,0,0,.45)", "Tab · control"],
+      ["--shadow-c3", "rgba(30,28,25,.22)", "rgba(0,0,0,.65)", "Toast"]
+    ] }
+  ];
+  KEYPROV = [
+    { k: "anthropic", label: "Anthropic", model: "Claude Fable 5", prefix: "sk-ant-", dot: "var(--warn)" },
+    { k: "openai", label: "OpenAI", model: "GPT-5", prefix: "sk-", dot: "var(--warn)" },
+    { k: "google", label: "Google", model: "Gemini 3 Pro", prefix: "AIza", dot: "var(--warn)" },
+    { k: "local", label: "Local · Ollama", model: "Llama 4", prefix: "", dot: "var(--ok)" }
+  ];
+  maskKey = (k) => k ? (k.slice(0, Math.min(7, k.length)) + "…" + k.slice(-4)) : "";
+
+  extraVals() {
+    const s = this.state;
+    const seg = (on) => "padding:4px 9px;border:none;border-radius:6px;font-family:'Geist Mono',monospace;font-size:10.5px;font-weight:" + (on ? "600" : "500") + ";cursor:pointer;letter-spacing:0.01em;white-space:nowrap;background:" + (on ? "var(--surface)" : "transparent") + ";color:" + (on ? "var(--ink)" : "var(--t3)") + ";box-shadow:" + (on ? "var(--shadow-c2)" : "none") + ";";
+
+    // ---- direction override (issue #17) ----
+    const detZh = this.detectDir(s.tSource) === "zh-en";
+    const detLang = s.rtl === "he" ? "עברית" : s.rtl === "ar" ? "العربية" : s.rtl === "mixed" ? "mixed bidi" : (detZh ? "中文" : "English");
+    const dirChipLabel = s.dirOverride === "ltr" ? "Force LTR" : s.dirOverride === "rtl" ? "Force RTL" : ("Auto · " + detLang);
+    const dirOpts = [
+      { label: "Auto-detect", sub: "from the text", active: s.dirOverride === "auto", onClick: this.setDirOverride("auto") },
+      { label: "Force left-to-right", sub: "LTR", active: s.dirOverride === "ltr", onClick: this.setDirOverride("ltr") },
+      { label: "Force right-to-left", sub: "RTL", active: s.dirOverride === "rtl", onClick: this.setDirOverride("rtl") }
+    ];
+    const tSrcDir = this.isRtl(s.tSource) ? "rtl" : "ltr";
+    const pOrigDir = this.isRtl(s.pOriginal) ? "rtl" : "ltr";
+    const pDraftDir = this.isRtl(s.pDraft) ? "rtl" : "ltr";
+
+    // ---- result error / cancelled (issue #14) ----
+    const banner = (st) => {
+      if (st.status === "error") { const e = this.ERRORS[st.errKind || "rateLimited"]; return { show: true, kind: "error", title: e.title, msg: e.msg, retry: e.retry }; }
+      if (st.status === "cancelled") return { show: true, kind: "cancel", title: "Stopped", msg: "You stopped generation. The partial text above is kept — run again to continue.", retry: false };
+      return { show: false };
+    };
+    const tb = banner(s.tResult), pb = banner(s.pResult);
+    const bnStyle = (kind) => "display:flex;align-items:flex-start;gap:11px;margin:2px 24px 12px;padding:11px 13px;border-radius:11px;border:1px solid " + (kind === "error" ? "var(--danger-border)" : "var(--border-strong)") + ";background:" + (kind === "error" ? "var(--danger-soft)" : "var(--fill-muted)") + ";";
+    const tPartial = (s.tResult.status === "cancelled" || s.tResult.status === "error") && !!s.tResult.text;
+    const pPartial = (s.pResult.status === "cancelled" || s.pResult.status === "error") && !!s.pResult.text;
+
+    // ---- per-hunk (issue #15) ----
+    const hunks = this.hunkIndices();
+    const rejectedCount = hunks.filter((i) => s.rejectedHunks[i]).length;
+    const keptCount = hunks.length - rejectedCount;
+    const hunkSummary = keptCount + " of " + hunks.length + " change" + (hunks.length === 1 ? "" : "s") + " kept";
+
+    // ---- settings / keys (issue #13) ----
+    const keyProviders = this.KEYPROV.map((p) => ({
+      label: p.label, model: p.model, dot: p.dot, active: p.k === s.keyProvider, isLocal: p.k === "local",
+      hasKey: p.k === "local" ? true : !!s.apiKeys[p.k],
+      statusText: p.k === "local" ? "On device" : (s.apiKeys[p.k] ? "Key set" : "No key"),
+      statusColor: (p.k === "local" || s.apiKeys[p.k]) ? "var(--ok)" : "var(--t5)",
+      rowStyle: "display:flex;align-items:center;gap:11px;width:100%;padding:10px 11px;border:1px solid " + (p.k === s.keyProvider ? "var(--accent-border)" : "var(--border)") + ";border-radius:11px;cursor:pointer;text-align:left;background:" + (p.k === s.keyProvider ? "var(--accent-tint)" : "var(--surface)") + ";",
+      onPick: this.pickKeyProvider(p.k)
+    }));
+    const akp = this.KEYPROV.find((p) => p.k === s.keyProvider) || this.KEYPROV[0];
+    const activeIsLocal = s.keyProvider === "local";
+    const activeHasKey = !activeIsLocal && !!s.apiKeys[s.keyProvider];
+
+    // ---- token table (issue #16) ----
+    const sw = (hex) => "width:26px;height:26px;border-radius:7px;flex:0 0 auto;border:1px solid var(--border);background:" + hex + ";";
+    const tokenGroups = this.TOKENS_DOC.map((grp) => ({
+      name: grp.g,
+      rows: grp.rows.map((r) => ({ name: r[0], light: r[1], dark: r[2], note: r[3], lightSwatch: sw(r[1]), darkSwatch: sw(r[2]) }))
+    }));
+
+    return {
+      themeAttr: s.theme === "dark" ? "dark" : "light",
+      // review dock
+      reviewOpen: s.reviewOpen, reviewClosed: !s.reviewOpen, toggleReview: this.toggleReview,
+      thLightStyle: seg(s.theme === "light"), thDarkStyle: seg(s.theme === "dark"), setLight: this.setTheme("light"), setDark: this.setTheme("dark"),
+      sbFullStyle: seg(s.sidebarMode === "full"), sbShellStyle: seg(s.sidebarMode === "shell"), sbHiddenStyle: seg(s.sidebarMode === "hidden"),
+      setFull: this.setSidebarMode("full"), setShell: this.setSidebarMode("shell"), setHidden: this.setSidebarMode("hidden"),
+      rsIdleStyle: seg(false), rsStreamStyle: seg(false), rsDoneStyle: seg(false), rsErrStyle: seg(false), rsCancelStyle: seg(false),
+      setIdle: this.setResult("idle"), setStream: this.setResult("streaming"), setDone: this.setResult("done"), setErr: this.setResult("error"), setCancel: this.setResult("cancelled"),
+      rtlOffStyle: seg(s.rtl === "off"), rtlArStyle: seg(s.rtl === "ar"), rtlHeStyle: seg(s.rtl === "he"), rtlMixedStyle: seg(s.rtl === "mixed"),
+      setRtlOff: this.setRtl("off"), setRtlAr: this.setRtl("ar"), setRtlHe: this.setRtl("he"), setRtlMixed: this.setRtl("mixed"),
+      openSettings: this.openSettings, openTokens: this.openTokens,
+      // direction override
+      dirChipLabel, dirMenuOpen: s.openMenu === "dir", toggleDirMenu: this.toggleMenu("dir"), dirOpts,
+      tSrcDir, pOrigDir, pDraftDir,
+      // error / cancelled banners
+      tBannerShown: tb.show, tBannerStyle: bnStyle(tb.kind), tBannerIsError: tb.kind === "error", tBannerIsCancel: tb.kind === "cancel", tBannerTitle: tb.title || "", tBannerMsg: tb.msg || "", tBannerRetry: !!tb.retry,
+      pBannerShown: pb.show, pBannerStyle: bnStyle(pb.kind), pBannerIsError: pb.kind === "error", pBannerIsCancel: pb.kind === "cancel", pBannerTitle: pb.title || "", pBannerMsg: pb.msg || "", pBannerRetry: !!pb.retry,
+      tPartialShown: tPartial, pPartialShown: pPartial, retryResult: this.retryResult,
+      // per-hunk + reject
+      pRejectClick: this.rejectPolish, hunkBarShown: s.pResult.status === "done" && s.pResult.showDiff, hunkSummary,
+      acceptAllHunks: this.acceptAllHunks, rejectAllHunks: this.rejectAllHunks,
+      // settings
+      settingsOpen: s.settingsOpen, closeSettings: this.closeSettings, keyProviders,
+      activeKeyLabel: akp.label, activeKeyModel: akp.model, activeIsLocal, activeRemote: !activeIsLocal, activeHasKey,
+      activeMaskedKey: this.maskKey(s.apiKeys[s.keyProvider]), keyDraft: s.keyDraft, onKeyDraft: this.onKeyDraft,
+      keyInputType: s.keyReveal ? "text" : "password", keyReveal: s.keyReveal, revealLabel: s.keyReveal ? "Hide" : "Show", toggleReveal: this.toggleReveal,
+      keyError: s.keyError, hasKeyError: !!s.keyError, keyFieldBorder: s.keyError ? "var(--danger)" : "var(--border-strong)", saveKey: this.saveKey, clearActiveKey: this.clearKey(s.keyProvider),
+      keyPrefixHint: akp.prefix ? (akp.prefix + "…") : "",
+      // token table
+      tokenTableOpen: s.tokenTableOpen, closeTokens: this.closeTokens, tokenGroups,
+      // sidebar modes
+      showSidebar: s.sidebarMode !== "hidden", shellMode: s.sidebarMode === "shell", fullMode: s.sidebarMode === "full",
+      sessionsFull: s.sidebar === "sessions" && s.sidebarMode === "full", glossaryFull: s.sidebar === "glossary" && s.sidebarMode === "full"
+    };
+  }
+
   renderVals() {
-    const s = this.state; const accent = "#574FD6";
+    const s = this.state; const accent = "var(--accent)";
     const isTranslate = true, isPolish = true;
     const tStreaming = s.tResult.status === "streaming", tDone = s.tResult.status === "done";
     const pStreaming = s.pResult.status === "streaming", pDone = s.pResult.status === "done";
     const isStreaming = isTranslate ? tStreaming : pStreaming;
 
-    const tab = (on) => "padding:6px 15px;border:none;border-radius:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:" + (on ? "600" : "500") + ";cursor:pointer;background:" + (on ? "#FFFFFF" : "transparent") + ";color:" + (on ? "#1E1C19" : "#8C887F") + ";box-shadow:" + (on ? "0 1px 2px rgba(30,28,25,0.08)" : "none") + ";";
-    const sbtab = (on) => "flex:1;padding:6px 10px;border:none;border-radius:7px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:" + (on ? "600" : "500") + ";cursor:pointer;background:" + (on ? "#FFFFFF" : "transparent") + ";color:" + (on ? "#1E1C19" : "#8C887F") + ";box-shadow:" + (on ? "0 1px 2px rgba(30,28,25,0.08)" : "none") + ";";
+    const tab = (on) => "padding:6px 15px;border:none;border-radius:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:" + (on ? "600" : "500") + ";cursor:pointer;background:" + (on ? "var(--surface)" : "transparent") + ";color:" + (on ? "var(--ink)" : "var(--t3)") + ";box-shadow:" + (on ? "0 1px 2px var(--shadow-c2)" : "none") + ";";
+    const sbtab = (on) => "flex:1;padding:6px 10px;border:none;border-radius:7px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:" + (on ? "600" : "500") + ";cursor:pointer;background:" + (on ? "var(--surface)" : "transparent") + ";color:" + (on ? "var(--ink)" : "var(--t3)") + ";box-shadow:" + (on ? "0 1px 2px var(--shadow-c2)" : "none") + ";";
 
     const tDir = this.detectDir(s.tSource);
-    const srcNative = tDir === "zh-en" ? "中文" : "English";
-    const tgtNative = tDir === "zh-en" ? "English" : "中文";
+    let srcNative, tgtNative;
+    if (s.rtl === "ar") { srcNative = "العربية"; tgtNative = "English"; }
+    else if (s.rtl === "he") { srcNative = "עברית"; tgtNative = "English"; }
+    else if (s.rtl === "mixed") { srcNative = "mixed bidi"; tgtNative = "English"; }
+    else { srcNative = tDir === "zh-en" ? "中文" : "English"; tgtNative = tDir === "zh-en" ? "English" : "中文"; }
 
     // e2e latency (live while streaming, final when done)
-    const latStyle = (live) => "display:inline-flex;align-items:center;gap:4px;font-family:'Geist Mono',monospace;font-size:10.5px;padding:3px 8px;border-radius:7px;color:" + (live ? "#574FD6" : "#6B6760") + ";background:" + (live ? "#EDECFB" : "#F0EDE7") + ";";
+    const latStyle = (live) => "display:inline-flex;align-items:center;gap:4px;font-family:'Geist Mono',monospace;font-size:10.5px;padding:3px 8px;border-radius:7px;color:" + (live ? "var(--accent-ink)" : "var(--t1)") + ";background:" + (live ? "var(--accent-soft)" : "var(--fill-muted)") + ";";
     const tEl = tStreaming ? (Date.now() - (this._tt0 || Date.now())) / 1000 : (s.tResult.ms || 0) / 1000;
     const pEl = pStreaming ? (Date.now() - (this._p0 || Date.now())) / 1000 : (s.pResult.ms || 0) / 1000;
 
     const s1done = !!s.pOriginal.trim();
     const s2done = !!s.pDraft.trim();
     const s3state = pStreaming ? "active" : (pDone ? "done" : "idle");
-    const circle = (kind) => { const b = "width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;"; if (kind === "done") return b + "background:#2F7D5B;color:#FFFFFF;"; if (kind === "active") return b + "background:#574FD6;color:#FFFFFF;animation:lucid-pulse 1.1s ease-in-out infinite;"; return b + "background:#FFFFFF;border:1px solid #DAD6CE;color:#A8A399;"; };
+    const circle = (kind) => { const b = "width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;"; if (kind === "done") return b + "background:var(--ok-solid);color:var(--on-accent);"; if (kind === "active") return b + "background:var(--accent);color:var(--on-accent);animation:lucid-pulse 1.1s ease-in-out infinite;"; return b + "background:var(--surface);border:1px solid var(--border-strong);color:var(--t5);"; };
 
     const active = s.sessions.find((x) => x.id === s.activeSessionId) || s.sessions[0];
     const totMs = (tasks) => tasks.reduce((a, t) => a + (t.ms || 0), 0);
@@ -430,7 +888,7 @@ class Component extends DCLogic {
     const sessionList = s.sessions.filter((x) => !s.search.trim() || x.name.toLowerCase().includes(s.search.toLowerCase())).map((x) => ({
       name: x.name,
       meta: x.tasks.length + " task" + (x.tasks.length === 1 ? "" : "s") + (x.tasks.length ? " · " + fmtSec(totMs(x.tasks)) + " e2e · " + x.tasks[0].time : " · empty"),
-      rowStyle: "display:flex;align-items:center;gap:10px;width:100%;padding:9px 9px;border:none;border-radius:10px;cursor:pointer;background:" + (x.id === s.activeSessionId ? "#F3F2FE" : "transparent") + ";",
+      rowStyle: "display:flex;align-items:center;gap:10px;width:100%;padding:9px 9px;border:none;border-radius:10px;cursor:pointer;background:" + (x.id === s.activeSessionId ? "var(--accent-tint)" : "transparent") + ";",
       onOpen: this.openSessionDetail(x.id)
     }));
     const taskList = (active ? active.tasks : []).map((t) => {
@@ -439,8 +897,8 @@ class Component extends DCLogic {
       return {
         title: t.title, icon: isT ? "⇄" : "✦",
         meta: (isT ? "Translate · " + t.dir : "Polish") + " · " + lat + " · " + t.time,
-        badgeStyle: "width:26px;height:26px;flex:0 0 auto;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;background:" + (isT ? "#EDECFB" : "#E8F3EC") + ";color:" + (isT ? "#574FD6" : "#2F7D5B") + ";",
-        rowStyle: "display:flex;align-items:center;gap:10px;width:100%;padding:8px 9px;border:none;border-radius:10px;cursor:pointer;background:" + (t.id === s.openTaskId ? "#F3F2FE" : "transparent") + ";",
+        badgeStyle: "width:26px;height:26px;flex:0 0 auto;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;background:" + (isT ? "var(--accent-soft)" : "var(--ok-soft)") + ";color:" + (isT ? "var(--accent)" : "var(--ok)") + ";",
+        rowStyle: "display:flex;align-items:center;gap:10px;width:100%;padding:8px 9px;border:none;border-radius:10px;cursor:pointer;background:" + (t.id === s.openTaskId ? "var(--accent-tint)" : "transparent") + ";",
         onClick: this.loadTask(active.id, t.id)
       };
     });
@@ -453,13 +911,13 @@ class Component extends DCLogic {
 
     const canRun = isTranslate ? !!s.tSource.trim() : !!s.pDraft.trim();
     const btnBase = "display:flex;align-items:center;gap:8px;border-radius:10px;padding:9px 17px;font-family:Geist,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;";
-    const primaryStyle = isStreaming ? btnBase + "background:#FFFFFF;border:1px solid #D7D3CB;color:#1E1C19;" : btnBase + "border:none;background:" + (canRun ? accent : "#C9C6E9") + ";color:#FFFFFF;" + (canRun ? "" : "cursor:default;");
+    const primaryStyle = isStreaming ? btnBase + "background:var(--surface);border:1px solid var(--border-strong);color:var(--ink);" : btnBase + "border:none;background:" + (canRun ? accent : "var(--accent-muted)") + ";color:var(--on-accent);" + (canRun ? "" : "cursor:default;");
     const primaryLabel = isStreaming ? "Stop" : (isTranslate ? "Translate" : "Polish");
     const tCanRun = !!s.tSource.trim();
-    const tBtnStyle = tStreaming ? btnBase + "background:#FFFFFF;border:1px solid #D7D3CB;color:#1E1C19;" : btnBase + "border:none;background:" + (tCanRun ? accent : "#C9C6E9") + ";color:#FFFFFF;" + (tCanRun ? "" : "cursor:default;");
+    const tBtnStyle = tStreaming ? btnBase + "background:var(--surface);border:1px solid var(--border-strong);color:var(--ink);" : btnBase + "border:none;background:" + (tCanRun ? accent : "var(--accent-muted)") + ";color:var(--on-accent);" + (tCanRun ? "" : "cursor:default;");
     const pCanRun = !!s.pDraft.trim();
-    const pBtnStyle = pStreaming ? btnBase + "background:#FFFFFF;border:1px solid #D7D3CB;color:#1E1C19;" : btnBase + "border:none;background:" + (pCanRun ? accent : "#C9C6E9") + ";color:#FFFFFF;" + (pCanRun ? "" : "cursor:default;");
-    const vbtn = (on) => "padding:3px 10px;border:none;border-radius:6px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:" + (on ? "600" : "500") + ";cursor:pointer;background:" + (on ? "#FFFFFF" : "transparent") + ";color:" + (on ? "#1E1C19" : "#8C887F") + ";box-shadow:" + (on ? "0 1px 2px rgba(30,28,25,0.08)" : "none") + ";";
+    const pBtnStyle = pStreaming ? btnBase + "background:var(--surface);border:1px solid var(--border-strong);color:var(--ink);" : btnBase + "border:none;background:" + (pCanRun ? accent : "var(--accent-muted)") + ";color:var(--on-accent);" + (pCanRun ? "" : "cursor:default;");
+    const vbtn = (on) => "padding:3px 10px;border:none;border-radius:6px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:" + (on ? "600" : "500") + ";cursor:pointer;background:" + (on ? "var(--surface)" : "transparent") + ";color:" + (on ? "var(--ink)" : "var(--t3)") + ";box-shadow:" + (on ? "0 1px 2px var(--shadow-c2)" : "none") + ";";
 
     const pKeywords = s.pKeywords.map((k) => ({ label: k, onRemove: this.removeKeyword(k) }));
     const srcLangs = this.LANGS.map((l) => ({ native: l.native, active: l.label === s.pSrcLang, onClick: this.pickSrc(l.label) }));
@@ -469,6 +927,7 @@ class Component extends DCLogic {
     const privacyText = isLocal ? "Your text stays on this device — processed locally by Ollama." : "Your text is sent to " + prov.label + " (" + prov.model + ") to be processed.";
 
     return {
+      ...this.extraVals(),
       goTranslate: this.goTranslate, goPolish: this.goPolish, tabTranslateStyle: tab(isTranslate), tabPolishStyle: tab(isPolish),
       isTranslate, isPolish, runHint: isTranslate ? "⌘↵ to translate" : "⌘↵ to polish",
       // sidebar tabs
@@ -494,28 +953,28 @@ class Component extends DCLogic {
       // translate
       srcNative, tgtNative, tSource: s.tSource, onTSource: this.onTSource, tSourceCount: s.tSource.length + " chars",
       clearTranslate: this.clearTranslate, swapTranslate: this.swapTranslate,
-      translateNode: this.translateNodeEl(), tDone, tDotColor: tStreaming ? "#574FD6" : (tDone ? "#2F7D5B" : "#D2CEC6"), tDotAnim: tStreaming ? "animation:lucid-pulse 1s ease-in-out infinite;" : "",
+      translateNode: this.translateNodeEl(), tDone, tDotColor: tStreaming ? "var(--accent)" : (tDone ? "var(--ok)" : "var(--dot-idle)"), tDotAnim: tStreaming ? "animation:lucid-pulse 1s ease-in-out infinite;" : "",
       tCopy: this.tCopy, tCopyLabel: s.tCopied ? "Copied ✓" : "Copy", tAccept: this.tAccept,
       tLatShown: tStreaming || tDone, tLatency: tEl.toFixed(1) + "s e2e", tLatStyle: latStyle(tStreaming),
       // polish stepper + fields
       step1Circle: circle(s1done ? "done" : "idle"), step1Content: s1done ? "✓" : "1",
       step2Circle: circle(s2done ? "done" : "idle"), step2Content: s2done ? "✓" : "2",
       step3Circle: circle(s3state), step3Content: s3state === "done" ? "✓" : "3",
-      conn1Color: s1done ? "#9FCDB4" : "#E0DCD4", conn2Color: s2done ? "#9FCDB4" : "#E0DCD4",
+      conn1Color: s1done ? "var(--ok-conn)" : "var(--conn-idle)", conn2Color: s2done ? "var(--ok-conn)" : "var(--conn-idle)",
       pOriginal: s.pOriginal, onPOriginal: this.onPOriginal, pSrcNative: this.nativeOf(s.pSrcLang),
       srcLangs, srcOpen: s.openMenu === "src", toggleSrcMenu: this.toggleMenu("src"),
       pDraft: s.pDraft, onPDraft: this.onPDraft, pTgtNative: this.nativeOf(s.pTgtLang),
       genDraft: this.genDraft, draftStreaming: s.draftGen === "streaming", draftIdle: s.draftGen === "idle",
       tgtLangs, tgtOpen: s.openMenu === "tgt", toggleTgtMenu: this.toggleMenu("tgt"),
       pKeywords, pKwInput: s.pKwInput, onPKwInput: this.onPKwInput, onPKwKey: this.onPKwKey,
-      polishNode: this.polishNodeEl(), pDone, pDotColor: pStreaming ? "#574FD6" : (pDone ? "#2F7D5B" : "#D2CEC6"), pDotAnim: pStreaming ? "animation:lucid-pulse 1s ease-in-out infinite;" : "",
+      polishNode: this.polishNodeEl(), pDone, pDotColor: pStreaming ? "var(--accent)" : (pDone ? "var(--ok)" : "var(--dot-idle)"), pDotAnim: pStreaming ? "animation:lucid-pulse 1s ease-in-out infinite;" : "",
       pResultStyle: vbtn(!s.pResult.showDiff), pDiffStyle: vbtn(s.pResult.showDiff), pShowResult: this.pShowResult, pShowDiff: this.pShowDiff,
       pCopy: this.pCopy, pCopyLabel: s.pCopied ? "Copied ✓" : "Copy", pAccept: this.pAccept,
       pLatShown: pStreaming || pDone, pLatency: pEl.toFixed(1) + "s e2e", pLatStyle: latStyle(pStreaming),
       pMeta: pDone ? (s.pResult.text.length + " chars · " + prov.model) : "",
       pOriginalShort: s.pOriginal.length > 30 ? s.pOriginal.slice(0, 30) + "…" : s.pOriginal,
       // privacy + toast
-      privacyText, privacyDot: isLocal ? "#2F7D5B" : "#C28A2E", privacyCta: isLocal ? "Running privately" : "Switch to a local model", privacyAction: this.pickProvider(isLocal ? "anthropic" : "local"),
+      privacyText, privacyDot: isLocal ? "var(--ok)" : "var(--warn)", privacyCta: isLocal ? "Running privately" : "Switch to a local model", privacyAction: this.pickProvider(isLocal ? "anthropic" : "local"),
       toast: s.toast, toastShown: !!s.toast
     };
   }

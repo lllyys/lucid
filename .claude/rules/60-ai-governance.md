@@ -21,7 +21,10 @@ message **or** a top-of-file comment in its test file:
 | Commit message | `feat(scope): <change> (WI-1.2)` |
 | Test header | `// WI-1.2 — <one-line description>` |
 
-Verify with: `bash scripts/check-wi-linkage.sh <plan-file> [--phase=N]`.
+Verify with the WI-linkage checker (`scripts/check-wi-linkage.sh <plan-file>
+[--phase=N]`) — the intended gate, **not yet in the repo** (there is no
+`scripts/` dir yet), so until it is added, verify linkage by hand against the
+table above.
 
 ## 3. Phase boundaries are gated by scripts, not prose
 
@@ -29,14 +32,18 @@ Each plan phase has machine-checkable Definition of Done. A per-plan
 phase-gate script (`bash scripts/check-<plan>-phase.sh <phase-number>`)
 must exit 0 before the plan's Status header ticks to the next phase.
 
-When you start a new long-running plan, copy an existing phase-gate
-script as a template and fill in per-phase assertions.
+When you start a new long-running plan, author its phase-gate script
+(`scripts/check-<plan>-phase.sh`) and fill in per-phase assertions. **No
+phase-gate script exists yet** — the first long-running plan creates the first
+one (there is no template to copy until then).
 
 ## 4. New dependencies are reviewed for hallucination
 
 LLMs hallucinate package names at 5-22% rate (USENIX 2025), with active
-slopsquatting attacks. Every PR that adds a dependency runs
-`scripts/check-new-deps.sh` in CI. The script flags packages that:
+slopsquatting attacks. Every PR that adds a dependency should run a
+new-dependency check (`scripts/check-new-deps.sh`) — **not yet wired into CI
+and not yet in the repo**; until it is, vet new deps by hand against the
+criteria below. The check flags packages that:
 - Don't exist on npm (404)
 - Were created less than 30 days ago
 - Have fewer than 1000 weekly downloads

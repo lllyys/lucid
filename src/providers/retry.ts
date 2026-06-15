@@ -27,13 +27,18 @@ const CANCELLED: ProviderOutcome = { status: 'cancelled', text: '' }
 // of the exponential-backoff cap (maxDelayMs), which must not shorten it.
 const RATE_LIMIT_MAX_MS = 60_000
 
+// Shared retry policy — the single source for both withRetry (collect-to-completion)
+// and the streaming pre-first-byte retry in base.ts (rule 65 §4). Kept here so the two
+// paths never drift.
+export const RETRY_DEFAULTS = { maxAttempts: 3, baseDelayMs: 500, maxDelayMs: 30_000 } as const
+
 /** Coerce any delay to a finite, non-negative, bounded value before it reaches sleep(). */
 function clampMs(ms: number, max: number): number {
   if (!Number.isFinite(ms) || ms < 0) return 0
   return Math.min(ms, max)
 }
 
-function backoffDelay(
+export function backoffDelay(
   error: ProviderError,
   attemptIndex: number,
   base: number,
@@ -52,9 +57,9 @@ export async function withRetry(
   policy: RetryPolicy,
   deps: RetryDeps,
 ): Promise<ProviderOutcome> {
-  const maxAttempts = policy.maxAttempts ?? 3
-  const base = policy.baseDelayMs ?? 500
-  const max = policy.maxDelayMs ?? 30_000
+  const maxAttempts = policy.maxAttempts ?? RETRY_DEFAULTS.maxAttempts
+  const base = policy.baseDelayMs ?? RETRY_DEFAULTS.baseDelayMs
+  const max = policy.maxDelayMs ?? RETRY_DEFAULTS.maxDelayMs
   const signal = policy.signal
   let timeoutRetried = false
 

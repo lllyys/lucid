@@ -1,12 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import App from '@/App'
 import i18n from '@/i18n'
-import { useProviderStore } from '@/stores/providerStore'
 import type { ErrorKind } from '@/providers/types'
 
-// Exhaustive by construction: adding an ErrorKind to the union without an entry
-// here is a compile error, forcing its i18n key to be covered below.
+// Exhaustive by construction: adding an ErrorKind to the union without an entry here is a
+// compile error, forcing its i18n key to be covered below.
 const ALL_ERROR_KINDS: Record<ErrorKind, true> = {
   rateLimited: true,
   providerDown: true,
@@ -20,22 +19,11 @@ const ALL_ERROR_KINDS: Record<ErrorKind, true> = {
   unknown: true,
 }
 
-beforeEach(() => {
-  useProviderStore.getState().reset()
-})
-
-describe('App (WI-7 shell wiring)', () => {
-  it('renders the brand wordmark and the localized tagline (i18n wired)', () => {
+describe('App', () => {
+  it('renders the Lucid Workspace shell', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: /lucid/i })).toBeInTheDocument()
-    expect(screen.getByText(/translation & writing-polish/i)).toBeInTheDocument()
-  })
-
-  it('reflects provider readiness from the store', () => {
-    render(<App />)
-    expect(screen.getByText(/add a provider api key/i)).toBeInTheDocument()
-    act(() => useProviderStore.getState().setApiKey('sk-test'))
-    expect(screen.getByText(/anthropic is ready/i)).toBeInTheDocument()
+    expect(screen.getByText('Lucid')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /settings/i })).toBeInTheDocument()
   })
 
   it('round-trips an error.* key through t() (rule 66 §5)', () => {

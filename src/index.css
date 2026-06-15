@@ -1,1 +1,225 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn dark variant: `.dark` on an ancestor (rule 34 class strategy). */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Lucid token layer (feature #2, WI-1) — authored from the committed design bundle
+ * (dev-docs/designs/lucid-workspace). ONE token system (rule 32): the `--*` lucid
+ * tokens below are the source of truth; shadcn's semantic names (--background,
+ * --primary, …) are BRIDGED to them, and @theme inline exposes both as utilities.
+ * Token NAMES match what rules 32/33/34 reference; values come from the design.
+ */
+:root {
+  /* surfaces + text ramp (warm grey) */
+  --bg-canvas: #faf9f6;
+  --bg-color: #ffffff;          /* raised surface: header, cards, sidebar, menus */
+  --bg-secondary: #f5f3ef;
+  --bg-tertiary: #f0ede7;
+  --hover-bg: #f5f3ef;
+  --row-hover: #f3f2fe;
+  --text-color: #1e1c19;
+  --text-secondary: #6b6760;
+  --text-tertiary: #9a958c;
+  --text-disabled: #b6b1a7;
+
+  /* borders */
+  --border-color: #e9e6e0;
+  --border-control: #e2dfd8;
+  --border-separator: #f0ede7;
+  --border-strong: #dad6ce;
+  --border-dashed: #cfcac1;
+
+  /* accent (indigo) */
+  --accent-primary: #574fd6;
+  --accent-hover: #4a43c2;
+  --accent-bg: #edecfb;
+  --accent-subtle: #f3f2fe;
+  --accent-border: #c9c6e9;
+  --primary-color: var(--accent-primary);   /* rules 32/33 focus patterns */
+
+  /* status */
+  --success: #2f7d5b;
+  --success-bg: #e8f3ec;
+  --success-hover: #286b4e;
+  --warning: #c28a2e;
+  --error-color: #b23a48;
+  --error-bg: #fbeaec;
+  --status-info: var(--accent-primary);
+  --status-success: var(--success);
+  --status-warning: var(--warning);
+  --status-error: var(--error-color);
+
+  /* diff highlights (rule 34) */
+  --diff-add-bg: #edecfb;
+  --diff-add-fg: var(--accent-primary);
+  --diff-del-fg: var(--error-color);
+
+  /* selection */
+  --selection-color: #dddbf7;
+
+  /* radii (design) */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-control: 9px;
+  --radius-lg: 12px;
+  --radius-card: 14px;
+  --radius-pill: 7px;
+
+  /* shadows (warm-tinted from #1e1c19) */
+  --popup-shadow: 0 14px 36px rgba(30, 28, 25, 0.13);
+  --shadow-menu: 0 14px 36px rgba(30, 28, 25, 0.13);
+  --shadow-toast: 0 14px 36px rgba(30, 28, 25, 0.22);
+  --shadow-tab: 0 1px 2px rgba(30, 28, 25, 0.08);
+
+  /* ── shadcn semantic bridge → lucid tokens (one source of truth) ── */
+  --background: var(--bg-canvas);
+  --foreground: var(--text-color);
+  --card: var(--bg-color);
+  --card-foreground: var(--text-color);
+  --popover: var(--bg-color);
+  --popover-foreground: var(--text-color);
+  --primary: var(--accent-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--bg-tertiary);
+  --secondary-foreground: var(--text-color);
+  --muted: var(--bg-secondary);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--accent-bg);
+  --accent-foreground: var(--accent-primary);
+  --destructive: var(--error-color);
+  --destructive-foreground: #ffffff;
+  --border: var(--border-color);
+  --input: var(--border-control);
+  --ring: var(--accent-primary);
+  --radius: var(--radius-md);
+}
+
+/*
+ * Dark theme: the rule-34 MECHANISM ships now, but the committed bundle is
+ * light-only, so authoring bespoke dark values would be self-designed UI (rule 51).
+ * The dark palette is needs-design #16. Until it lands, .dark is a literal mirror
+ * of the light values (so components reading var(--token) don't break under .dark);
+ * do NOT treat these as the final dark palette.
+ */
+.dark {
+  --bg-canvas: #faf9f6;
+  --bg-color: #ffffff;
+  --bg-secondary: #f5f3ef;
+  --bg-tertiary: #f0ede7;
+  --hover-bg: #f5f3ef;
+  --row-hover: #f3f2fe;
+  --text-color: #1e1c19;
+  --text-secondary: #6b6760;
+  --text-tertiary: #9a958c;
+  --text-disabled: #b6b1a7;
+  --border-color: #e9e6e0;
+  --border-control: #e2dfd8;
+  --border-separator: #f0ede7;
+  --border-strong: #dad6ce;
+  --border-dashed: #cfcac1;
+  --accent-hover: #4a43c2;
+  --accent-bg: #edecfb;
+  --accent-subtle: #f3f2fe;
+  --accent-border: #c9c6e9;
+  --success-bg: #e8f3ec;
+  --success-hover: #286b4e;
+  --error-bg: #fbeaec;
+  --diff-add-bg: #edecfb;
+  --selection-color: #dddbf7;
+}
+
+/* Expose lucid + shadcn tokens as Tailwind v4 utilities + fonts. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* design-specific surfaces/roles for lucid's own components */
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-color);
+  --color-surface-secondary: var(--bg-secondary);
+  --color-hover: var(--hover-bg);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-accent-bg: var(--accent-bg);
+
+  /* radii → rounded-* utilities */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-card);
+
+  /* fonts → font-sans / font-mono / font-serif */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-serif: "Newsreader", "Hiragino Mincho ProN", "Yu Mincho", "Songti SC", serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border-color);
+  }
+  body {
+    background: var(--bg-canvas);
+    color: var(--text-color);
+    font-family: var(--font-sans);
+  }
+  /*
+   * The design's helmet sets `textarea:focus, input:focus { outline: none }` — NOT
+   * copied (rule 33: focus must stay visible). Main editors keep the native browser
+   * outline (rule 51 permits it; a bespoke editor focus state is needs-design).
+   */
+  ::selection {
+    background: var(--selection-color);
+  }
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 6px;
+    border: 2px solid var(--bg-canvas);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+  }
+}
+
+/* Animations the design relies on (caret blink, toast rise, status pulse). */
+@keyframes lucid-caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes lucid-toast {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes lucid-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

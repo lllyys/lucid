@@ -20,9 +20,17 @@ export interface TranslateRequest {
 }
 export interface PolishRequest {
   kind: 'polish'
+  /** The DRAFT to polish. */
   text: string
   goal: PolishGoal
   lang?: string
+  /**
+   * Source-meaning reference (the original sentence). Sent to the model — as data,
+   * never as instructions — so it can preserve the draft's intended meaning (feature #2).
+   */
+  original?: string
+  /** Domain anchor terms; sent to the model as data, never as instructions (feature #2). */
+  keywords?: readonly string[]
 }
 export type LLMRequest = TranslateRequest | PolishRequest
 
@@ -92,7 +100,7 @@ export type ProviderOutcome =
   | { status: 'cancelled'; text: string }
   | { status: 'error'; text: string; error: ProviderError }
 
-/** UI/store lifecycle. Defined here; owned and driven by the operation store in feature #3. */
+/** UI/store lifecycle. Defined here; owned and driven by the operation store (feature #2). */
 export type OperationState =
   | { status: 'idle' }
   | { status: 'streaming'; text: string }
@@ -101,8 +109,16 @@ export type OperationState =
 export interface LLMProvider {
   readonly vendor: Vendor
   readonly model: string
-  /** Canonical, single-attempt. Throws ProviderException on failure. */
+  /** Canonical, single-attempt raw stream. Throws ProviderException on failure. */
   stream(request: LLMRequest, options?: StreamOptions): AsyncIterable<StreamChunk>
+  /**
+   * Resilient, normalized streaming (feature #2): yields StreamChunks and RETURNS a
+   * terminal ProviderOutcome (mapped + sanitized error, retained partial text) — the
+   * caller maps nothing. Validates the request, applies a default timeout, and does
+   * pre-first-byte retry/fallback; never replays after a chunk is yielded (rule 65 §3/§4).
+   * Consume via manual `.next()` — `for await` discards the generator's return value.
+   */
+  streamOp(request: LLMRequest, options?: StreamOptions): AsyncGenerator<StreamChunk, ProviderOutcome, void>
   /** Collect-to-completion + retry-if-no-bytes. */
   translate(request: TranslateRequest, options?: StreamOptions): Promise<ProviderOutcome>
   polish(request: PolishRequest, options?: StreamOptions): Promise<ProviderOutcome>
