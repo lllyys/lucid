@@ -1,7 +1,9 @@
 # Feature #4 — Lucid Workspace: designed gap surfaces
 
-> Status: **DRAFT** (Gate 2; rounds 1-3 done — r1 MAJOR GAPS→v2, r2 NEEDS REVISION→v3, r3 NEEDS
-> REVISION (6 Mediums)→v4; round-3 ceiling reached, awaiting user accept/re-audit decision) · Tracker: `docs/features.md` #4
+> Status: **PLANNED** (Gate 2 PASSED — rounds 1-3: r1 MAJOR GAPS→v2, r2 NEEDS REVISION→v3, r3 NEEDS
+> REVISION (6 Mediums)→v4. Round-3 ceiling reached per rule 47; user accepted v4 as the Gate-2 exit
+> (2026-06-15) — the 6 Mediums are fixed with Codex's own prescribed remedies, each WI's Gate-4 code
+> audit backstops implementation. Proceeding to Gate 3.) · Tracker: `docs/features.md` #4
 > Design: `dev-docs/designs/lucid-workspace/project/Lucid Workspace.dc.html` (revised; chat2 resolved
 > needs-design #13–#18). Depends on #2 (VERIFIED). Branch `feat/feature-4-gap-surfaces` (stacked on the
 > triage branch; main is protected).
