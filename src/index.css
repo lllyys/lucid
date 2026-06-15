@@ -123,7 +123,7 @@
   --text-color: #f2efe9;
   --text-secondary: #cbc6bc;
   --text-tertiary: #948f86;
-  --text-disabled: #726d65;
+  --text-disabled: #8e8980; /* AA on dark surfaces (4.63:1) — design t7 #726d65 fails for live hints */
   /* borders */
   --border-color: #322e27;
   --border-control: #3c3830;
@@ -190,6 +190,12 @@
   --color-success-bg: var(--success-bg);
   --color-warning: var(--warning);
   --color-accent-bg: var(--accent-bg);
+  /* role-split tokens (feature #4, WI-2) → utilities */
+  --color-accent-ink: var(--accent-ink);
+  --color-success-solid: var(--success-solid);
+  --color-on-accent: var(--on-accent);
+  --color-danger-border: var(--danger-border);
+  --color-toast-bg: var(--toast-bg);
 
   /* radii → rounded-* utilities */
   --radius-sm: var(--radius-sm);

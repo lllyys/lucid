@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -30,9 +31,20 @@ export function SettingsDialog() {
   const polish = useOperationStore((s) => s.polish)
   const draftTranslate = useOperationStore((s) => s.draftTranslate)
 
+  const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [reveal, setReveal] = useState(false)
   const [shapeError, setShapeError] = useState('') // i18n key, or '' when none
+
+  // Closing discards the unsaved draft + reveal so reopening can't expose a typed-but-unsaved key.
+  const onOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) {
+      setDraft('')
+      setReveal(false)
+      setShapeError('')
+    }
+  }
 
   const providers = implementedPresentations()
   const activeLabel = t(presentationFor(vendor).labelKey)
@@ -68,7 +80,7 @@ export function SettingsDialog() {
       : ''
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <button
           type="button"
@@ -78,14 +90,25 @@ export function SettingsDialog() {
           {t('header.settings')}
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-[580px] gap-0 border-[var(--border-color)] bg-[var(--bg-color)] p-0">
-        <DialogHeader className="space-y-0.5 border-b border-[var(--border-color)] p-4 text-left">
-          <DialogTitle className="text-[15px] font-semibold text-[var(--text-color)]">
-            {t('settings.title')}
-          </DialogTitle>
-          <DialogDescription className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-[var(--text-tertiary)]">
-            {t('settings.subtitle')}
-          </DialogDescription>
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-[580px] gap-0 border-[var(--border-color)] bg-[var(--bg-color)] p-0"
+      >
+        <DialogHeader className="flex-row items-center justify-between space-y-0 border-b border-[var(--border-color)] p-4 text-left">
+          <div className="flex flex-col gap-0.5">
+            <DialogTitle className="text-[15px] font-semibold text-[var(--text-color)]">
+              {t('settings.title')}
+            </DialogTitle>
+            <DialogDescription className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-[var(--text-tertiary)]">
+              {t('settings.subtitle')}
+            </DialogDescription>
+          </div>
+          <DialogClose
+            aria-label={t('settings.close')}
+            className="flex size-[30px] items-center justify-center rounded-[9px] border bg-[var(--bg-color)] text-[var(--text-tertiary)] hover:bg-[var(--hover-bg)] hover:text-[var(--text-color)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
+          >
+            ✕
+          </DialogClose>
         </DialogHeader>
 
         <div className="flex min-h-0">

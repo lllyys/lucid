@@ -118,8 +118,11 @@ export function PolishPanel() {
           type="button"
           onClick={onPolish}
           disabled={translating}
-          className="rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold text-[var(--on-accent)] disabled:opacity-40"
-          style={{ background: isPolishing ? 'var(--text-secondary)' : 'var(--accent-primary)' }}
+          className={`rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold disabled:opacity-40 ${
+            isPolishing
+              ? 'border bg-[var(--bg-tertiary)] text-[var(--text-color)] hover:bg-[var(--hover-bg)]'
+              : 'bg-[var(--accent-primary)] text-[var(--on-accent)]'
+          }`}
         >
           {isPolishing ? t('polish.stop') : t('polish.run')}
         </button>

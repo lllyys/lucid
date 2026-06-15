@@ -86,8 +86,11 @@ export function TranslatePanel() {
         <button
           type="button"
           onClick={onRun}
-          className="rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold text-[var(--on-accent)]"
-          style={{ background: isStreaming ? 'var(--text-secondary)' : 'var(--accent-primary)' }}
+          className={`rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold ${
+            isStreaming
+              ? 'border bg-[var(--bg-tertiary)] text-[var(--text-color)] hover:bg-[var(--hover-bg)]'
+              : 'bg-[var(--accent-primary)] text-[var(--on-accent)]'
+          }`}
         >
           {isStreaming ? t('translate.stop') : t('translate.run')}
         </button>

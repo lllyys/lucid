@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import '@/i18n'
@@ -65,6 +65,23 @@ describe('PolishResult per-hunk accept/reject (WI-7)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reject' }))
     expect(onReject).toHaveBeenCalledOnce()
     expect(onAccept).not.toHaveBeenCalled()
+  })
+
+  it('a new result (new runId) resets prior per-hunk rejections', async () => {
+    useOperationStore.setState({ polish: { status: 'done', text: 'the dog sat', startedAt: 0, elapsedMs: 1, runId: 1 } })
+    const { onAccept } = renderResult()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /compare/i }))
+    await user.click(screen.getByRole('button', { name: /reject this change/i }))
+    expect(screen.getByText('0 of 1 kept')).toBeInTheDocument()
+    // a fresh polish result arrives (runId bumps) — the rejection must clear
+    await act(async () => {
+      useOperationStore.setState({ polish: { status: 'done', text: 'the dog sat', startedAt: 0, elapsedMs: 1, runId: 2 } })
+    })
+    await user.click(screen.getByRole('button', { name: /compare/i }))
+    expect(screen.getByText('1 of 1 kept')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Accept' }))
+    expect(onAccept).toHaveBeenCalledWith('the dog sat')
   })
 
   it('toggling a rejected hunk back keeps it again', async () => {

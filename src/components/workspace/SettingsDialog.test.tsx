@@ -90,6 +90,28 @@ describe('SettingsDialog', () => {
     expect(screen.queryByText('sk-…1234')).toBeNull()
   })
 
+  it('saving a new key clears a runtime invalidKey rejection (resets the panel op)', async () => {
+    useProviderStore.getState().setApiKey('sk-ant-api03-bad00000')
+    useOperationStore.setState({
+      translate: {
+        status: 'error',
+        text: '',
+        error: { kind: 'invalidKey', messageKey: 'error.invalidKey', retryable: false },
+        startedAt: null,
+        elapsedMs: null,
+        runId: 1,
+      },
+    })
+    const user = userEvent.setup()
+    render(<SettingsDialog />)
+    await open(user)
+    expect(screen.getByRole('alert')).toHaveTextContent(/rejected/i)
+    await user.type(screen.getByLabelText(/api key/i), 'sk-ant-api03-good11111')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(useOperationStore.getState().translate.status).toBe('idle') // invalidKey op reset
+    expect(screen.queryByRole('alert')).toBeNull() // rejection cleared
+  })
+
   it('shows a rejected hint when a panel reports an invalidKey for the active provider', async () => {
     vi.useRealTimers()
     useProviderStore.getState().setApiKey('sk-ant-api03-abcd1234')

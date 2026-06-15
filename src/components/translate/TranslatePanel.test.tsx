@@ -10,7 +10,7 @@ import '@/i18n'
 import { TranslatePanel } from './TranslatePanel'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
-import type { LLMProvider, ProviderOutcome, StreamChunk } from '@/providers/types'
+import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
 
 const mockCreate = vi.mocked(createProvider)
 const mockNotify = vi.mocked(notify)
@@ -92,6 +92,35 @@ describe('TranslatePanel', () => {
     await user.click(screen.getByRole('menuitem', { name: /force rtl/i }))
     expect(ta).toHaveAttribute('dir', 'rtl')
     expect(ta).toHaveStyle({ unicodeBidi: 'isolate' })
+  })
+
+  it('the direction override is visual-only — it does NOT change the request languages', async () => {
+    useProviderStore.getState().setApiKey('sk-test')
+    let lastReq: LLMRequest | undefined
+    async function* streamOp(req: LLMRequest): AsyncGenerator<StreamChunk, ProviderOutcome, void> {
+      lastReq = req
+      yield { text: 'x' }
+      return { status: 'done', text: 'x' }
+    }
+    mockCreate.mockReturnValue({
+      vendor: 'anthropic',
+      model: 'm',
+      stream: (req) => streamOp(req),
+      streamOp: (req) => streamOp(req),
+      translate: async () => ({ status: 'done', text: 'x' }),
+      polish: async () => ({ status: 'done', text: 'x' }),
+    })
+    const user = userEvent.setup()
+    render(<TranslatePanel />)
+    await user.type(screen.getByLabelText('Source'), 'Hello world')
+    // force RTL layout — the detected en→zh route must be unchanged
+    await user.click(screen.getByRole('button', { name: /override source direction/i }))
+    await user.click(screen.getByRole('menuitem', { name: /force rtl/i }))
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^translate$/i }))
+      await tick()
+    })
+    expect(lastReq).toMatchObject({ kind: 'translate', sourceLang: 'en', targetLang: 'zh' })
   })
 
   it('Clear empties the source textarea', async () => {

@@ -48,6 +48,14 @@ describe('resolveBidiDirection', () => {
       expect(resolveBidiDirection('👍 שלום', 'auto')).toBe('rtl')
       expect(resolveBidiDirection('👍 hello', 'auto')).toBe('ltr')
     })
+    it('historical RTL scripts resolve rtl (Phoenician, Old South Arabian)', () => {
+      expect(resolveBidiDirection('𐤀𐤁𐤂 hello', 'auto')).toBe('rtl') // Phoenician (U+10900…)
+      expect(resolveBidiDirection('𐩠𐩡 world', 'auto')).toBe('rtl') // Old South Arabian (U+10A60…)
+    })
+    it('a leading strong-R non-letter (Hebrew maqaf / RLM) resolves rtl before Latin', () => {
+      expect(resolveBidiDirection('־ Hello', 'auto')).toBe('rtl') // maqaf U+05BE then Latin
+      expect(resolveBidiDirection('‏Hello', 'auto')).toBe('rtl') // RLM then Latin
+    })
   })
 
   describe('bidiAttrs (v4 §4 — isolate for forced, plaintext for auto)', () => {
