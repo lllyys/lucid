@@ -1,7 +1,41 @@
 # Feature #7 — Custom / OpenAI-compatible provider
 
-> Status: **DRAFT** (Gate 1) · Tracker: `docs/features.md` #7 (★ top priority) · GH: #31
+> Status: **PLANNED** (Gate 2 PASSED — round 1: model assumptions verified READY; SSE edge-cases NEEDS REVISION → v2 resolves with the finish_reason mapping + quirk handling + expanded test catalogue. Independent subagent audit.) · Tracker: `docs/features.md` #7 (★ top priority) · GH: #31
 > Depends on the VERIFIED provider layer (#1/#2). Branch `feat/feature-7-custom-provider` (main protected).
+
+## Gate-2 round-1 resolutions (v2)
+
+Round 1 (independent subagent audit): model assumptions all verified (READY); the test catalogue
+under-specified OpenAI-compatible SSE quirks (NEEDS REVISION). Resolved here (authoritative).
+
+**`finish_reason` → outcome mapping** (the adapter applies this on each `choices[0].finish_reason`):
+
+| finish_reason | outcome |
+|---|---|
+| `stop` / `null`/absent / `tool_calls` / `function_call` | normal completion (we never request tools) |
+| `length` | throw `incomplete` (truncated) |
+| `content_filter` | throw `refusal` (fallbackable iff nothing was produced) |
+
+**SSE-quirk handling** (mirrors `anthropicStream`'s tolerance):
+
+- **role-only / empty deltas** — `{choices:[{delta:{role:'assistant'}}]}` or a delta without a string
+  `content` → yield nothing (only a non-empty string `delta.content` counts as output).
+- **keepalive comments** (`:` lines) — already dropped by `readSSE` (yields data payloads only).
+- **usage-only / empty-choices final chunk** — `{choices:[],usage:{…}}` → no content, no finish →
+  ignored; termination comes from `[DONE]` or a `finish_reason`.
+- **in-stream error object on HTTP 200** — a data payload `{error:{message,type,code}}` → throw a
+  mapped `ProviderException` (`errorFromStatus(error.code)` when `code` is a number, else
+  `streamErrorKind`/`providerDown`). Guards the "choices undefined" crash.
+- **non-2xx HTTP** — handled by the shared `fetchStream` (→ `errorFromStatus(status)`), same as
+  Anthropic; the adapter never sees a non-2xx body.
+- **`delta.content` non-string** (e.g. `null`) — treated as no content (skip), never a throw.
+
+**baseUrl normalization** — strip a single trailing slash, then append `/chat/completions`
+(`${baseUrl.replace(/\/+$/,'')}/chat/completions`). baseUrl is the API root (e.g.
+`https://api.openai.com/v1`). Tested with and without a trailing slash.
+
+**Validation boundary** — `createProvider` validates non-empty `baseUrl` + `model` for `custom` and
+throws up front; the adapter assumes valid inputs (documented; one validation point, factory-tested).
 
 ## Problem
 
@@ -83,9 +117,13 @@ missing baseUrl/model guards. WI-4 is filed against #29 and resumes when the des
 
 - `src/providers/openaiCompatibleProvider.test.ts` — maps an LLMRequest → chat/completions body
   (system+user messages, model, stream:true, Bearer header, `${baseUrl}/chat/completions`); yields
-  `delta.content` chunks; stops on `[DONE]`; `finish_reason:'length'` → `incomplete`; 401/403 →
-  `invalidKey`, 429 → `rateLimited`, 5xx → `providerDown` (via `errorFromStatus`); malformed SSE →
-  `requestFailed`; abort stops consumption; stream-end-without-DONE → `incomplete`.
+  `delta.content` chunks; stops on `[DONE]`; 401/403 → `invalidKey`, 429 → `rateLimited`, 5xx →
+  `providerDown` (via `errorFromStatus`); malformed SSE → `requestFailed`; abort stops consumption;
+  stream-end-without-DONE → `incomplete`. **SSE quirks (v2):** role-only first delta → yields
+  nothing then content; `delta.content: null` → skipped (no throw); usage-only/empty-choices final
+  chunk → ignored, terminates on `[DONE]`; **in-stream `{error:{…}}` on HTTP 200 → mapped throw**;
+  **finish_reason mapping** — `stop` → done, `length` → `incomplete`, `content_filter` → `refusal`;
+  **baseUrl with and without trailing slash** → same `/chat/completions` URL (no double slash).
 - `src/providers/modelRegistry.test.ts` (extend) — `custom` is implemented; `resolveModel('custom', m)`
   returns m; `capabilityOf('custom', …)` undefined → fallback maxTokens.
 - `src/providers/index.test.ts` (extend) — `createProvider('custom', {apiKey, baseUrl, model})` wires
