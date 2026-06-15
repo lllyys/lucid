@@ -1,6 +1,8 @@
 # Feature #3 — Sessions & Glossary sidebar (data + persistence)
 
-> Status: **DRAFT** (Gate 2; round 1 = NEEDS REVISION → v2 below resolves it) · Tracker: `docs/features.md` #3 · GH: #19
+> Status: **PLANNED** (Gate 2 PASSED — round 1 NEEDS REVISION → v2; round 2 READY TO BUILD.
+> Independent audit via fresh-context subagents, as Codex was rate-limited — rule-48 fallback.)
+> Proceeding to Gate 3. · Tracker: `docs/features.md` #3 · GH: #19
 > Design: `dev-docs/designs/lucid-workspace/project/Lucid Workspace.dc.html` (sidebar = the `<aside>`
 > at the SIDEBAR/#18 block: Sessions + Glossary tabs, full/shell/hidden variants). Depends on #2
 > (VERIFIED) + #4 (VERIFIED). Branch `feat/feature-3-sidebar` (main is protected).
