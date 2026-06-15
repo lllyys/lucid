@@ -55,7 +55,7 @@ export function SessionsView() {
                 if (e.key === 'Enter') commitRename()
                 if (e.key === 'Escape') setRenameValue(null)
               }}
-              className="w-full rounded-lg border border-[var(--accent-border)] bg-[var(--bg-color)] px-2.5 py-[7px] text-[14px] font-semibold text-[var(--text-color)] outline-none"
+              className="w-full rounded-lg border border-[var(--accent-border)] bg-[var(--bg-color)] px-2.5 py-[7px] text-[14px] font-semibold text-[var(--text-color)] outline-none focus:border-[var(--accent-ink)]"
             />
           ) : (
             <div className="flex items-center gap-2">
@@ -99,7 +99,7 @@ export function SessionsView() {
         >
           ＋ {t('sidebar.newSession')}
         </button>
-        <div className="flex items-center gap-1.5 rounded-[9px] border px-2.5 py-1.5">
+        <div className="flex items-center gap-1.5 rounded-[9px] border px-2.5 py-1.5 focus-within:border-[var(--accent-ink)]">
           <span className="text-[12px] text-[var(--text-tertiary)]">⌕</span>
           <input
             aria-label={t('sidebar.searchSessions')}

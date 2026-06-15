@@ -40,14 +40,14 @@ export function PolishPanel() {
 
   const resetPolish = () => useOperationStore.getState().reset('polish')
   // Any keyword change (from KeywordsCard here OR the sidebar Glossary's "use") invalidates a
-  // showing polish result — re-polish with the new keywords. Skip the initial mount.
-  const keywordsMounted = useRef(false)
+  // showing polish result — re-polish with the new keywords. Compare against the previous value
+  // (not a mount flag) so a StrictMode double-invoke on mount never triggers a spurious reset.
+  const prevKeywords = useRef(keywords)
   useEffect(() => {
-    if (!keywordsMounted.current) {
-      keywordsMounted.current = true
-      return
+    if (prevKeywords.current !== keywords) {
+      prevKeywords.current = keywords
+      resetPolish()
     }
-    resetPolish()
   }, [keywords])
   // Original / draft / language edits invalidate BOTH the polish result AND any in-flight or stale
   // "Translate original" output (which mirrors into the draft) — reset both so a superseded

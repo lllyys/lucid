@@ -103,7 +103,7 @@ rule-51 *compliance*, not withholding designed UI.
 
 `src/lib/glossary/extractTerms.ts`: `extractTerms(text: string, existing?: readonly string[]):
 string[]`. Heuristic: capitalized multi-word phrases (`/\p{Lu}\p{L}+(?:\s+\p{Lu}\p{L}+)*/u`) AND
-tokens repeated ≥2×, length ≥3; cap at 8; de-dupe case-insensitively against `existing`. **CJK/RTL:**
+tokens repeated ≥2×, length ≥4 (filters common stopwords); cap at 8; de-dupe case-insensitively against `existing`. **CJK/RTL:**
 documented Latin-script-oriented limitation for v1 (CJK has no case; returns none for case-less
 scripts) — a fixture asserts CJK/punctuation-only → `[]`; a follow-up can add segmenter-based
 CJK term mining. No provider call.

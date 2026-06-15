@@ -104,7 +104,7 @@ export function GlossaryView() {
             if (e.key === 'Enter') onAddInput()
           }}
           placeholder={t('glossary.addTerm')}
-          className="w-full border-none bg-transparent text-[13px] text-[var(--text-color)] outline-none"
+          className="w-full border-b border-transparent bg-transparent text-[13px] text-[var(--text-color)] outline-none focus:border-[var(--accent-ink)]"
         />
       </div>
     </div>

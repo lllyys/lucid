@@ -189,6 +189,22 @@ describe('PolishPanel', () => {
     })
   })
 
+  // WI-6: a keyword change (here or from the sidebar glossary) invalidates a showing polish result.
+  it('a keyword change resets a showing polish result', async () => {
+    mockCreate.mockReturnValue(smartProvider())
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'rough draft text')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^polish$/i }))
+      await tick()
+    })
+    expect(screen.getByText('polished result')).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: 'add keyword' }), 'inference{Enter}')
+    expect(useOperationStore.getState().polish.status).toBe('idle')
+    expect(screen.queryByText('polished result')).toBeNull()
+  })
+
   it('polishes the draft, then Accept commits the result to the draft and toasts', async () => {
     mockCreate.mockReturnValue(smartProvider())
     const user = userEvent.setup()

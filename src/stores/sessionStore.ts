@@ -49,7 +49,7 @@ interface SessionState {
   renameSession: (id: string, name: string) => void
   deleteSession: (id: string) => void
   selectSession: (id: string) => void
-  addTask: (task: Pick<Task, 'kind' | 'title' | 'sourceText' | 'resultText'>) => void
+  addTask: (task: Omit<Task, 'id' | 'createdAt'>) => void
   reset: () => void
 }
 
