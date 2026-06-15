@@ -9,7 +9,8 @@ const wd = createWordDiff()
 
 function segStyle(type: DiffSegment['type'], struck: boolean): React.CSSProperties | undefined {
   if (type === 'add') return { background: 'var(--diff-add-bg)', color: 'var(--diff-add-fg)', borderRadius: '3px', padding: '0 2px' }
-  if (type === 'del') return struck ? { color: 'var(--diff-del-fg)', textDecoration: 'line-through', opacity: 0.72 } : undefined
+  // No opacity — `opacity: 0.72` composited --diff-del-fg to 3.42:1 on dark (AA fail); full color is 5.30:1.
+  if (type === 'del') return struck ? { color: 'var(--diff-del-fg)', textDecoration: 'line-through' } : undefined
   return undefined
 }
 

@@ -58,7 +58,7 @@ export function DirectionOverride({
           <DropdownMenuItem key={o.value} className="gap-2" onSelect={() => onChange(o.value)}>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-[13px] font-medium">{t(o.labelKey)}</span>
-              <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{t(o.subKey)}</span>
+              <span className="font-mono text-[10px] text-[var(--text-secondary)]">{t(o.subKey)}</span>
             </span>
             {o.value === value && <Check className="size-3 text-[var(--accent-ink)]" aria-hidden />}
           </DropdownMenuItem>

@@ -131,7 +131,7 @@ export function SettingsDialog() {
                     <span className="truncate text-[12.5px] font-semibold text-[var(--text-color)]">
                       {t(p.labelKey)}
                     </span>
-                    <span className="font-mono text-[9.5px] text-[var(--text-tertiary)]">
+                    <span className="font-mono text-[9.5px] text-[var(--text-secondary)]">
                       {set ? t('settings.statusKeySet') : t('settings.statusNoKey')}
                     </span>
                   </span>

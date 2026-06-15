@@ -48,13 +48,19 @@ describe('resolveBidiDirection', () => {
       expect(resolveBidiDirection('👍 שלום', 'auto')).toBe('rtl')
       expect(resolveBidiDirection('👍 hello', 'auto')).toBe('ltr')
     })
-    it('historical RTL scripts resolve rtl (Phoenician, Old South Arabian)', () => {
-      expect(resolveBidiDirection('𐤀𐤁𐤂 hello', 'auto')).toBe('rtl') // Phoenician (U+10900…)
-      expect(resolveBidiDirection('𐩠𐩡 world', 'auto')).toBe('rtl') // Old South Arabian (U+10A60…)
+    it('historical / obscure RTL scripts resolve rtl (Phoenician, Old South Arabian, Kharoshthi, Avestan)', () => {
+      expect(resolveBidiDirection('𐤀𐤁𐤂 hello', 'auto')).toBe('rtl') // Phoenician U+10900
+      expect(resolveBidiDirection('𐩠𐩡 world', 'auto')).toBe('rtl') // Old South Arabian U+10A60
+      expect(resolveBidiDirection('𐨐𐨑 x', 'auto')).toBe('rtl') // Kharoshthi U+10A10
+      expect(resolveBidiDirection('𐬀𐬁 y', 'auto')).toBe('rtl') // Avestan U+10B00
     })
-    it('a leading strong-R non-letter (Hebrew maqaf / RLM) resolves rtl before Latin', () => {
+    it('a leading strong-R non-letter (Hebrew maqaf / RLM / ALM) resolves rtl before Latin', () => {
       expect(resolveBidiDirection('־ Hello', 'auto')).toBe('rtl') // maqaf U+05BE then Latin
-      expect(resolveBidiDirection('‏Hello', 'auto')).toBe('rtl') // RLM then Latin
+      expect(resolveBidiDirection('‏Hello', 'auto')).toBe('rtl') // RLM U+200F then Latin
+      expect(resolveBidiDirection('؜Hello', 'auto')).toBe('rtl') // ALM U+061C (bidi AL) then Latin
+    })
+    it('a leading LRM (strong L) resolves ltr even before RTL letters', () => {
+      expect(resolveBidiDirection('‎مرحبا', 'auto')).toBe('ltr') // LRM U+200E then Arabic
     })
   })
 

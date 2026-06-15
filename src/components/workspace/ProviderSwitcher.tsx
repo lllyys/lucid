@@ -43,7 +43,7 @@ export function ProviderSwitcher() {
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: `var(${p.dotToken})` }} />
             <span className="flex flex-1 flex-col">
               <span className="text-[13.5px] font-medium">{t(p.labelKey)}</span>
-              <span className="font-mono text-[11px] text-[var(--text-tertiary)]">{resolveModel(p.vendor)}</span>
+              <span className="font-mono text-[11px] text-[var(--text-secondary)]">{resolveModel(p.vendor)}</span>
             </span>
             {p.isLocal && (
               <span className="rounded-[5px] bg-[var(--success-bg)] px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.04em] text-[var(--success)]">
