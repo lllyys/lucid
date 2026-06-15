@@ -8,7 +8,7 @@
 
 import { sanitizeDetail } from './redact'
 
-export type Vendor = 'anthropic' | 'openai' | 'gemini' | 'ollama'
+export type Vendor = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'custom'
 export type PolishGoal = 'clarity' | 'tone' | 'grammar' | 'concise'
 export const POLISH_GOALS: readonly PolishGoal[] = ['clarity', 'tone', 'grammar', 'concise']
 

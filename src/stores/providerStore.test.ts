@@ -76,10 +76,32 @@ describe('providerStore', () => {
     expect(s.model).toBe('claude-fable-5')
   })
 
-  it('reset restores the initial state atomically', () => {
-    useProviderStore.setState({ vendor: 'openai', model: 'x', apiKey: 'sk-test' })
+  it('reset restores the initial state atomically (incl. baseUrl)', () => {
+    useProviderStore.setState({ vendor: 'openai', model: 'x', apiKey: 'sk-test', baseUrl: 'https://x/v1' })
     useProviderStore.getState().reset()
     const s = useProviderStore.getState()
-    expect(s).toMatchObject({ vendor: 'anthropic', model: 'claude-fable-5', apiKey: '' })
+    expect(s).toMatchObject({ vendor: 'anthropic', model: 'claude-fable-5', apiKey: '', baseUrl: '' })
+  })
+
+  describe('custom provider (#7)', () => {
+    it('setVendor accepts custom (implemented) and resets the model to its empty default', () => {
+      useProviderStore.getState().setVendor('custom')
+      expect(useProviderStore.getState().vendor).toBe('custom')
+      expect(useProviderStore.getState().model).toBe('')
+    })
+    it('setBaseUrl stores the endpoint', () => {
+      useProviderStore.getState().setBaseUrl('https://api.example.com/v1')
+      expect(useProviderStore.getState().baseUrl).toBe('https://api.example.com/v1')
+    })
+    it('isReady for custom needs key + baseUrl + model', () => {
+      const s = useProviderStore.getState()
+      s.setVendor('custom')
+      s.setApiKey('sk-test')
+      expect(useProviderStore.getState().isReady()).toBe(false) // no baseUrl/model
+      useProviderStore.getState().setBaseUrl('https://x/v1')
+      expect(useProviderStore.getState().isReady()).toBe(false) // still no model
+      useProviderStore.getState().setModel('my-model')
+      expect(useProviderStore.getState().isReady()).toBe(true)
+    })
   })
 })

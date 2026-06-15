@@ -40,11 +40,24 @@ describe('REGISTRY', () => {
 })
 
 describe('isVendorImplemented', () => {
-  it('anthropic is implemented; the other three are not (until #2)', () => {
+  it('anthropic + custom are implemented; openai/gemini/ollama are not (until #5)', () => {
     expect(isVendorImplemented('anthropic')).toBe(true)
+    expect(isVendorImplemented('custom')).toBe(true)
     for (const v of ['openai', 'gemini', 'ollama'] as Vendor[]) {
       expect(isVendorImplemented(v)).toBe(false)
     }
+  })
+})
+
+describe('custom provider registry (#7 — allowAnyModel)', () => {
+  it('resolveModel returns the user-supplied model as-is (no fixed catalog)', () => {
+    expect(resolveModel('custom', 'llama-3.1-70b')).toBe('llama-3.1-70b')
+  })
+  it('resolveModel returns "" when no model is supplied for custom', () => {
+    expect(resolveModel('custom')).toBe('')
+  })
+  it('capabilityOf is undefined for any custom model (fallback max-tokens applies)', () => {
+    expect(capabilityOf('custom', 'anything')).toBeUndefined()
   })
 })
 

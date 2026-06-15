@@ -24,6 +24,8 @@ export interface VendorRegistryEntry {
   defaultModel: string
   fallbacks: string[]
   models: Record<string, ModelCapability>
+  /** A user-supplied model is accepted as-is (no fixed catalog) — the `custom` provider (#7). */
+  allowAnyModel?: boolean
 }
 
 // Limits per the claude-api skill catalog (shared/models.md): 1M context window;
@@ -64,10 +66,12 @@ export const REGISTRY: Record<Vendor, VendorRegistryEntry> = {
     fallbacks: ['claude-opus-4-8', 'claude-sonnet-4-6'],
     models: ANTHROPIC_MODELS,
   },
-  // Registered but not implemented until #2; model IDs are populated then.
+  // Registered but not implemented until #5; model IDs are populated then.
   openai: { vendor: 'openai', implemented: false, defaultModel: '', fallbacks: [], models: {} },
   gemini: { vendor: 'gemini', implemented: false, defaultModel: '', fallbacks: [], models: {} },
   ollama: { vendor: 'ollama', implemented: false, defaultModel: '', fallbacks: [], models: {} },
+  // Custom / OpenAI-compatible (#7): implemented; the model is user-supplied (no fixed catalog).
+  custom: { vendor: 'custom', implemented: true, defaultModel: '', fallbacks: [], models: {}, allowAnyModel: true },
 }
 
 export function isVendorImplemented(vendor: Vendor): boolean {
@@ -76,6 +80,7 @@ export function isVendorImplemented(vendor: Vendor): boolean {
 
 export function resolveModel(vendor: Vendor, requested?: string): string {
   const entry = REGISTRY[vendor]
+  if (entry.allowAnyModel) return requested ?? entry.defaultModel // user-supplied model, no catalog
   if (requested && entry.models[requested]) return requested
   return entry.defaultModel
 }

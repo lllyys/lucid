@@ -4,9 +4,14 @@ import type { Vendor } from '@/providers/types'
 
 describe('providerPresentation', () => {
   it('has an entry for every Vendor, keyed by a valid vendor', () => {
-    const vendors: Vendor[] = ['anthropic', 'openai', 'gemini', 'ollama']
+    const vendors: Vendor[] = ['anthropic', 'openai', 'gemini', 'ollama', 'custom']
     for (const v of vendors) expect(presentationFor(v).vendor).toBe(v)
     expect(PROVIDER_PRESENTATION).toHaveLength(vendors.length)
+  })
+
+  it('excludes custom from the switcher list until its config UI ships (#29), though it has a presentation entry', () => {
+    expect(presentationFor('custom').vendor).toBe('custom')
+    expect(implementedPresentations().map((p) => p.vendor)).not.toContain('custom')
   })
 
   it('maps the design "google" to the gemini vendor (there is no google vendor)', () => {
