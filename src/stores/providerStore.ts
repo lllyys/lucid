@@ -13,6 +13,13 @@ import { isVendorImplemented, resolveModel } from '@/providers/modelRegistry'
 
 const VENDORS: readonly Vendor[] = ['anthropic', 'openai', 'gemini', 'ollama', 'custom']
 
+/** Per-vendor "test connection" outcome (#6). Latency on success; an i18n msgKey on failure. */
+export interface TestResult {
+  status: 'idle' | 'testing' | 'ok' | 'fail'
+  latencyMs?: number
+  msgKey?: string
+}
+
 interface ProviderState {
   vendor: Vendor
   /** Mirror of `models[vendor]` — the active vendor's selected model. */
@@ -25,6 +32,8 @@ interface ProviderState {
   models: Record<Vendor, string>
   /** Endpoint base URL for the custom / OpenAI-compatible provider (#7); unused by named vendors. */
   baseUrl: string
+  /** Per-vendor test-connection outcomes (#6), in memory only. */
+  testResults: Record<Vendor, TestResult>
   setVendor: (vendor: Vendor) => void
   /** Set a model. Targets `vendor` if given (Settings edits the viewed provider), else the active one. */
   setModel: (model: string, vendor?: Vendor) => void
@@ -33,6 +42,8 @@ interface ProviderState {
   setBaseUrl: (baseUrl: string) => void
   /** Clear a key. Targets `vendor` if given, else the active one. */
   clearKey: (vendor?: Vendor) => void
+  /** Record a per-vendor test-connection outcome (#6). */
+  setTestResult: (vendor: Vendor, result: TestResult) => void
   isReady: () => boolean
   reset: () => void
 }
@@ -41,14 +52,20 @@ const emptyKeys = (): Record<Vendor, string> =>
   Object.fromEntries(VENDORS.map((v) => [v, ''])) as Record<Vendor, string>
 const defaultModels = (): Record<Vendor, string> =>
   Object.fromEntries(VENDORS.map((v) => [v, resolveModel(v)])) as Record<Vendor, string>
+const idleTests = (): Record<Vendor, TestResult> =>
+  Object.fromEntries(VENDORS.map((v) => [v, { status: 'idle' }])) as Record<Vendor, TestResult>
 
-const initial = (): Pick<ProviderState, 'vendor' | 'model' | 'apiKey' | 'apiKeys' | 'models' | 'baseUrl'> => ({
+const initial = (): Pick<
+  ProviderState,
+  'vendor' | 'model' | 'apiKey' | 'apiKeys' | 'models' | 'baseUrl' | 'testResults'
+> => ({
   vendor: 'anthropic',
   model: resolveModel('anthropic'),
   apiKey: '',
   apiKeys: emptyKeys(),
   models: defaultModels(),
   baseUrl: '',
+  testResults: idleTests(),
 })
 
 export const useProviderStore = create<ProviderState>((set, get) => ({
@@ -72,6 +89,7 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
       return { apiKeys: { ...s.apiKeys, [target]: apiKey }, ...(target === s.vendor ? { apiKey } : {}) }
     }),
   setBaseUrl: (baseUrl) => set({ baseUrl }), // for the custom provider (#7); in-memory like apiKey
+  setTestResult: (vendor, result) => set((s) => ({ testResults: { ...s.testResults, [vendor]: result } })),
   clearKey: (vendor) =>
     set((s) => {
       const target = vendor ?? s.vendor

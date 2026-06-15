@@ -15,8 +15,10 @@ import { configurablePresentations, presentationFor } from '@/lib/providers/prov
 import { applyKeyChange } from '@/lib/providers/keyChange'
 import { resolveModel } from '@/providers/modelRegistry'
 import type { Vendor } from '@/providers/types'
+import { useTestConnection } from '@/hooks/useTestConnection'
 import { ModelControl } from './settings/ModelControl'
 import { CredentialFields } from './settings/CredentialFields'
+import { ConnectionPanel, StatTiles } from './settings/ConnectionPanel'
 
 /**
  * Provider Settings — the redesigned 880px provider surface (feature #5 WI-6a — design #29). A left
@@ -42,6 +44,8 @@ export function SettingsDialog() {
   const apiKeys = useProviderStore((s) => s.apiKeys)
   const models = useProviderStore((s) => s.models)
   const baseUrl = useProviderStore((s) => s.baseUrl)
+  const testResults = useProviderStore((s) => s.testResults)
+  const { test } = useTestConnection()
   const translate = useOperationStore((s) => s.translate)
   const polish = useOperationStore((s) => s.polish)
   const draftTranslate = useOperationStore((s) => s.draftTranslate)
@@ -179,6 +183,8 @@ export function SettingsDialog() {
               )}
             </div>
 
+            <ConnectionPanel result={testResults[viewVendor]} onTest={() => void test(viewVendor)} />
+
             <ModelControl
               key={`model-${viewVendor}`}
               vendor={viewVendor}
@@ -195,6 +201,21 @@ export function SettingsDialog() {
               onSaveKey={onSaveKey}
               onSaveUrl={(u) => useProviderStore.getState().setBaseUrl(u)}
             />
+
+            <StatTiles result={testResults[viewVendor]} />
+
+            {/* Privacy posture (design order: last) — local stays on device; remote text is sent out. */}
+            <div className="flex items-start gap-2.5 rounded-[11px] border border-[var(--border-color)] bg-[var(--bg-canvas)] px-3 py-2.5">
+              <span
+                className="text-[13px]"
+                style={{ color: viewPres.isLocal ? 'var(--success)' : 'var(--text-tertiary)' }}
+              >
+                🔒
+              </span>
+              <span className="text-[11.5px] leading-[1.6] text-[var(--text-secondary)]">
+                {viewPres.isLocal ? t('settings.privacyLocal') : t('settings.memoryNote', { provider: viewLabel })}
+              </span>
+            </div>
           </div>
         </div>
       </DialogContent>
