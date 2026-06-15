@@ -1,28 +1,20 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 
-vi.mock('@/components/workspace/notify', () => ({ notify: vi.fn() }))
-import { notify } from '@/components/workspace/notify'
 import {
   useSessionStore,
   searchSessions,
   migrateSessions,
   partializeSessions,
-  handleStorageQuota,
   __setSessionClock,
   __resetSessionIds,
-  __resetQuotaNotice,
   MAX_SESSIONS,
   MAX_TASKS_PER_SESSION,
   type Session,
 } from './sessionStore'
 
-const mockNotify = vi.mocked(notify)
-
 let t = 1000
 beforeEach(() => {
-  mockNotify.mockReset()
   __resetSessionIds()
-  __resetQuotaNotice()
   t = 1000
   __setSessionClock(() => ++t)
   useSessionStore.getState().reset()
@@ -149,11 +141,6 @@ describe('persist helpers', () => {
   it('migrateSessions passes through current version', () => {
     const state = { sessions: [], activeSessionId: null }
     expect(migrateSessions(state, 1)).toBe(state)
-  })
-  it('handleStorageQuota notifies once per session', () => {
-    handleStorageQuota()
-    handleStorageQuota()
-    expect(mockNotify).toHaveBeenCalledTimes(1)
   })
   it('partializeSessions persists only sessions + activeSessionId', () => {
     expect(partializeSessions({ sessions: [], activeSessionId: 'x' } as never)).toEqual({

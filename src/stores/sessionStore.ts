@@ -9,7 +9,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { createSafeJSONStorage } from '@/lib/storage/safeJSONStorage'
-import { notify } from '@/components/workspace/notify'
+import { notifyStorageFull } from '@/lib/storage/quotaNotice'
 import i18n from '@/i18n'
 
 export interface Task {
@@ -71,17 +71,6 @@ export function migrateSessions(persisted: unknown, version: number): unknown {
   return version === PERSIST_VERSION ? persisted : undefined
 }
 
-// One-time, localized quota notice (rule 65 §4 — a failed save is not silent).
-let quotaNotified = false
-export function handleStorageQuota(): void {
-  if (quotaNotified) return
-  quotaNotified = true
-  notify(i18n.t('error.storageFull'))
-}
-export function __resetQuotaNotice(): void {
-  quotaNotified = false
-}
-
 /** What gets persisted — the data only (never derived/transient fields). */
 export function partializeSessions(s: SessionState): Pick<SessionState, 'sessions' | 'activeSessionId'> {
   return { sessions: s.sessions, activeSessionId: s.activeSessionId }
@@ -121,7 +110,7 @@ export const useSessionStore = create<SessionState>()(
     {
       name: 'lucid.sessions',
       version: PERSIST_VERSION,
-      storage: createJSONStorage(() => createSafeJSONStorage({ onWriteError: handleStorageQuota })),
+      storage: createJSONStorage(() => createSafeJSONStorage({ onWriteError: notifyStorageFull })),
       migrate: migrateSessions,
       partialize: partializeSessions,
     },
