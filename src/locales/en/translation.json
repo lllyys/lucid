@@ -103,6 +103,8 @@
   "banner.unknown.title": "Something went wrong",
   "banner.stopped.title": "Stopped",
   "banner.stopped.body": "You stopped this — the partial result above is kept.",
+  "error.storageFull": "Local storage is full — recent history may not be saved.",
+  "sidebar.untitledSession": "Untitled session",
   "error.rateLimited": "You've hit the rate limit — please wait a moment and try again.",
   "error.providerDown": "The provider is temporarily unavailable — try again or switch providers.",
   "error.invalidKey": "Your API key is missing or invalid.",
