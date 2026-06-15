@@ -17,6 +17,7 @@ interface ProviderState {
   setVendor: (vendor: Vendor) => void
   setModel: (model: string) => void
   setApiKey: (apiKey: string) => void
+  clearKey: () => void
   isReady: () => boolean
   reset: () => void
 }
@@ -35,6 +36,7 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
   },
   setModel: (model) => set({ model }),
   setApiKey: (apiKey) => set({ apiKey }),
+  clearKey: () => set({ apiKey: '' }), // additive (feature #4, WI-1); vendor/model untouched
   isReady: () => isVendorImplemented(get().vendor) && get().apiKey.trim() !== '',
   reset: () => set({ ...INITIAL }),
 }))

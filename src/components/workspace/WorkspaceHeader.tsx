@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next'
+import { SettingsDialog } from './SettingsDialog'
 
 /**
- * Workspace header (feature #2, WI-3) — the designed top bar: brand wordmark + tagline,
- * a keyboard run hint, and a Settings affordance. The Settings button is a visible
- * affordance with no action: no settings/API-key dialog is in the committed design
- * (rule 51 — that surface is needs-design #13).
+ * Workspace header (feature #2, WI-3; Settings wired in feature #4, WI-1) — the designed top
+ * bar: brand wordmark + tagline, a keyboard run hint, and the Settings affordance. The Settings
+ * button now opens the provider / API-key dialog (#13, designed); the trigger lives inside
+ * SettingsDialog.
  */
 export function WorkspaceHeader() {
   const { t } = useTranslation()
@@ -22,13 +23,7 @@ export function WorkspaceHeader() {
       <div className="flex items-center gap-[14px]">
         <span className="font-mono text-[11.5px] text-[var(--text-tertiary)]">{t('header.runHint')}</span>
         <span className="h-[18px] w-px bg-[var(--border-color)]" />
-        <button
-          type="button"
-          className="flex items-center gap-[7px] rounded-md border bg-[var(--bg-color)] px-[10px] py-1.5 font-sans text-[12.5px] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]"
-        >
-          <span className="h-[13px] w-[13px] rounded-full border-[1.5px] border-[var(--text-tertiary)]" />
-          {t('header.settings')}
-        </button>
+        <SettingsDialog />
       </div>
     </header>
   )

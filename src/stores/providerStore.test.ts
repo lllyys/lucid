@@ -60,6 +60,22 @@ describe('providerStore', () => {
     expect(useProviderStore.getState().model).toBe('claude-sonnet-4-6')
   })
 
+  it('clearKey empties the key and makes the provider not ready', () => {
+    useProviderStore.getState().setApiKey('sk-ant-api03-abcd1234')
+    expect(useProviderStore.getState().isReady()).toBe(true)
+    useProviderStore.getState().clearKey()
+    expect(useProviderStore.getState().apiKey).toBe('')
+    expect(useProviderStore.getState().isReady()).toBe(false)
+  })
+
+  it('clearKey leaves the vendor and model untouched', () => {
+    useProviderStore.getState().setApiKey('sk-ant-api03-abcd1234')
+    useProviderStore.getState().clearKey()
+    const s = useProviderStore.getState()
+    expect(s.vendor).toBe('anthropic')
+    expect(s.model).toBe('claude-fable-5')
+  })
+
   it('reset restores the initial state atomically', () => {
     useProviderStore.setState({ vendor: 'openai', model: 'x', apiKey: 'sk-test' })
     useProviderStore.getState().reset()
