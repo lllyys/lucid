@@ -115,7 +115,11 @@ export function TranslatePanel() {
           <span className="mb-2 font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
             {t('translate.translation')}
           </span>
-          <TranslateResult accepted={op.status === 'done' && acceptedText === op.text} onAccept={onAccept} />
+          <TranslateResult
+            accepted={op.status === 'done' && acceptedText === op.text}
+            onAccept={onAccept}
+            onRetry={onRun}
+          />
         </section>
       </div>
     </section>

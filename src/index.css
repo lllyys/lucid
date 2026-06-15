@@ -53,6 +53,7 @@
   --warning: #c28a2e;
   --error-color: #b23a48;
   --error-bg: #fbeaec;
+  --danger-border: #f0cdd2;     /* error-banner border (feature #4, WI-5) */
   --status-info: var(--accent-primary);
   --status-success: var(--success);
   --status-warning: var(--warning);
@@ -144,6 +145,7 @@
   --warning: #d7a648;
   --error-color: #e27182;
   --error-bg: #2e1a1d;
+  --danger-border: #4a2a2f;
   /* diff bg + selection + toast */
   --diff-add-bg: #2a2649;
   --selection-color: #353160;

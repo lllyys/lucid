@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
 import { createWordDiff, applyDiff, type DiffSegment } from '@/lib/polish/wordDiff'
+import { ResultBanner } from '@/components/workspace/ResultBanner'
 
 const wd = createWordDiff()
 
@@ -93,6 +94,15 @@ export function PolishResult({
           </>
         )}
       </div>
+
+      {(op.status === 'error' || op.status === 'cancelled') && (
+        <ResultBanner
+          status={op.status}
+          error={op.status === 'error' ? op.error : undefined}
+          hasPartial={op.text !== ''}
+          onRetry={onRegenerate}
+        />
+      )}
 
       {isDone && (
         <div className="mt-3 flex items-center gap-2">
