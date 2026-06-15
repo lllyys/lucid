@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
+import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
 import { usePanelRun } from '@/hooks/usePanelRun'
 import { notify } from '@/components/workspace/notify'
 import { OriginalCard } from './OriginalCard'
@@ -21,7 +22,8 @@ export function PolishPanel() {
   const [tgtLang, setTgtLang] = useState('en')
   const [original, setOriginal] = useState('')
   const [draft, setDraft] = useState('')
-  const [keywords, setKeywords] = useState<string[]>([])
+  // Keywords live in a store (feature #3) so the sidebar Glossary's "use" can inject a term.
+  const keywords = usePolishKeywordsStore((s) => s.keywords)
   const polishOp = useOperationStore((s) => s.polish)
   const dt = useOperationStore((s) => s.draftTranslate)
   const { run, abort } = usePanelRun()
@@ -36,6 +38,16 @@ export function PolishPanel() {
   }, [dt.status, dtText])
 
   const resetPolish = () => useOperationStore.getState().reset('polish')
+  // Any keyword change (from KeywordsCard here OR the sidebar Glossary's "use") invalidates a
+  // showing polish result — re-polish with the new keywords. Skip the initial mount.
+  const keywordsMounted = useRef(false)
+  useEffect(() => {
+    if (!keywordsMounted.current) {
+      keywordsMounted.current = true
+      return
+    }
+    resetPolish()
+  }, [keywords])
   // Original / draft / language edits invalidate BOTH the polish result AND any in-flight or stale
   // "Translate original" output (which mirrors into the draft) — reset both so a superseded
   // draftTranslate stream can never overwrite newer user input.
@@ -84,14 +96,9 @@ export function PolishPanel() {
     setTgtLang(c)
     resetForInput()
   }
-  const addKeyword = (k: string) => {
-    setKeywords((ks) => (ks.includes(k) ? ks : [...ks, k]))
-    resetPolish()
-  }
-  const removeKeyword = (k: string) => {
-    setKeywords((ks) => ks.filter((x) => x !== k))
-    resetPolish()
-  }
+  // The keywords-change effect above resets the polish op; these just mutate the store.
+  const addKeyword = (k: string) => usePolishKeywordsStore.getState().addKeyword(k)
+  const removeKeyword = (k: string) => usePolishKeywordsStore.getState().removeKeyword(k)
   const onAccept = (text: string) => {
     setDraft(text)
     // Commit the polished text AND stop any in-flight "Translate original" — otherwise its next

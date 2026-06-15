@@ -10,6 +10,7 @@ import '@/i18n'
 import { PolishPanel } from './PolishPanel'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
+import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
 import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
 
 const mockCreate = vi.mocked(createProvider)
@@ -66,6 +67,7 @@ beforeEach(() => {
   mockNotify.mockReset()
   useProviderStore.getState().reset()
   useProviderStore.getState().setApiKey('sk-test')
+  usePolishKeywordsStore.getState().reset()
   const ops = useOperationStore.getState()
   ops.reset('polish')
   ops.reset('draftTranslate')

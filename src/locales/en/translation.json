@@ -120,6 +120,7 @@
   "glossary.addTerm": "Add a domain term + Enter…",
   "glossary.extract": "Extract from current text",
   "glossary.use": "use",
+  "glossary.useAria": "Use {{term}} as a keyword",
   "glossary.removeTerm": "Remove {{term}}",
   "glossary.suggested": "Suggested",
   "error.rateLimited": "You've hit the rate limit — please wait a moment and try again.",
