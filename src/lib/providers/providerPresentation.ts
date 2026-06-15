@@ -24,6 +24,7 @@ const BY_VENDOR: Record<Vendor, ProviderPresentation> = {
   openai: { vendor: 'openai', labelKey: 'provider.openai', dotToken: '--warning', isLocal: false },
   gemini: { vendor: 'gemini', labelKey: 'provider.gemini', dotToken: '--warning', isLocal: false },
   ollama: { vendor: 'ollama', labelKey: 'provider.ollama', dotToken: '--success', isLocal: true },
+  custom: { vendor: 'custom', labelKey: 'provider.custom', dotToken: '--accent-ink', isLocal: false },
 }
 
 export const PROVIDER_PRESENTATION: readonly ProviderPresentation[] = Object.values(BY_VENDOR)
@@ -32,7 +33,11 @@ export function presentationFor(vendor: Vendor): ProviderPresentation {
   return BY_VENDOR[vendor]
 }
 
-/** Only the vendors the provider layer actually implements (rule 51 — no silent no-op rows). */
+/**
+ * Vendors the switcher/Settings offer (rule 51 — no silent no-op rows). `custom` (#7) is
+ * implemented in the factory but NOT switcher-selectable until its base-URL/model config UI ships
+ * with the Settings redesign (#29) — offering it without a way to configure it would be a dead row.
+ */
 export function implementedPresentations(): readonly ProviderPresentation[] {
-  return PROVIDER_PRESENTATION.filter((p) => isVendorImplemented(p.vendor))
+  return PROVIDER_PRESENTATION.filter((p) => isVendorImplemented(p.vendor) && p.vendor !== 'custom')
 }

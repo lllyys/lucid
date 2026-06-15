@@ -9,7 +9,9 @@ import { ProviderException } from './types'
 import { makeProviderError } from './errors'
 import { isVendorImplemented, resolveModel } from './modelRegistry'
 import { defineProvider } from './base'
+import type { VendorStreamFn } from './base'
 import { anthropicStream } from './anthropicProvider'
+import { openaiCompatibleStream } from './openaiCompatibleProvider'
 import type { RetryDeps } from './retry'
 
 /** Real backoff sleep: resolves after `ms`, or early (without rejecting) if `signal` aborts. */
@@ -43,7 +45,19 @@ export function createProvider(
     throw new ProviderException(makeProviderError('invalidKey', { detail: 'missing API key' }))
   }
   const model = resolveModel(vendor, config.model)
-  // Anthropic is the only implemented vendor; #2 adds a vendor switch here.
-  const streamFn = anthropicStream({ apiKey: config.apiKey, baseUrl: config.baseUrl, fetch: config.fetch })
+  let streamFn: VendorStreamFn
+  if (vendor === 'custom') {
+    // Custom / OpenAI-compatible (#7): user-supplied endpoint + model are required.
+    if (!config.baseUrl) {
+      throw new ProviderException(makeProviderError('requestFailed', { detail: 'custom provider requires a base URL' }))
+    }
+    if (!model) {
+      throw new ProviderException(makeProviderError('requestFailed', { detail: 'custom provider requires a model' }))
+    }
+    streamFn = openaiCompatibleStream({ apiKey: config.apiKey, baseUrl: config.baseUrl, fetch: config.fetch })
+  } else {
+    // Anthropic today; #5 adds OpenAI/Gemini/Ollama branches (Ollama/OpenAI reuse openaiCompatibleStream).
+    streamFn = anthropicStream({ apiKey: config.apiKey, baseUrl: config.baseUrl, fetch: config.fetch })
+  }
   return defineProvider({ vendor, model, streamFn, retry: deps })
 }

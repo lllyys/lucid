@@ -29,6 +29,7 @@
   "provider.openai": "OpenAI",
   "provider.gemini": "Google",
   "provider.ollama": "Local",
+  "provider.custom": "Custom",
   "provider.private": "private",
   "common.copy": "Copy",
   "common.copied": "Copied",

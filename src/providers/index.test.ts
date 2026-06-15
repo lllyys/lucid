@@ -34,6 +34,39 @@ describe('createProvider', () => {
       expect((e as ProviderException).providerError.kind).toBe('requestFailed')
     }
   })
+  it('builds a custom provider with a user-supplied baseUrl + model (OpenAI-compatible)', () => {
+    const p = createProvider('custom', { apiKey: 'sk-test', baseUrl: 'https://api.example.com/v1', model: 'my-model' })
+    expect(p.vendor).toBe('custom')
+    expect(p.model).toBe('my-model')
+  })
+  it('a custom provider streams through the OpenAI-compatible engine (mocked fetch)', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(streamResponse(sse({ choices: [{ delta: { content: 'hi' } }] }).concat('data: [DONE]\n\n'))),
+    )
+    const p = createProvider(
+      'custom',
+      { apiKey: 'sk-test', baseUrl: 'https://api.example.com/v1', model: 'm', fetch: fetchMock as unknown as typeof fetch },
+      fakeDeps,
+    )
+    expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'hi' })
+    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('https://api.example.com/v1/chat/completions')
+  })
+  it('a custom provider without a baseUrl throws requestFailed', () => {
+    try {
+      createProvider('custom', { apiKey: 'sk-test', model: 'm' })
+      throw new Error('should have thrown')
+    } catch (e) {
+      expect((e as ProviderException).providerError.kind).toBe('requestFailed')
+    }
+  })
+  it('a custom provider without a model throws requestFailed', () => {
+    try {
+      createProvider('custom', { apiKey: 'sk-test', baseUrl: 'https://x/v1' })
+      throw new Error('should have thrown')
+    } catch (e) {
+      expect((e as ProviderException).providerError.kind).toBe('requestFailed')
+    }
+  })
   it('translate() works end-to-end through retry/fallback wiring (mocked fetch)', async () => {
     const fetchMock = vi.fn(() =>
       Promise.resolve(
