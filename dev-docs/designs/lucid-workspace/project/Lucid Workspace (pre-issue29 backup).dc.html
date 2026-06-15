@@ -345,130 +345,49 @@
     <button onClick="{{ toggleReview }}" style="position:fixed;right:16px;bottom:16px;z-index:55;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:0 14px 36px var(--shadow-c1);padding:10px 13px;cursor:pointer;font-family:'Geist Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink);font-weight:600;"><span style="width:7px;height:7px;border-radius:2px;background:var(--accent);"></span>Design review</button>
   </sc-if>
 
-  <!-- ===== SETTINGS — providers, models, keys & connection test (issues #13, #29) ===== -->
+  <!-- ===== SETTINGS — providers & API keys (issue #13) ===== -->
   <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Geist,sans-serif;">
       <div onClick="{{ closeSettings }}" style="position:absolute;inset:0;background:rgba(18,16,12,0.46);"></div>
-      <div style="position:relative;width:880px;max-width:100%;max-height:88vh;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:0 30px 80px var(--shadow-c3);overflow:hidden;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:17px 22px;border-bottom:1px solid var(--border);flex:0 0 auto;">
-          <div style="display:flex;flex-direction:column;gap:3px;"><span style="font-size:16px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;">Settings</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">Providers · models · keys</span></div>
-          <button onClick="{{ closeSettings }}" style="width:31px;height:31px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:var(--hover);color:var(--ink);">×</button>
+      <div style="position:relative;width:580px;max-width:100%;max-height:86vh;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 30px 80px var(--shadow-c3);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);flex:0 0 auto;">
+          <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:15px;font-weight:600;color:var(--ink);">Settings</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Providers &amp; keys</span></div>
+          <button onClick="{{ closeSettings }}" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t3);font-size:15px;cursor:pointer;" style-hover="background:var(--hover);color:var(--ink);">×</button>
         </div>
         <div style="display:flex;min-height:0;flex:1;">
-          <!-- LEFT RAIL: provider list -->
-          <div style="width:252px;flex:0 0 auto;border-right:1px solid var(--border);padding:13px 12px;display:flex;flex-direction:column;gap:3px;overflow:auto;background:var(--canvas);">
-            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.07em;padding:4px 8px 7px;">Providers</span>
-            <sc-for list="{{ keyProviders }}" as="p" hint-placeholder-count="5">
+          <div style="width:212px;flex:0 0 auto;border-right:1px solid var(--border);padding:13px;display:flex;flex-direction:column;gap:7px;overflow:auto;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;padding:2px 2px 4px;">Provider</span>
+            <sc-for list="{{ keyProviders }}" as="p" hint-placeholder-count="4">
               <button onClick="{{ p.onPick }}" style="{{ p.rowStyle }}">
-                <span style="width:9px;height:9px;border-radius:50%;background:{{ p.connDot }};flex:0 0 auto;box-shadow:0 0 0 3px var(--surface);"></span>
-                <span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
-                  <span style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.label }}</span>
-                  <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:{{ p.statusColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.statusText }} · {{ p.model }}</span>
-                </span>
-                <sc-if value="{{ p.workspace }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Geist Mono',monospace;font-size:8px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);padding:3px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:0.05em;flex:0 0 auto;">In use</span></sc-if>
+                <span style="width:8px;height:8px;border-radius:50%;background:{{ p.dot }};flex:0 0 auto;"></span>
+                <span style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;"><span style="font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:{{ p.statusColor }};">{{ p.statusText }}</span></span>
               </button>
             </sc-for>
-            <div style="margin-top:auto;padding:11px 8px 3px;display:flex;align-items:flex-start;gap:7px;">
-              <span style="font-size:11px;line-height:1.5;color:var(--t4);font-family:'Geist Mono',monospace;">Keys live in memory for this session only.</span>
-            </div>
           </div>
-          <!-- RIGHT: provider detail -->
-          <div style="flex:1;min-width:0;padding:20px 22px;display:flex;flex-direction:column;gap:16px;overflow:auto;">
-            <!-- header -->
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
-              <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
-                <span style="font-size:20px;font-weight:600;color:var(--ink);letter-spacing:-0.015em;">{{ activeKeyLabel }}</span>
-                <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ activeEndpoint }}</span>
-              </div>
-              <sc-if value="{{ isWorkspaceActive }}" hint-placeholder-val="{{ true }}">
-                <span style="display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;padding:7px 12px;border-radius:9px;background:var(--accent-soft);border:1px solid var(--accent-border);"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span><span style="font-size:12px;font-weight:600;color:var(--accent-ink);">Workspace default</span></span>
-              </sc-if>
-            </div>
-            <sc-if value="{{ notWorkspaceActive }}" hint-placeholder-val="{{ false }}">
-              <button onClick="{{ useAsActive }}" style="align-self:flex-start;margin-top:-8px;border:1px solid var(--accent-border);background:var(--surface);color:var(--accent-ink);border-radius:9px;padding:7px 13px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;" style-hover="background:var(--accent-tint);">Use for this workspace</button>
-            </sc-if>
-
-            <!-- CONNECTION card -->
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid var(--border-strong);background:var(--canvas);border-radius:13px;">
-              <div style="display:flex;align-items:center;gap:12px;min-width:0;">
-                <span style="width:11px;height:11px;border-radius:50%;background:{{ connDot }};flex:0 0 auto;"></span>
-                <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
-                  <span style="font-size:14px;font-weight:600;color:{{ connColor }};">{{ connLabel }}</span>
-                  <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ connDetail }}</span>
-                </div>
-              </div>
-              <button onClick="{{ testConnection }}" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--accent-border);background:var(--accent);color:var(--on-accent);border-radius:9px;padding:9px 15px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;" style-hover="filter:brightness(1.06);">{{ testBtnLabel }}</button>
-            </div>
-
-            <!-- MODEL picker -->
-            <div style="display:flex;flex-direction:column;gap:7px;position:relative;">
-              <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">Model</span>
-                <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">{{ statCtx }} context</span>
-              </div>
-              <button onClick="{{ toggleModelMenu }}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:1px solid var(--border-strong);background:var(--surface);border-radius:11px;padding:11px 13px;cursor:pointer;text-align:left;" style-hover="background:var(--hover);">
-                <span style="font-size:13.5px;font-weight:500;color:var(--ink);">{{ activeModel }}</span>
-                <span style="color:var(--faint);font-size:11px;">▾</span>
-              </button>
-              <sc-if value="{{ modelMenuOpen }}" hint-placeholder-val="{{ false }}">
-                <div style="position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px var(--shadow-c1);padding:5px;overflow:hidden;">
-                  <sc-for list="{{ modelOptions }}" as="m" hint-placeholder-count="3">
-                    <button onClick="{{ m.onPick }}" style="{{ m.rowStyle }}" style-hover="background:var(--hover);">
-                      <span>{{ m.label }}</span>
-                      <sc-if value="{{ m.active }}" hint-placeholder-val="{{ false }}"><span style="color:var(--accent-ink);font-size:12px;">✓</span></sc-if>
-                    </button>
-                  </sc-for>
-                </div>
-              </sc-if>
-            </div>
-
-            <!-- CREDENTIALS -->
+          <div style="flex:1;min-width:0;padding:18px;display:flex;flex-direction:column;gap:14px;overflow:auto;">
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:15px;font-weight:600;color:var(--ink);">{{ activeKeyLabel }}</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);">{{ activeKeyModel }}</span></div>
             <sc-if value="{{ activeIsLocal }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;align-items:flex-start;gap:11px;padding:14px;border:1px solid var(--ok-conn);background:var(--ok-soft);border-radius:13px;"><span style="font-size:7px;color:var(--ok);margin-top:5px;">⬤</span><div style="display:flex;flex-direction:column;gap:4px;"><span style="font-size:13px;font-weight:600;color:var(--ink);">No key needed — runs on this device</span><span style="font-size:12px;line-height:1.55;color:var(--t2);">Served locally via Ollama. Your text never leaves the machine — the privacy-preserving path.</span></div></div>
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:13px;border:1px solid var(--border);background:var(--ok-soft);border-radius:12px;"><span style="font-size:14px;color:var(--ok);">⬤</span><div style="display:flex;flex-direction:column;gap:4px;"><span style="font-size:13px;font-weight:600;color:var(--ink);">No key needed</span><span style="font-size:12px;line-height:1.55;color:var(--t2);">Runs on this device via Ollama. Your text never leaves the machine — the privacy-preserving path.</span></div></div>
             </sc-if>
-
-            <sc-if value="{{ activeIsCustom }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:7px;">
-                <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">Base URL <span style="color:var(--t6);">· OpenAI-compatible</span></span>
-                <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);border-radius:11px;padding:4px 4px 4px 12px;">
-                  <input type="text" value="{{ customUrl }}" onChange="{{ onCustomUrl }}" placeholder="https://my-host.example.com/v1" spellcheck="false" style="flex:1;border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:13px;color:var(--ink);padding:8px 0;" />
-                  <button onClick="{{ saveCustomUrl }}" style="border:none;background:var(--accent);color:var(--on-accent);border-radius:8px;padding:8px 15px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;">Save</button>
-                </div>
-                <sc-if value="{{ hasCustomUrl }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--ok);">Saved · {{ customUrlSaved }}</span></sc-if>
-              </div>
-            </sc-if>
-
             <sc-if value="{{ activeRemote }}" hint-placeholder-val="{{ true }}">
-              <div style="display:flex;flex-direction:column;gap:11px;">
+              <div style="display:flex;flex-direction:column;gap:12px;">
                 <sc-if value="{{ activeHasKey }}" hint-placeholder-val="{{ false }}">
-                  <div style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--border-strong);background:var(--canvas);border-radius:11px;"><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--ink);flex:1;letter-spacing:0.02em;">{{ activeMaskedKey }}</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--ok);background:var(--ok-soft);padding:3px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:0.04em;">saved</span><button onClick="{{ clearActiveKey }}" style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 9px;font-family:Geist,sans-serif;font-size:11.5px;color:var(--danger);cursor:pointer;" style-hover="background:var(--hover);">Clear</button></div>
+                  <div style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--border);background:var(--canvas);border-radius:11px;"><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--ink);flex:1;letter-spacing:0.02em;">{{ activeMaskedKey }}</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--ok);background:var(--ok-soft);padding:3px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:0.04em;">saved</span><button onClick="{{ clearActiveKey }}" style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 9px;font-family:Geist,sans-serif;font-size:11.5px;color:var(--danger);cursor:pointer;" style-hover="background:var(--hover);">Clear</button></div>
                 </sc-if>
                 <div style="display:flex;flex-direction:column;gap:6px;">
-                  <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">API key <span style="color:var(--t6);">· expects {{ keyPrefixHint }}</span></span>
+                  <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">API key</span>
                   <div style="display:flex;align-items:center;gap:8px;border:1px solid {{ keyFieldBorder }};background:var(--surface);border-radius:11px;padding:4px 4px 4px 12px;">
-                    <input type="{{ keyInputType }}" value="{{ keyDraft }}" onChange="{{ onKeyDraft }}" placeholder="Paste your key…" spellcheck="false" style="flex:1;border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:13px;color:var(--ink);padding:8px 0;" />
+                    <input type="{{ keyInputType }}" value="{{ keyDraft }}" onChange="{{ onKeyDraft }}" placeholder="Paste your key…" spellcheck="false" style="flex:1;border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:13px;color:var(--ink);padding:7px 0;" />
                     <button onClick="{{ toggleReveal }}" style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11px;color:var(--t3);cursor:pointer;padding:6px 8px;" style-hover="color:var(--ink);">{{ revealLabel }}</button>
-                    <button onClick="{{ saveKey }}" style="border:none;background:var(--accent);color:var(--on-accent);border-radius:8px;padding:8px 15px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;">Save</button>
+                    <button onClick="{{ saveKey }}" style="border:none;background:var(--accent);color:var(--on-accent);border-radius:8px;padding:7px 14px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;">Save</button>
                   </div>
                   <sc-if value="{{ hasKeyError }}" hint-placeholder-val="{{ false }}"><span style="font-size:11.5px;color:var(--danger);">{{ keyError }}</span></sc-if>
                 </div>
+                <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 12px;border:1px solid var(--border);border-radius:11px;background:var(--canvas);">
+                  <span style="font-size:13px;color:var(--t3);">🔒</span>
+                  <span style="font-size:11.5px;line-height:1.6;color:var(--t2);">Stored in this browser's secure storage — never written in plaintext, never logged, sent only to {{ activeKeyLabel }} to run your requests.</span>
+                </div>
               </div>
-            </sc-if>
-
-            <!-- STATS grid -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div style="display:flex;flex-direction:column;gap:3px;padding:12px 13px;border:1px solid var(--border);border-radius:11px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Latency</span><span style="font-size:15px;font-weight:600;color:var(--ink);">{{ statLatency }}</span></div>
-              <div style="display:flex;flex-direction:column;gap:3px;padding:12px 13px;border:1px solid var(--border);border-radius:11px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Last tested</span><span style="font-size:15px;font-weight:600;color:var(--ink);">{{ statWhen }}</span></div>
-              <div style="display:flex;flex-direction:column;gap:3px;padding:12px 13px;border:1px solid var(--border);border-radius:11px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Pricing · $/Mtok in·out</span><span style="font-size:15px;font-weight:600;color:var(--ink);">{{ statPrice }}</span></div>
-              <div style="display:flex;flex-direction:column;gap:3px;padding:12px 13px;border:1px solid var(--border);border-radius:11px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Rate limit</span><span style="font-size:15px;font-weight:600;color:var(--ink);">{{ statRate }}</span></div>
-            </div>
-
-            <!-- PRIVACY note -->
-            <sc-if value="{{ activeIsLocal }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--canvas);"><span style="font-size:13px;color:var(--ok);">🔒</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);">Nothing leaves this device. Requests run against your local Ollama server.</span></div>
-            </sc-if>
-            <sc-if value="{{ activeNotLocal }}" hint-placeholder-val="{{ true }}">
-              <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--canvas);"><span style="font-size:13px;color:var(--t3);">🔒</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);">Held in memory for this session only — never written to disk, never logged. Sent only to {{ activeKeyLabel }} to run your requests.</span></div>
             </sc-if>
           </div>
         </div>
@@ -556,10 +475,7 @@ class Component extends DCLogic {
     view: "polish", sidebar: "sessions", sessionView: "list",
     theme: "light", sidebarMode: "full", rtl: "off", dirOverride: "auto", reviewOpen: true,
     settingsOpen: false, tokenTableOpen: false,
-    apiKeys: { anthropic: "sk-ant-9f3aQK7mLpZ2", openai: "", google: "" }, keyDraft: "", keyReveal: false, keyError: "", keyProvider: "anthropic",
-    selModel: { anthropic: "Claude Fable 5", openai: "GPT-5", google: "Gemini 3 Pro", local: "Llama 4", custom: "OpenAI-compatible" }, modelMenuOpen: false,
-    testStatus: { anthropic: "ok", local: "ok" }, testRes: { anthropic: { lat: 312, when: "4 min ago" }, local: { lat: 47, when: "1 min ago" } },
-    customUrl: "", customUrlSaved: "",
+    apiKeys: { anthropic: "", openai: "", google: "" }, keyDraft: "", keyReveal: false, keyError: "", keyProvider: "anthropic",
     rejectedHunks: {},
     provider: "anthropic", openMenu: null, toast: "", search: "",
     renaming: false, renameValue: "",
@@ -695,32 +611,18 @@ class Component extends DCLogic {
   rejectAllHunks = () => { const hs = this.hunkIndices(); const r = {}; hs.forEach((i) => r[i] = true); this.setState({ rejectedHunks: r }); };
   hunkIndices = () => { const d = (this.state.rtl !== "off") ? this.AR_DIFF : this.DIFF; const out = []; d.forEach((seg, i) => { if (seg.t === "add") out.push(i); }); return out; };
 
-  // settings / API keys (issue #13) + provider surface redesign (issue #29)
-  openSettings = () => this.setState({ settingsOpen: true, keyProvider: this.state.provider, keyDraft: "", keyReveal: false, keyError: "", modelMenuOpen: false, openMenu: null });
-  closeSettings = () => this.setState({ settingsOpen: false, modelMenuOpen: false });
-  pickKeyProvider = (k) => () => this.setState({ keyProvider: k, keyDraft: "", keyReveal: false, keyError: "", modelMenuOpen: false });
+  // settings / API keys (issue #13)
+  openSettings = () => this.setState({ settingsOpen: true, keyProvider: this.state.provider, keyDraft: "", keyReveal: false, keyError: "", openMenu: null });
+  closeSettings = () => this.setState({ settingsOpen: false });
+  pickKeyProvider = (k) => () => this.setState({ keyProvider: k, keyDraft: "", keyReveal: false, keyError: "" });
   onKeyDraft = (e) => this.setState({ keyDraft: e.target.value, keyError: "" });
   toggleReveal = () => this.setState({ keyReveal: !this.state.keyReveal });
-  toggleModelMenu = () => this.setState({ modelMenuOpen: !this.state.modelMenuOpen });
-  pickModel = (m) => () => { const k = this.state.keyProvider; this.setState((s) => ({ selModel: { ...s.selModel, [k]: m }, modelMenuOpen: false })); };
-  useAsActive = () => { this.setState({ provider: this.state.keyProvider }); this.toast("Switched workspace to " + (this.KEYPROV.find((p) => p.k === this.state.keyProvider) || {}).label); };
-  onCustomUrl = (e) => this.setState({ customUrl: e.target.value });
-  saveCustomUrl = () => { const u = this.state.customUrl.trim(); if (!u) return; this.setState({ customUrlSaved: u }); this.toast("Endpoint saved"); };
-  testConnection = () => {
-    const k = this.state.keyProvider; const p = this.KEYPROV.find((x) => x.k === k);
-    if (p.kind === "remote" && !this.state.apiKeys[k]) { this.setState((s) => ({ testStatus: { ...s.testStatus, [k]: "fail" }, testRes: { ...s.testRes, [k]: { msg: "Add an API key before testing." } } })); return; }
-    if (p.kind === "custom" && !this.state.customUrlSaved) { this.setState((s) => ({ testStatus: { ...s.testStatus, [k]: "fail" }, testRes: { ...s.testRes, [k]: { msg: "Save a base URL before testing." } } })); return; }
-    this.setState((s) => ({ testStatus: { ...s.testStatus, [k]: "testing" } }));
-    const lat = (p.lat || 90) + Math.round((Math.random() - 0.3) * 80);
-    setTimeout(() => { if (!this.state.settingsOpen) return; this.setState((s) => ({ testStatus: { ...s.testStatus, [k]: "ok" }, testRes: { ...s.testRes, [k]: { lat: Math.max(28, lat), when: "just now" } } })); }, 920);
-  };
-  clearKey = (p) => () => { this.setState((s) => ({ apiKeys: { ...s.apiKeys, [p]: "" }, testStatus: { ...s.testStatus, [p]: "idle" } })); this.toast("Key removed"); };
   saveKey = () => {
     const k = this.state.keyDraft.trim(); const p = this.state.keyProvider;
     const prefix = { anthropic: "sk-ant-", openai: "sk-", google: "AIza" }[p] || "";
     if (!k) { this.setState({ keyError: "Enter a key first." }); return; }
     if (prefix && !k.startsWith(prefix)) { this.setState({ keyError: 'Doesn\u2019t look like a ' + p + ' key (expected ' + prefix + '\u2026).' }); return; }
-    this.setState((s) => ({ apiKeys: { ...s.apiKeys, [p]: k }, keyDraft: "", keyReveal: false, keyError: "", testStatus: { ...s.testStatus, [p]: "idle" } }));
+    this.setState((s) => ({ apiKeys: { ...s.apiKeys, [p]: k }, keyDraft: "", keyReveal: false, keyError: "" }));
     this.toast("Key saved to this browser\u2019s secure storage");
   };
   clearKey = (p) => () => { this.setState((s) => ({ apiKeys: { ...s.apiKeys, [p]: "" } })); this.toast("Key removed"); };
@@ -855,21 +757,10 @@ class Component extends DCLogic {
     ] }
   ];
   KEYPROV = [
-    { k: "anthropic", label: "Anthropic", kind: "remote", prefix: "sk-ant-", dot: "var(--warn)",
-      endpoint: "api.anthropic.com", models: ["Claude Fable 5", "Claude Fable 5 Haiku", "Claude Opus 4.6"], defModel: "Claude Fable 5",
-      price: "$3 · $15", ctx: "200K", rate: "4K req / min", lat: 312 },
-    { k: "openai", label: "OpenAI", kind: "remote", prefix: "sk-", dot: "var(--warn)",
-      endpoint: "api.openai.com", models: ["GPT-5", "GPT-5 mini", "o4"], defModel: "GPT-5",
-      price: "$2.50 · $10", ctx: "272K", rate: "10K req / min", lat: 428 },
-    { k: "google", label: "Google", kind: "remote", prefix: "AIza", dot: "var(--warn)",
-      endpoint: "generativelanguage.googleapis.com", models: ["Gemini 3 Pro", "Gemini 3 Flash"], defModel: "Gemini 3 Pro",
-      price: "$1.25 · $5", ctx: "1M", rate: "2K req / min", lat: 386 },
-    { k: "local", label: "Local · Ollama", kind: "local", prefix: "", dot: "var(--ok)",
-      endpoint: "localhost:11434", models: ["Llama 4", "Qwen 3", "Mistral Large"], defModel: "Llama 4",
-      price: "Free · on device", ctx: "128K", rate: "Hardware-bound", lat: 47 },
-    { k: "custom", label: "Custom endpoint", kind: "custom", prefix: "", dot: "var(--accent-ink)",
-      endpoint: "", models: ["OpenAI-compatible"], defModel: "OpenAI-compatible",
-      price: "Self-hosted", ctx: "—", rate: "Yours", lat: 0 }
+    { k: "anthropic", label: "Anthropic", model: "Claude Fable 5", prefix: "sk-ant-", dot: "var(--warn)" },
+    { k: "openai", label: "OpenAI", model: "GPT-5", prefix: "sk-", dot: "var(--warn)" },
+    { k: "google", label: "Google", model: "Gemini 3 Pro", prefix: "AIza", dot: "var(--warn)" },
+    { k: "local", label: "Local · Ollama", model: "Llama 4", prefix: "", dot: "var(--ok)" }
   ];
   maskKey = (k) => k ? (k.slice(0, Math.min(7, k.length)) + "…" + k.slice(-4)) : "";
 
@@ -908,37 +799,17 @@ class Component extends DCLogic {
     const hunkSummary = keptCount + " of " + hunks.length + " change" + (hunks.length === 1 ? "" : "s") + " kept";
 
     // ---- settings / keys (issue #13) ----
-    const connOf = (p) => {
-      const st = s.testStatus[p.k] || "idle"; const res = s.testRes[p.k] || {};
-      if (st === "testing") return { label: "Testing…", color: "var(--accent-ink)", bg: "var(--accent-soft)", dot: "var(--accent)" };
-      if (st === "ok") return { label: "Connected", color: "var(--ok)", bg: "var(--ok-soft)", dot: "var(--ok-solid)", detail: (res.lat || p.lat) + " ms · " + (res.when || "verified") };
-      if (st === "fail") return { label: "Failed", color: "var(--danger)", bg: "var(--danger-soft)", dot: "var(--danger)", detail: res.msg || "Connection failed" };
-      if (p.kind === "local") return { label: "Ready", color: "var(--ok)", bg: "var(--ok-soft)", dot: "var(--ok-solid)", detail: "On this device" };
-      if (p.kind === "remote") return s.apiKeys[p.k] ? { label: "Not tested", color: "var(--t3)", bg: "var(--fill-muted)", dot: "var(--dot-idle)", detail: "Key set · run a test" } : { label: "No key", color: "var(--t3)", bg: "var(--fill-muted)", dot: "var(--dot-idle)", detail: "Add a key to connect" };
-      return s.customUrlSaved ? { label: "Not tested", color: "var(--t3)", bg: "var(--fill-muted)", dot: "var(--dot-idle)", detail: "Endpoint set · run a test" } : { label: "Not set", color: "var(--t3)", bg: "var(--fill-muted)", dot: "var(--dot-idle)", detail: "Add a base URL" };
-    };
-    const keyProviders = this.KEYPROV.map((p) => {
-      const c = connOf(p); const isAct = p.k === s.keyProvider;
-      return {
-        k: p.k, label: p.label, model: s.selModel[p.k] || p.defModel, dot: p.dot, active: isAct,
-        connDot: c.dot, statusText: c.label, statusColor: c.color,
-        workspace: p.k === s.provider,
-        rowStyle: "display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:1px solid " + (isAct ? "var(--accent-border)" : "transparent") + ";border-radius:10px;cursor:pointer;text-align:left;background:" + (isAct ? "var(--accent-tint)" : "transparent") + ";transition:background .12s;",
-        onPick: this.pickKeyProvider(p.k)
-      };
-    });
+    const keyProviders = this.KEYPROV.map((p) => ({
+      label: p.label, model: p.model, dot: p.dot, active: p.k === s.keyProvider, isLocal: p.k === "local",
+      hasKey: p.k === "local" ? true : !!s.apiKeys[p.k],
+      statusText: p.k === "local" ? "On device" : (s.apiKeys[p.k] ? "Key set" : "No key"),
+      statusColor: (p.k === "local" || s.apiKeys[p.k]) ? "var(--ok)" : "var(--t5)",
+      rowStyle: "display:flex;align-items:center;gap:11px;width:100%;padding:10px 11px;border:1px solid " + (p.k === s.keyProvider ? "var(--accent-border)" : "var(--border)") + ";border-radius:11px;cursor:pointer;text-align:left;background:" + (p.k === s.keyProvider ? "var(--accent-tint)" : "var(--surface)") + ";",
+      onPick: this.pickKeyProvider(p.k)
+    }));
     const akp = this.KEYPROV.find((p) => p.k === s.keyProvider) || this.KEYPROV[0];
-    const activeIsLocal = akp.kind === "local";
-    const activeIsCustom = akp.kind === "custom";
-    const activeRemote = akp.kind === "remote";
-    const activeHasKey = activeRemote && !!s.apiKeys[s.keyProvider];
-    const conn = connOf(akp);
-    const aSt = s.testStatus[s.keyProvider] || "idle"; const aRes = s.testRes[s.keyProvider] || {};
-    const activeModel = s.selModel[s.keyProvider] || akp.defModel;
-    const modelOptions = akp.models.map((m) => ({ label: m, active: m === activeModel, onPick: this.pickModel(m),
-      rowStyle: "display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:9px 11px;border:none;background:" + (m === activeModel ? "var(--accent-tint)" : "transparent") + ";cursor:pointer;text-align:left;font-family:Geist,sans-serif;font-size:13px;color:var(--ink);" }));
-    const canTest = activeIsLocal || (activeRemote && activeHasKey) || (activeIsCustom && !!s.customUrlSaved);
-    const testBtnLabel = aSt === "testing" ? "Testing…" : (aSt === "ok" || aSt === "fail") ? "Test again" : "Test connection";
+    const activeIsLocal = s.keyProvider === "local";
+    const activeHasKey = !activeIsLocal && !!s.apiKeys[s.keyProvider];
 
     // ---- token table (issue #16) ----
     const sw = (hex) => "width:26px;height:26px;border-radius:7px;flex:0 0 auto;border:1px solid var(--border);background:" + hex + ";";
@@ -969,21 +840,13 @@ class Component extends DCLogic {
       // per-hunk + reject
       pRejectClick: this.rejectPolish, hunkBarShown: s.pResult.status === "done" && s.pResult.showDiff, hunkSummary,
       acceptAllHunks: this.acceptAllHunks, rejectAllHunks: this.rejectAllHunks,
-      // settings (issue #13 + provider redesign #29)
+      // settings
       settingsOpen: s.settingsOpen, closeSettings: this.closeSettings, keyProviders,
-      activeKeyLabel: akp.label, activeIsLocal, activeRemote, activeIsCustom, activeHasKey,
-      activeEndpoint: akp.endpoint, activeModel,
-      isWorkspaceActive: s.provider === s.keyProvider, notWorkspaceActive: s.provider !== s.keyProvider, activeNotLocal: !activeIsLocal, useAsActive: this.useAsActive,
-      modelMenuOpen: s.modelMenuOpen, toggleModelMenu: this.toggleModelMenu, modelOptions,
-      connLabel: conn.label, connColor: conn.color, connBg: conn.bg, connDot: conn.dot, connDetail: conn.detail || "",
-      testing: aSt === "testing", testOk: aSt === "ok", testFail: aSt === "fail", testIdle: aSt === "idle",
-      testConnection: this.testConnection, testBtnLabel, canTest,
-      statLatency: aRes.lat ? (aRes.lat + " ms") : "—", statWhen: aRes.when || "—", statCtx: akp.ctx, statPrice: akp.price, statRate: akp.rate,
+      activeKeyLabel: akp.label, activeKeyModel: akp.model, activeIsLocal, activeRemote: !activeIsLocal, activeHasKey,
       activeMaskedKey: this.maskKey(s.apiKeys[s.keyProvider]), keyDraft: s.keyDraft, onKeyDraft: this.onKeyDraft,
       keyInputType: s.keyReveal ? "text" : "password", keyReveal: s.keyReveal, revealLabel: s.keyReveal ? "Hide" : "Show", toggleReveal: this.toggleReveal,
       keyError: s.keyError, hasKeyError: !!s.keyError, keyFieldBorder: s.keyError ? "var(--danger)" : "var(--border-strong)", saveKey: this.saveKey, clearActiveKey: this.clearKey(s.keyProvider),
       keyPrefixHint: akp.prefix ? (akp.prefix + "…") : "",
-      customUrl: s.customUrl, onCustomUrl: this.onCustomUrl, saveCustomUrl: this.saveCustomUrl, customUrlSaved: s.customUrlSaved, hasCustomUrl: !!s.customUrlSaved,
       // token table
       tokenTableOpen: s.tokenTableOpen, closeTokens: this.closeTokens, tokenGroups,
       // sidebar modes
