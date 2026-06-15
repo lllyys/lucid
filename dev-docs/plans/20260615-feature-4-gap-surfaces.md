@@ -1,6 +1,7 @@
 # Feature #4 — Lucid Workspace: designed gap surfaces
 
-> Status: **DRAFT** (Gate 1; Gate-2 round 1 = MAJOR GAPS, v2 addresses it) · Tracker: `docs/features.md` #4
+> Status: **DRAFT** (Gate 2; rounds 1-3 done — r1 MAJOR GAPS→v2, r2 NEEDS REVISION→v3, r3 NEEDS
+> REVISION (6 Mediums)→v4; round-3 ceiling reached, awaiting user accept/re-audit decision) · Tracker: `docs/features.md` #4
 > Design: `dev-docs/designs/lucid-workspace/project/Lucid Workspace.dc.html` (revised; chat2 resolved
 > needs-design #13–#18). Depends on #2 (VERIFIED). Branch `feat/feature-4-gap-surfaces` (stacked on the
 > triage branch; main is protected).
@@ -10,6 +11,7 @@
 | Rev | Date | Change |
 |-----|------|--------|
 | v1 | 2026-06-15 | Initial Gate-1 plan (5 WIs). |
+| v4 | 2026-06-15 | Gate-2 round 3 (Codex `019ec934`, NEEDS REVISION — 6 Mediums). All 6 resolved in the "Gate-2 round-3 resolutions (v4)" section below (authoritative): retry `op.text===''` consistency; runtime-invalid clear via op provenance; bidi classified by UAX#9 L/R/AL (not `Script`); `unicode-bidi: isolate` for forced dir / `plaintext` only for auto; complete role-token consumer inventory; exhaustive `Record<ErrorKind, titleKey>` + cancelled body. Core model assumptions confirmed sound by Codex. |
 | v2 | 2026-06-15 | Gate-2 round 1 (Codex `019ec907`, MAJOR GAPS). **Credential model:** Settings lists **implemented providers only** (like the switcher) → the existing single `apiKey` suffices; vendor-keyed credentials deferred until a 2nd provider ships (no new credential WI). **Dark (#16):** use the already-installed **next-themes** (`attribute="class"`, `defaultTheme="system"`) — OS `prefers-color-scheme`, no invented toggle (a manual toggle is undesigned → future needs-design); add **role tokens** (accent-ink/fill, success-text/solid, on-accent, danger-border) since components reuse `--accent-primary`/`--success` for two roles; theme pref persists via next-themes (a preference, not a secret). **Direction (#17):** a NEW `bidi.ts` (`resolveBidiDirection(text, override)` → `ltr|rtl`) **separate from** `detectDirection` (translation route `zh-en|en-zh`); forced direction is **visual-only, never the request language**; bidi is **per-surface, content-detected**, with a Translate override; `unicode-bidi: plaintext` + logical alignment + isolated controls. **Per-hunk (#15):** a NEW tested `groupHunks(segments)` that pairs adjacent del/add into atomic hunks (raw segment IDs alone give incoherent `oldnew`); `acceptedIds` reset by `runId`+diff identity. **Error (#14):** render every error via `error.messageKey`; **Retry only when `isRetryableError`**; cancelled → "Stopped"; corrected the architecture note (mapping is in `streamOp`, the store preserves the normalized outcome). **Key handling:** never called "secure storage" — explicit session-memory exception (rule 65 §5), test no persistence API is used, aborts in-flight panels on key change; provider-specific masking/validation. Added prior-art, backward-compat, PR sizes; re-split to **7 WIs**. Token table = design artifact (no product surface) — excluded. |
 
 ## Gate-2 round-2 resolutions (v3)
@@ -59,6 +61,68 @@ over the prose below where they differ):
    failed / Stopped) for the title; `t(error.messageKey)` is the body. `ResultBanner` renders both and
    **never** renders `error.detail`. Tested: title+body per kind; detail never shown. (WI-5)
 
+## Gate-2 round-3 resolutions (v4)
+
+Round 3 (Codex `019ec934`) = NEEDS REVISION — 6 Mediums, all resolved here (authoritative over the
+prose below where they differ). Codex confirmed sound: `isRetryableError` exists; zero-byte Retry
+gating is testable; `operationStore.abort` is synchronous + per-panel; `wordDiff` `DiffSegment` +
+`applyDiff(segments, acceptedIds)` assumptions hold; `clearKey()` is additive; `next-themes ^0.4.6`
+is installed. Save/clear callbacks MUST read both stores via `getState()` (no captured state).
+
+1. **Retry condition consistency (M, WI-5).** The ONLY authoritative Retry rule is: **Retry shows iff
+   `isRetryableError(op.error) && op.text === ''`.** Every other mention (Scope #14 line ~91, the WI-5
+   row, the Test catalogue `ResultBanner` line, the Risks "over-broad Retry" row, and the DoD) is
+   subordinate to this and means the same thing. Tests assert all three: retryable+empty ⇒ Retry;
+   retryable+**partial** ⇒ NO Retry (use Regenerate); non-retryable ⇒ NO Retry.
+2. **Runtime-invalid clears on key change (M, WI-1).** `PanelOp` carries no credential identity, so
+   Settings cannot diff "which key produced this `invalidKey`". Resolution: the abort-on-key-change
+   coordinator (resolution v3-#2) is EXTENDED — on a `changed` save/clear it also **`reset()`s any
+   panel whose op is `{status:'error', error.kind:'invalidKey'}`** (not just streaming panels). After
+   a key change there are therefore no stale `invalidKey` ops left, so Settings' rejected state
+   (derived from live panel ops for the active provider) clears deterministically. Tests: a correctly
+   shaped key + an `invalidKey` panel outcome ⇒ Settings shows invalid; saving a new key ⇒ that op is
+   reset ⇒ invalid clears; idle/done panels with no error are untouched.
+3. **Bidi by UAX#9 strong class, not `Script` (M, WI-3).** `\p{Script=Arabic}` wrongly matches weak
+   Arabic-Indic digits (`١` = bidi class AN) and omits other RTL scripts. Resolution:
+   `resolveBidiDirection` classifies the FIRST codepoint that is **strong** per UAX#9 — strong-RTL =
+   bidi class **R or AL**, strong-LTR = bidi class **L**; weak/neutral (AN/EN/ES/ET/CS/ON/WS/BN, marks
+   `\p{Mn}`/`\p{Me}`, digits) are SKIPPED, not treated as strong. Since JS regex has no
+   `\p{Bidi_Class=…}`, use an explicit, tested codepoint-range table for R/AL (Hebrew, Arabic letters
+   excluding `U+0660–0669`/`U+06F0–06F9` AN digits, Syriac, Thaana, NKo, Samaritan, Mandaic, +
+   the RTL Supplement/Extended-A/B and Hebrew/Arabic Presentation Forms) and treat all other strong
+   letters (`\p{L}` not in that table) as L. `override !== 'auto'` ⇒ forced; no strong char ⇒ `ltr`.
+   Fixtures: first-strong-RTL, first-strong-LTR, leading-neutral-then-RTL, **Arabic-Indic digits only
+   ⇒ ltr**, combining-mark-before-letter, digits/punct only ⇒ ltr, mixed-order. **Delete the
+   "mixed (RTL majority) ⇒ rtl" fixture** (line ~151) — it contradicts first-strong; replace with a
+   "leading-LTR-then-RTL ⇒ ltr" case.
+4. **`unicode-bidi` per mode (M, WI-4).** `unicode-bidi: plaintext` makes the browser re-derive each
+   paragraph's base direction from its own first-strong char, which **ignores a forced `dir`**.
+   Resolution: **auto** mode ⇒ `dir="auto"` (or computed) **+ `unicode-bidi: plaintext`**; **forced**
+   `ltr`/`rtl` ⇒ explicit `dir="ltr|rtl"` **+ `unicode-bidi: isolate`** (isolate the run but honor the
+   element's `direction`). Logical CSS alignment in both. Test both modes' resolved `dir`/`unicode-bidi`.
+5. **Complete role-token consumer inventory (M, WI-2).** The split below is the FULL inventory; every
+   listed consumer is updated so the dark palette matches the design:
+
+   | token | role | consumers to repoint |
+   |---|---|---|
+   | `--accent-ink` | accent **as text/icon** | `--diff-add-fg`, `--accent-foreground` (+ `--color-accent-foreground` bridge), any accent-colored label/icon/link text, the toolbar/section accent labels |
+   | `--on-accent` | text/icon **on** an accent/success fill | run-button foregrounds (Translate/Polish, currently `text-white`), `TranslateResult` + `PolishResult` Accept fg, `--primary-foreground` |
+   | `--success-solid` | success **fill** | `TranslateResult` + `PolishResult` Accept `bg` (was `--success`) |
+   | `--accent-primary` | accent **fill** | unchanged (buttons, active dot) |
+   | `--ring` | focus ring | mapped to `--accent-ink` (visible focus, rule 33) in both themes |
+   | `--danger-border` | error-banner border | new (`ResultBanner`) |
+   | `--toast-bg` | toast surface | `WorkspaceToast` / sonner host (design value; was implicit) |
+
+   shadcn `@theme inline` bridge + Tailwind exports updated for every NEW name. All other tokens keep
+   their names; dark values added under `.dark` from the design table; AA-checked.
+6. **Exhaustive banner i18n (M, WI-5).** Define `BANNER_TITLE: Record<ErrorKind, string>` covering
+   **all** `ErrorKind`s (`rateLimited`, `providerDown`, `invalidKey`, `requestFailed`, `timeout`,
+   `aborted`, `refusal`, `incomplete`, `validation`, `unknown`) → `banner.<kind>.title` keys. Body =
+   `t(op.error.messageKey)`. **Cancelled** (a `{status:'cancelled'}` op, which carries NO
+   `ProviderError`) renders a dedicated `banner.stopped.title` + `banner.stopped.body`. `error.detail`
+   is NEVER rendered. Test: every `ErrorKind` yields a title+body; cancelled yields the stopped copy;
+   detail never shown.
+
 ## Problem
 
 Feature #2 shipped the workspace but deferred six surfaces as `needs-design`. The loop completed
@@ -84,12 +148,14 @@ mock-only and cannot make a real request.
 - **#17 — RTL + direction override.** A new `src/lib/translation/bidi.ts` —
   `resolveBidiDirection(text, override: 'auto'|'ltr'|'rtl'): 'ltr'|'rtl'` — **content-detected** (strong
   RTL scripts ⇒ rtl), **independent of** the translation route. A Translate direction-override control;
-  `dir` + `unicode-bidi: plaintext` + logical alignment on the source/result and Polish
-  editors/result/diff; forced direction changes **layout only**, never the request's `sourceLang`.
+  per v4 §4, **auto** ⇒ `dir="auto"` + `unicode-bidi: plaintext`, **forced** ⇒ explicit `dir="ltr|rtl"`
+  + `unicode-bidi: isolate` (plaintext would ignore a forced dir); logical alignment on the source/result
+  and Polish editors/result/diff; forced direction changes **layout only**, never the request's `sourceLang`.
 - **#14 — Error / cancelled banner.** `ResultBanner` consumes the panel op's **already-normalized**
   `ProviderError` (mapping lives in `streamOp`; the store preserves it) and renders
-  `t(error.messageKey)`; **Retry only when `isRetryableError(error)`**. Cancelled → a neutral "Stopped".
-  Partial streamed text always stays (rule 65 §3). The success toast is never reused for errors.
+  `t(error.messageKey)`; **Retry only when `isRetryableError(error) && op.text === ''`** (v4 §1) —
+  partial output ⇒ no Retry, use Regenerate. Cancelled → a neutral "Stopped" (v4 §6). Partial streamed
+  text always stays (rule 65 §3). The success toast is never reused for errors.
 - **#15 — Diff Reject + per-hunk accept.** A new tested `groupHunks(segments)` (pairs adjacent del/add
   into atomic hunks). In Polish Compare: per-hunk keep/reject toggles, explicit **Reject** (discard
   polish, keep draft), Keep-all / Reject-all, an "N of M kept" summary, honest footer copy
@@ -135,7 +201,7 @@ toggle** (undesigned — future needs-design; OS preference ships now); **vendor
 |----|-------|------|----------|----|
 | WI-1 | Settings dialog + API-key entry (implemented providers; `clearKey`; abort-on-change; masked/invalid; session-memory note) | behavioral | #13 | M |
 | WI-2 | Dark theme — next-themes provider (system) + role tokens + real dark values | behavioral (+css) | #16 | M |
-| WI-3 | `bidi.ts` — `resolveBidiDirection(text, override)` (content-detected, route-independent) | foundational (lib, 100%) | #17a | S |
+| WI-3 | `bidi.ts` — `resolveBidiDirection(text, override)` (first-strong UAX#9 R/AL/L, route-independent) | foundational (lib, 100%) | #17a | M |
 | WI-4 | RTL wiring — `dir`+`unicode-bidi`+logical CSS on editors/result/diff; Translate override control | behavioral | #17b | M |
 | WI-5 | `ResultBanner` — normalized error → `messageKey`; Retry iff `isRetryableError`; cancelled "Stopped"; partial kept; per-panel `lastRequest` for Retry | behavioral | #14 | M |
 | WI-6 | `groupHunks(segments)` — atomic del/add hunks | foundational (lib, 100%) | #15a | S |
@@ -147,8 +213,10 @@ banner, hunk model + UI. Logic WIs (WI-3, WI-6) are TDD at 100%; UI WIs are beha
 
 ## Test catalogue
 
-- `src/lib/translation/bidi.test.ts` — `resolveBidiDirection`: LTR text ⇒ ltr; Arabic/Hebrew/strong-RTL
-  ⇒ rtl; mixed (RTL majority) ⇒ rtl; empty ⇒ ltr; override `'ltr'`/`'rtl'` force; CJK/Latin ⇒ ltr.
+- `src/lib/translation/bidi.test.ts` — `resolveBidiDirection` (first-strong per UAX#9, v4 §3): LTR text
+  ⇒ ltr; Arabic/Hebrew first-strong ⇒ rtl; leading-neutral-then-RTL ⇒ rtl; **leading-LTR-then-RTL ⇒
+  ltr**; **Arabic-Indic digits only (`١٢٣`) ⇒ ltr** (weak AN, not strong); combining-mark-before-letter;
+  empty/neutral/digits ⇒ ltr; override `'ltr'`/`'rtl'` force; CJK/Latin ⇒ ltr.
 - `src/lib/polish/groupHunks.test.ts` — adjacent del+add ⇒ one hunk (both ids); standalone add/del ⇒ its
   own hunk; `same` never in a hunk; hunk ids map back to `DiffSegment` ids; accepting a hunk via
   `applyDiff` yields the result for that change, rejecting yields the original — for every hunk shape.
