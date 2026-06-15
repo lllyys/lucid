@@ -24,11 +24,13 @@ describe('providerStore', () => {
     expect(useProviderStore.getState().isReady()).toBe(false)
   })
 
-  it('setVendor atomically resets the model to the vendor default', () => {
-    useProviderStore.getState().setModel('claude-opus-4-8')
+  it('setVendor restores the per-vendor model (switch away and back keeps the prior selection)', () => {
+    // #5 WI-3: setVendor changed from reset-to-default → restore models[vendor].
+    useProviderStore.getState().setModel('claude-opus-4-8') // anthropic's selection
+    useProviderStore.getState().setVendor('custom') // away (custom has no model yet → '')
+    expect(useProviderStore.getState().model).toBe('')
+    useProviderStore.getState().setVendor('anthropic') // back → restored, not reset
     expect(useProviderStore.getState().model).toBe('claude-opus-4-8')
-    useProviderStore.getState().setVendor('anthropic')
-    expect(useProviderStore.getState().model).toBe('claude-fable-5')
   })
 
   it('refuses to switch to an unimplemented vendor (state unchanged)', () => {
@@ -81,6 +83,45 @@ describe('providerStore', () => {
     useProviderStore.getState().reset()
     const s = useProviderStore.getState()
     expect(s).toMatchObject({ vendor: 'anthropic', model: 'claude-fable-5', apiKey: '', baseUrl: '' })
+  })
+
+  describe('per-vendor keys + models (#5 WI-3)', () => {
+    it('keeps a separate key per vendor; the active apiKey mirrors apiKeys[vendor]', () => {
+      const s = useProviderStore.getState()
+      s.setApiKey('sk-ant-aaa') // anthropic active
+      s.setVendor('custom')
+      s.setApiKey('sk-custom-bbb') // custom's key
+      expect(useProviderStore.getState().apiKeys.anthropic).toBe('sk-ant-aaa')
+      expect(useProviderStore.getState().apiKeys.custom).toBe('sk-custom-bbb')
+      expect(useProviderStore.getState().apiKey).toBe('sk-custom-bbb') // mirror = active vendor
+      useProviderStore.getState().setVendor('anthropic')
+      expect(useProviderStore.getState().apiKey).toBe('sk-ant-aaa') // restored on switch back
+    })
+
+    it('clearKey clears only the active vendor, leaving others intact', () => {
+      const s = useProviderStore.getState()
+      s.setApiKey('sk-ant-aaa')
+      s.setVendor('custom')
+      s.setApiKey('sk-custom-bbb')
+      useProviderStore.getState().clearKey() // clears custom only
+      expect(useProviderStore.getState().apiKeys.custom).toBe('')
+      expect(useProviderStore.getState().apiKeys.anthropic).toBe('sk-ant-aaa')
+      expect(useProviderStore.getState().apiKey).toBe('') // mirror cleared
+    })
+
+    it('setModel writes the active vendor model and mirrors it', () => {
+      useProviderStore.getState().setModel('claude-opus-4-8')
+      expect(useProviderStore.getState().model).toBe('claude-opus-4-8')
+      expect(useProviderStore.getState().models.anthropic).toBe('claude-opus-4-8')
+    })
+
+    it('initializes per-vendor records (keys empty, models at each vendor default)', () => {
+      const s = useProviderStore.getState()
+      expect(s.apiKeys).toEqual({ anthropic: '', openai: '', gemini: '', ollama: '', custom: '' })
+      expect(s.models.anthropic).toBe('claude-fable-5')
+      expect(s.models.openai).toBe('gpt-5.5')
+      expect(s.models.custom).toBe('')
+    })
   })
 
   describe('custom provider (#7)', () => {
