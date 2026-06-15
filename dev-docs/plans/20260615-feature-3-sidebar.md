@@ -1,9 +1,122 @@
 # Feature #3 — Sessions & Glossary sidebar (data + persistence)
 
-> Status: **DRAFT** (Gate 1) · Tracker: `docs/features.md` #3 · GH: #19
+> Status: **DRAFT** (Gate 2; round 1 = NEEDS REVISION → v2 below resolves it) · Tracker: `docs/features.md` #3 · GH: #19
 > Design: `dev-docs/designs/lucid-workspace/project/Lucid Workspace.dc.html` (sidebar = the `<aside>`
 > at the SIDEBAR/#18 block: Sessions + Glossary tabs, full/shell/hidden variants). Depends on #2
 > (VERIFIED) + #4 (VERIFIED). Branch `feat/feature-3-sidebar` (main is protected).
+
+## Gate-2 round-1 resolutions (v2)
+
+Round 1 (independent multi-subagent audit; Codex was rate-limited — rule 48 fresh-context fallback)
+= NEEDS REVISION, 4 Criticals + Highs + Mediums. All resolved here (authoritative over the prose
+below where they differ). `zustand@^5` `persist` + `createJSONStorage` verified importable.
+
+### Locked interfaces (Critical #1)
+
+```ts
+// src/stores/sessionStore.ts
+export interface Task { id: string; kind: 'translate' | 'polish'; title: string; sourceText: string; resultText: string; createdAt: number }
+export interface Session { id: string; name: string; createdAt: number; tasks: Task[] }
+interface SessionStore {
+  sessions: Session[]
+  activeSessionId: string | null
+  newSession: () => string                 // creates + selects; returns new id
+  renameSession: (id: string, name: string) => void
+  deleteSession: (id: string) => void
+  selectSession: (id: string) => void
+  addTask: (task: Omit<Task, 'id' | 'createdAt'>) => void  // into the active session (no-op if none)
+  reset: () => void
+}
+export function searchSessions(sessions: Session[], query: string): Session[]  // pure selector, see Search
+// src/stores/glossaryStore.ts
+export interface Term { id: string; label: string }
+interface GlossaryStore {
+  terms: Term[]
+  addTerm: (label: string) => void         // trims; case-insensitive de-dupe (keep FIRST; reject dup)
+  removeTerm: (id: string) => void
+  reset: () => void
+}
+```
+
+IDs use a seeded counter (no `Math.random`/`Date.now` in store bodies per harness rules — pass a
+clock/id-source as an injectable test seam mirroring `operationStore`'s `setOperationClock`).
+
+### Persistence (Critical #1 + Highs: safeJSONStorage / zustand v5 / SSR / quota / multi-tab)
+
+- `src/lib/storage/safeJSONStorage.ts`: `createSafeJSONStorage()` returning a zustand
+  `StateStorage` (`getItem/setItem/removeItem`). `getItem` returns `null` on absent/corrupt/oversized
+  (>1MB) data (never throws); `setItem` wraps `localStorage.setItem` in try/catch and swallows
+  `QuotaExceededError` (best-effort) after attempting eviction (below). **SSR guard:** if
+  `typeof window === 'undefined' || !window.localStorage`, all ops no-op (`getItem`→null). Used via
+  `persist(fn, { name, version: 1, storage: createJSONStorage(() => safeJSONStorage), migrate })`.
+- `version: 1`; `migrate(persisted, fromVersion)`: on any unknown/older version OR a thrown
+  migration, return `undefined` (→ zustand falls back to initial state). Tested: corrupt JSON,
+  oversized blob, version mismatch, migrate-throws — each boots to defaults without throwing.
+- **Persist keys:** `lucid.sessions`, `lucid.glossary`. **Scalar-only** persisted fields
+  (`createdAt: number` via the injectable clock — never a `Date`); a round-trip serialization test
+  asserts `parse(stringify(state))` is identical.
+- **Quota/growth:** `sessionStore` caps history at **50 most-recent sessions** (drop oldest on
+  insert); each session caps at **200 tasks** (drop oldest). On a still-failing `setItem`, surface a
+  one-time localized toast `error.storageFull` (rule 65 §4 — not silent) and continue in-memory.
+- **Multi-tab:** single-tab is the supported scope (documented). A `storage`-event listener that
+  rehydrates on cross-tab writes is an explicit **stretch** in WI-3 (last-write-wins); if not done,
+  WI-3 notes "no cross-tab live sync — reload to see another tab's changes."
+- **Key never persisted:** an invariant test asserts neither persist blob ever contains an `sk-`/key
+  field (the API key lives only in the in-memory `providerStore`, rule 65 §5).
+
+### WI-7 run→task integration (Critical #2)
+
+No store mutation inside a panel. Add `src/hooks/useRecordTask.ts` exposing `recordTask(kind,
+sourceText, resultText)` which calls `useSessionStore.getState().addTask(...)` with a derived
+`title` (first ≤40 chars of `sourceText`, single-line). The panels call it at the existing **commit**
+points: `TranslatePanel.onAccept` and `PolishPanel.onAccept` (a task = an ACCEPTED result, not every
+run). `Task` captures `sourceText` + `resultText` (the user's own text, local-only — rule 65 §6; no
+analytics). Tested via the hook + a panel-accept integration test.
+
+### Glossary "use term" → Polish keywords (Critical #3)
+
+PolishPanel's `keywords` move from local `useState` to a tiny store
+`src/stores/polishKeywordsStore.ts` (`keywords: string[]`, `addKeyword`, `removeKeyword`, `reset`).
+PolishPanel reads via selector + passes to `KeywordsCard` unchanged (KeywordsCard stays
+presentational — NOT rebuilt). `GlossaryView`'s "use" calls `useTerm` = a pure action that invokes
+`usePolishKeywordsStore.getState().addKeyword(label)`. No cross-component prop-drilling, no store
+importing another's React state. Tested: "use" adds to the keyword store → reflected in PolishPanel.
+
+### Sidebar variant scope (Critical #4 — corrected rationale)
+
+The design depicts full/shell/hidden, but `sidebarMode` is switched **only by the prototype
+"Design review" dock** (design `:309–345,577,826–827`) — there is **no product control**. Building
+shell/hidden as product features would require **inventing** an undesigned product collapse/toggle
+control, which rule 51 forbids. So the product ships the **full** variant only (`showSidebar=true`,
+no `shellMode`); the conditional shell/hidden branches are NOT built (nothing untested ships). A
+product sidebar-collapse affordance is a future **needs-design** (noted, not blocking). This is
+rule-51 *compliance*, not withholding designed UI.
+
+### Workspace restructure (High #5)
+
+`Workspace.tsx` becomes a flex row under the toolbar: `<Sidebar>` (fixed `w-[268px]`, per design) +
+`<main className="flex-1 …">`. Sidebar holds the Sessions/Glossary tab state.
+
+### extractTerms (High #6)
+
+`src/lib/glossary/extractTerms.ts`: `extractTerms(text: string, existing?: readonly string[]):
+string[]`. Heuristic: capitalized multi-word phrases (`/\p{Lu}\p{L}+(?:\s+\p{Lu}\p{L}+)*/u`) AND
+tokens repeated ≥2×, length ≥3; cap at 8; de-dupe case-insensitively against `existing`. **CJK/RTL:**
+documented Latin-script-oriented limitation for v1 (CJK has no case; returns none for case-less
+scripts) — a fixture asserts CJK/punctuation-only → `[]`; a follow-up can add segmenter-based
+CJK term mining. No provider call.
+
+### Search selector (Medium)
+
+`searchSessions(sessions, query)`: case-insensitive substring over `name` + each task's `title` +
+`sourceText`; empty query → all; linear scan (documented acceptable; a 100-session scale test
+asserts < 100ms). Query is a parameter, not stored state.
+
+### Privacy surfacing (Medium, rule 65 §6)
+
+The workspace footer (`FooterPrivacy`, feature #2) already states the active provider's posture at
+the point of action; persisted session text is local-only and never sent anywhere (no analytics
+ingest persisted text). No new disclosure surface needed; confirmed, not invented.
 
 ## Problem
 
@@ -69,10 +182,10 @@ builds that data layer (persisted across browser sessions) and wires the designe
 | WI-1 | `sessionStore` — sessions+tasks data model, CRUD, active session, search selector, persisted (versioned + corruption-safe) | foundational (store, 100%) | M |
 | WI-2 | `glossaryStore` — terms CRUD (case-insensitive de-dupe), persisted; `extractTerms(text)` heuristic lib | foundational (store+lib, 100%) | M |
 | WI-3 | Persistence hardening — shared `safeJSONStorage` (quota + corruption guards), schema version + migrate, rehydration tests | foundational (lib, 100%) | S |
-| WI-4 | Sidebar shell — `<aside>` + Sessions/Glossary tabs + empty states; wire into `Workspace.tsx` | behavioral | M |
+| WI-4 | Sidebar shell — restructure `Workspace.tsx` into flex row (`<Sidebar w-268>` + `<main flex-1>`) + Sessions/Glossary tabs + empty states (full variant only — see v2) | behavioral | M |
 | WI-5 | Sessions view — list (new/search/select), detail (rename, task list, back) | behavioral | L |
-| WI-6 | Glossary view — list (add/remove), "use"→keywords, suggested/extract-from-text | behavioral | M |
-| WI-7 | Run→task recording — a completed translate/polish run is saved as a task in the active session | behavioral | M |
+| WI-6 | Glossary view + `polishKeywordsStore` hoist (PolishPanel keywords → store; KeywordsCard unchanged) + `useTerm`→`addKeyword` + extract-from-text | behavioral (+store) | M |
+| WI-7 | `useRecordTask` hook — `TranslatePanel`/`PolishPanel` `onAccept` record an accepted result as a task in the active session | behavioral | M |
 
 Order: data layer first (WI-1..3, TDD at 100%), then the designed UI (WI-4..6), then the
 cross-store integration (WI-7). `pnpm check:all` green per WI; own commit each.
