@@ -10,6 +10,7 @@ import '@/i18n'
 import { TranslatePanel } from './TranslatePanel'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
+import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
 import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
 
 const mockCreate = vi.mocked(createProvider)
@@ -35,6 +36,8 @@ beforeEach(() => {
   mockCreate.mockReset()
   mockNotify.mockReset()
   useProviderStore.getState().reset()
+  __resetSessionIds()
+  useSessionStore.getState().reset()
   useOperationStore.getState().reset('translate')
   useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0 } })
 })
@@ -80,6 +83,10 @@ describe('TranslatePanel', () => {
     // committed → button flips to the accepted label, and the confirmation toast fired
     expect(screen.getByRole('button', { name: 'Accepted ✓' })).toBeInTheDocument()
     expect(mockNotify).toHaveBeenCalledTimes(1)
+    // WI-7: the accepted translation is recorded as a task in a (auto-created) session
+    const sessions = useSessionStore.getState().sessions
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].tasks[0]).toMatchObject({ kind: 'translate', sourceText: 'Hello world', resultText: 'Hola mundo' })
   })
 
   // WI-4: the direction override changes the source editor's visual dir (never the request).

@@ -4,6 +4,7 @@ import { useOperationStore } from '@/stores/operationStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
 import { usePanelRun } from '@/hooks/usePanelRun'
 import { notify } from '@/components/workspace/notify'
+import { recordTask } from '@/lib/sessions/recordTask'
 import { OriginalCard } from './OriginalCard'
 import { DraftCard } from './DraftCard'
 import { KeywordsCard } from './KeywordsCard'
@@ -100,6 +101,7 @@ export function PolishPanel() {
   const addKeyword = (k: string) => usePolishKeywordsStore.getState().addKeyword(k)
   const removeKeyword = (k: string) => usePolishKeywordsStore.getState().removeKeyword(k)
   const onAccept = (text: string) => {
+    recordTask('polish', draft, text) // save the accepted polish to the active session (WI-7) — before setDraft
     setDraft(text)
     // Commit the polished text AND stop any in-flight "Translate original" — otherwise its next
     // mirrored chunk would clobber the text we just accepted.

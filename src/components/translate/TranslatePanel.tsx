@@ -5,6 +5,7 @@ import { usePanelRun } from '@/hooks/usePanelRun'
 import { detectDirection, directionLabels } from '@/lib/translation/detectDirection'
 import { bidiAttrs, type BidiOverride } from '@/lib/translation/bidi'
 import { notify } from '@/components/workspace/notify'
+import { recordTask } from '@/lib/sessions/recordTask'
 import { TranslateResult } from './TranslateResult'
 import { DirectionOverride } from './DirectionOverride'
 
@@ -55,6 +56,7 @@ export function TranslatePanel() {
   }
   const onAccept = (text: string) => {
     setAcceptedText(text) // commit the accepted working translation (rule 66 §2 — not a bare toast)
+    recordTask('translate', source, text) // save it to the active session (feature #3, WI-7)
     notify(t('toast.translateAccepted'))
   }
 
