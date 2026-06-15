@@ -33,6 +33,34 @@ function smartProvider(): LLMProvider {
   }
 }
 
+// A "Translate original" stream that yields one chunk, then stalls on a gate the test
+// controls — so the test can interleave a user edit / Stop click while it is mid-stream.
+function gatedTranslateProvider(): { provider: LLMProvider; release: () => void } {
+  let release!: () => void
+  const gate = new Promise<void>((r) => {
+    release = r
+  })
+  async function* streamOp(req: LLMRequest): AsyncGenerator<StreamChunk, ProviderOutcome, void> {
+    if (req.kind === 'translate') {
+      yield { text: 'partial' }
+      await gate
+      yield { text: ' more' }
+      return { status: 'done', text: 'partial more' }
+    }
+    yield { text: 'polished result' }
+    return { status: 'done', text: 'polished result' }
+  }
+  const provider: LLMProvider = {
+    vendor: 'anthropic',
+    model: 'm',
+    stream: (req) => streamOp(req),
+    streamOp: (req) => streamOp(req),
+    translate: async () => ({ status: 'done', text: '' }),
+    polish: async () => ({ status: 'done', text: '' }),
+  }
+  return { provider, release }
+}
+
 beforeEach(() => {
   mockCreate.mockReset()
   mockNotify.mockReset()
@@ -71,6 +99,89 @@ describe('PolishPanel', () => {
       await tick()
     })
     expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('translated draft')
+  })
+
+  // Regression (Gate-4 High-1): a stale "Translate original" stream used to overwrite newer
+  // user input because editing the draft didn't reset/abort the draftTranslate op. Editing now
+  // resets it so a superseded stream can never clobber the edit.
+  it('editing the draft mid-translate aborts the stale stream so it cannot overwrite the edit', async () => {
+    const { provider, release } = gatedTranslateProvider()
+    mockCreate.mockReturnValue(provider)
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Original' }), '原文')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /translate original/i }))
+      await tick()
+    })
+    const draftBox = screen.getByRole('textbox', { name: 'Draft to polish' })
+    expect(draftBox).toHaveValue('partial') // first chunk mirrored into the draft
+
+    // User overrides the draft while the stream is still in flight.
+    await user.clear(draftBox)
+    await user.type(draftBox, 'my own edit')
+
+    // Releasing the stalled stream must NOT bring back the stale chunk / done text.
+    await act(async () => {
+      release()
+      await tick()
+    })
+    expect(draftBox).toHaveValue('my own edit')
+  })
+
+  // Regression (Gate-4 High-1): there was no way to stop a runaway "Translate original".
+  it('shows a Stop control while translating the original and aborts it on click', async () => {
+    const { provider, release } = gatedTranslateProvider()
+    mockCreate.mockReturnValue(provider)
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Original' }), '原文')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /translate original/i }))
+      await tick()
+    })
+    expect(screen.getByText('translating…')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^stop$/i }))
+    // aborted → translating note gone, the action reverts to "Translate original", partial kept
+    expect(screen.queryByText('translating…')).toBeNull()
+    expect(screen.getByRole('button', { name: /translate original/i })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('partial')
+    await act(async () => {
+      release()
+      await tick()
+    })
+  })
+
+  // Regression (Gate-4 round-2 High): starting "Translate original" while a polish result is on
+  // screen used to leave that result actionable — accepting it mid-translate let the stream
+  // overwrite the accepted draft. A new translation now invalidates the stale polish result.
+  it('starting Translate original clears a prior polish result so it cannot be accepted mid-translate', async () => {
+    const { provider, release } = gatedTranslateProvider()
+    mockCreate.mockReturnValue(provider)
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    // Produce a polish result (done) — its Accept button is showing.
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'rough draft text')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^polish$/i }))
+      await tick()
+    })
+    expect(screen.getByText('polished result')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^accept$/i })).toBeInTheDocument()
+
+    // Start "Translate original" — the stale polish result + its Accept must clear.
+    await user.type(screen.getByRole('textbox', { name: 'Original' }), '原文')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /translate original/i }))
+      await tick()
+    })
+    expect(screen.queryByText('polished result')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^accept$/i })).toBeNull()
+    expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('partial')
+    await act(async () => {
+      release()
+      await tick()
+    })
   })
 
   it('polishes the draft, then Accept commits the result to the draft and toasts', async () => {

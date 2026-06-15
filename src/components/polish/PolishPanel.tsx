@@ -36,9 +36,21 @@ export function PolishPanel() {
   }, [dt.status, dtText])
 
   const resetPolish = () => useOperationStore.getState().reset('polish')
+  // Original / draft / language edits invalidate BOTH the polish result AND any in-flight or stale
+  // "Translate original" output (which mirrors into the draft) — reset both so a superseded
+  // draftTranslate stream can never overwrite newer user input.
+  const resetForInput = () => {
+    const ops = useOperationStore.getState()
+    ops.reset('polish')
+    ops.reset('draftTranslate')
+  }
+  const onStopTranslate = () => abort('draftTranslate')
 
   const onTranslateOriginal = () => {
     if (!original.trim()) return
+    // A fresh translation produces a new draft, so any polish result on screen is now stale —
+    // drop it (and its Accept) so it can't be accepted into a draft this stream is about to own.
+    resetPolish()
     run('draftTranslate', { kind: 'translate', text: original, sourceLang: srcLang, targetLang: tgtLang })
   }
   const onPolish = () => {
@@ -58,19 +70,19 @@ export function PolishPanel() {
   }
   const onOriginal = (v: string) => {
     setOriginal(v)
-    resetPolish()
+    resetForInput()
   }
   const onDraft = (v: string) => {
     setDraft(v)
-    resetPolish()
+    resetForInput()
   }
   const onSrcLang = (c: string) => {
     setSrcLang(c)
-    resetPolish()
+    resetForInput()
   }
   const onTgtLang = (c: string) => {
     setTgtLang(c)
-    resetPolish()
+    resetForInput()
   }
   const addKeyword = (k: string) => {
     setKeywords((ks) => (ks.includes(k) ? ks : [...ks, k]))
@@ -82,7 +94,9 @@ export function PolishPanel() {
   }
   const onAccept = (text: string) => {
     setDraft(text)
-    resetPolish()
+    // Commit the polished text AND stop any in-flight "Translate original" — otherwise its next
+    // mirrored chunk would clobber the text we just accepted.
+    resetForInput()
     notify(t('toast.polishAccepted'))
   }
 
@@ -115,6 +129,7 @@ export function PolishPanel() {
             lang={tgtLang}
             onLang={onTgtLang}
             onTranslateOriginal={onTranslateOriginal}
+            onStopTranslate={onStopTranslate}
             translating={translating}
           />
           <KeywordsCard keywords={keywords} onAdd={addKeyword} onRemove={removeKeyword} />

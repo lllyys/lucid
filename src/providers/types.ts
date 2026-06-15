@@ -100,7 +100,7 @@ export type ProviderOutcome =
   | { status: 'cancelled'; text: string }
   | { status: 'error'; text: string; error: ProviderError }
 
-/** UI/store lifecycle. Defined here; owned and driven by the operation store in feature #3. */
+/** UI/store lifecycle. Defined here; owned and driven by the operation store (feature #2). */
 export type OperationState =
   | { status: 'idle' }
   | { status: 'streaming'; text: string }

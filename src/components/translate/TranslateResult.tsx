@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
-import { notify } from '@/components/workspace/notify'
 
 /**
  * Translate result pane (feature #2, WI-8). Renders the three DESIGNED states: idle
  * (italic placeholder), streaming (text + live caret), done (text + Copy/Accept). On
  * error/cancelled it keeps the partial text visible (rule 65 §3) with no caret and no
  * message — the error/cancelled MESSAGE surface is needs-design #14.
+ *
+ * Accept COMMITS the result to the panel (via onAccept) — it is not a bare toast (rule 66 §2);
+ * the panel owns the accepted working translation and shows the "accepted" state here.
  */
-export function TranslateResult() {
+export function TranslateResult({ accepted, onAccept }: { accepted: boolean; onAccept: (text: string) => void }) {
   const { t } = useTranslation()
   const op = useOperationStore((s) => s.translate)
   const [copied, setCopied] = useState(false)
@@ -51,10 +53,10 @@ export function TranslateResult() {
           </button>
           <button
             type="button"
-            onClick={() => notify(t('toast.translateAccepted'))}
+            onClick={() => onAccept(op.text)}
             className="rounded-md bg-[var(--success)] px-3 py-1 text-[12px] font-semibold text-white hover:bg-[var(--success-hover)]"
           >
-            {t('common.accept')}
+            {accepted ? t('common.accepted') : t('common.accept')}
           </button>
         </div>
       )}

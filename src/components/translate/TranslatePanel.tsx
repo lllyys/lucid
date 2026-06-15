@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
 import { usePanelRun } from '@/hooks/usePanelRun'
 import { detectDirection, directionLabels } from '@/lib/translation/detectDirection'
+import { notify } from '@/components/workspace/notify'
 import { TranslateResult } from './TranslateResult'
 
 /**
@@ -14,6 +15,7 @@ import { TranslateResult } from './TranslateResult'
 export function TranslatePanel() {
   const { t } = useTranslation()
   const [source, setSource] = useState('')
+  const [acceptedText, setAcceptedText] = useState<string | null>(null)
   const op = useOperationStore((s) => s.translate)
   const { run, abort } = usePanelRun()
 
@@ -26,21 +28,29 @@ export function TranslatePanel() {
       return
     }
     if (!source.trim()) return
+    setAcceptedText(null)
     run('translate', { kind: 'translate', text: source, sourceLang: labels.srcCode, targetLang: labels.tgtCode })
   }
   const onSourceChange = (value: string) => {
     setSource(value)
+    setAcceptedText(null)
     useOperationStore.getState().reset('translate')
   }
   const swap = () => {
     if (op.status === 'done') {
       setSource(op.text)
+      setAcceptedText(null)
       useOperationStore.getState().reset('translate')
     }
   }
   const clear = () => {
     setSource('')
+    setAcceptedText(null)
     useOperationStore.getState().reset('translate')
+  }
+  const onAccept = (text: string) => {
+    setAcceptedText(text) // commit the accepted working translation (rule 66 §2 — not a bare toast)
+    notify(t('toast.translateAccepted'))
   }
 
   return (
@@ -105,7 +115,7 @@ export function TranslatePanel() {
           <span className="mb-2 font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
             {t('translate.translation')}
           </span>
-          <TranslateResult />
+          <TranslateResult accepted={op.status === 'done' && acceptedText === op.text} onAccept={onAccept} />
         </section>
       </div>
     </section>

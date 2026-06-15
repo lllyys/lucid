@@ -12,6 +12,7 @@ export function DraftCard({
   lang,
   onLang,
   onTranslateOriginal,
+  onStopTranslate,
   translating,
 }: {
   value: string
@@ -19,6 +20,7 @@ export function DraftCard({
   lang: string
   onLang: (code: string) => void
   onTranslateOriginal: () => void
+  onStopTranslate: () => void
   translating: boolean
 }) {
   const { t } = useTranslation()
@@ -33,7 +35,16 @@ export function DraftCard({
         </div>
         <div className="flex items-center gap-2">
           {translating ? (
-            <span className="font-mono text-[11px] text-[var(--text-tertiary)]">{t('polish.translating')}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] text-[var(--text-tertiary)]">{t('polish.translating')}</span>
+              <button
+                type="button"
+                onClick={onStopTranslate}
+                className="rounded-md border bg-[var(--bg-color)] px-2 py-[3px] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]"
+              >
+                {t('polish.stopTranslate')}
+              </button>
+            </div>
           ) : (
             <button
               type="button"
