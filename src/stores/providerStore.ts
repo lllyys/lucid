@@ -26,10 +26,13 @@ interface ProviderState {
   /** Endpoint base URL for the custom / OpenAI-compatible provider (#7); unused by named vendors. */
   baseUrl: string
   setVendor: (vendor: Vendor) => void
-  setModel: (model: string) => void
-  setApiKey: (apiKey: string) => void
+  /** Set a model. Targets `vendor` if given (Settings edits the viewed provider), else the active one. */
+  setModel: (model: string, vendor?: Vendor) => void
+  /** Set a key. Targets `vendor` if given, else the active one. The active-vendor mirror stays in sync. */
+  setApiKey: (apiKey: string, vendor?: Vendor) => void
   setBaseUrl: (baseUrl: string) => void
-  clearKey: () => void
+  /** Clear a key. Targets `vendor` if given, else the active one. */
+  clearKey: (vendor?: Vendor) => void
   isReady: () => boolean
   reset: () => void
 }
@@ -56,18 +59,34 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
     // Restore that vendor's last model + key (not reset-to-default), keeping the mirrors in sync.
     set({ vendor, model: s.models[vendor], apiKey: s.apiKeys[vendor] })
   },
-  setModel: (model) => set((s) => ({ model, models: { ...s.models, [s.vendor]: model } })),
-  setApiKey: (apiKey) => set((s) => ({ apiKey, apiKeys: { ...s.apiKeys, [s.vendor]: apiKey } })),
+  // Each setter targets `vendor` (the Settings-viewed provider) when given, else the active one. The
+  // active-vendor mirror (`model`/`apiKey`) is updated ONLY when the target IS the active vendor.
+  setModel: (model, vendor) =>
+    set((s) => {
+      const target = vendor ?? s.vendor
+      return { models: { ...s.models, [target]: model }, ...(target === s.vendor ? { model } : {}) }
+    }),
+  setApiKey: (apiKey, vendor) =>
+    set((s) => {
+      const target = vendor ?? s.vendor
+      return { apiKeys: { ...s.apiKeys, [target]: apiKey }, ...(target === s.vendor ? { apiKey } : {}) }
+    }),
   setBaseUrl: (baseUrl) => set({ baseUrl }), // for the custom provider (#7); in-memory like apiKey
-  clearKey: () => set((s) => ({ apiKey: '', apiKeys: { ...s.apiKeys, [s.vendor]: '' } })), // active vendor only
+  clearKey: (vendor) =>
+    set((s) => {
+      const target = vendor ?? s.vendor
+      return { apiKeys: { ...s.apiKeys, [target]: '' }, ...(target === s.vendor ? { apiKey: '' } : {}) }
+    }),
   // Ready needs an implemented vendor; remote vendors need a key, the custom provider also needs a
   // base URL + model, and local Ollama needs neither — only a model (it runs on-device, no key #5).
   isReady: () => {
     const s = get()
     if (!isVendorImplemented(s.vendor)) return false
-    if (s.vendor === 'ollama') return s.model.trim() !== ''
-    if (s.apiKeys[s.vendor].trim() === '') return false
+    if (s.vendor === 'ollama') return s.model.trim() !== '' // local: no key needed
+    // custom: a base URL + model are required; the API key is OPTIONAL (keyless self-hosted OR a
+    // keyed proxy like OpenRouter — #5/#7/#29 user decision). The named remote vendors need a key.
     if (s.vendor === 'custom') return s.baseUrl.trim() !== '' && s.model.trim() !== ''
+    if (s.apiKeys[s.vendor].trim() === '') return false
     return true
   },
   reset: () => set({ ...initial() }),

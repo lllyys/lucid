@@ -49,6 +49,19 @@ describe('openaiCompatibleStream — happy path & request shape', () => {
     expect(body.messages[1].role).toBe('user')
   })
 
+  it('omits the Authorization header for a keyless endpoint (empty apiKey — custom self-hosted)', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(streamResponse(sse(delta('hi'), finish('stop'), DONE))))
+    const streamFn = openaiCompatibleStream({
+      apiKey: '',
+      baseUrl: 'https://my-host/v1',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    await collectStream(streamFn(TRANSLATE, { model: 'm' }))
+    const headers = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>
+    expect(headers.authorization).toBeUndefined()
+    expect(headers['content-type']).toBe('application/json')
+  })
+
   it('normalizes a trailing slash in baseUrl (no double slash)', async () => {
     const { outcome, fetchMock } = run(sse(delta('x'), DONE), { baseUrl: 'https://api.example.com/v1/' })
     await outcome

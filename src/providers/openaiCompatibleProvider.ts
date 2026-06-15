@@ -45,10 +45,11 @@ export function openaiCompatibleStream(deps: OpenAICompatibleDeps): VendorStream
       stream: true,
       ...(options.maxOutputTokens ? { max_tokens: Math.max(1, Math.floor(options.maxOutputTokens)) } : {}),
     })
-    const headers = {
-      'content-type': 'application/json',
-      authorization: `Bearer ${deps.apiKey}`,
-    }
+    // Omit Authorization entirely for a keyless endpoint (custom self-hosted) — an empty `Bearer `
+    // header is rejected by some servers. A present key (named vendors, ollama placeholder, keyed
+    // custom) is sent as a Bearer token, never logged (rule 65 §5).
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (deps.apiKey) headers.authorization = `Bearer ${deps.apiKey}`
     const bytes = fetchStream(
       chatCompletionsUrl(deps.baseUrl),
       { method: 'POST', headers, body },

@@ -25,7 +25,9 @@ export function usePanelRun(): {
     }
     let provider
     try {
-      provider = createProvider(cfg.vendor, { apiKey: cfg.apiKey, model: cfg.model })
+      // baseUrl is required by the custom provider and harmlessly ignored by the named vendors
+      // (their endpoints are fixed in the factory). Without it, an active custom provider throws.
+      provider = createProvider(cfg.vendor, { apiKey: cfg.apiKey, model: cfg.model, baseUrl: cfg.baseUrl })
     } catch (err) {
       ops.fail(panel, err instanceof ProviderException ? err.providerError : makeProviderError('unknown'))
       return

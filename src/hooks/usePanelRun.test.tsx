@@ -85,6 +85,24 @@ describe('usePanelRun', () => {
     expect(mockCreate).toHaveBeenCalledWith('anthropic', expect.objectContaining({ apiKey: 'sk-test' }))
   })
 
+  it('threads the custom base URL into createProvider so an active custom provider can run (#5 WI-6a)', async () => {
+    const s = useProviderStore.getState()
+    s.setVendor('custom')
+    s.setBaseUrl('https://my-host.example.com/v1')
+    s.setModel('m', 'custom') // keyless, but ready (baseUrl + model)
+    expect(useProviderStore.getState().isReady()).toBe(true)
+    mockCreate.mockReturnValue(okProvider())
+    const { result } = renderHook(() => usePanelRun())
+    await act(async () => {
+      result.current.run('translate', req)
+      await tick()
+    })
+    expect(mockCreate).toHaveBeenCalledWith(
+      'custom',
+      expect.objectContaining({ baseUrl: 'https://my-host.example.com/v1', model: 'm' }),
+    )
+  })
+
   it('abort delegates to the operation store', () => {
     useOperationStore.setState({ translate: { status: 'streaming', text: 'x', startedAt: 1, elapsedMs: null, runId: 1 } })
     const { result } = renderHook(() => usePanelRun())

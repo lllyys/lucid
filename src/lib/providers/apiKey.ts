@@ -14,6 +14,11 @@ const KEY_PREFIX: Partial<Record<Vendor, string>> = {
 
 const MIN_KEY_LENGTH = 12
 
+/** The expected non-secret key prefix for a vendor (e.g. `sk-ant-`), or `''` if it has none. */
+export function keyPrefixHint(vendor: Vendor): string {
+  return KEY_PREFIX[vendor] ?? ''
+}
+
 /**
  * Mask a key for display: a short non-secret prefix hint + the last 4 chars, e.g.
  * `sk-ant-…1234` → `sk-…1234`. A key too short to mask safely is fully dotted. Empty in,

@@ -104,8 +104,11 @@ tiles render registry metadata where we have it and a documented placeholder whe
   default badge / "Use for this workspace", connection card + Test button, model picker dropdown,
   credentials: Ollama no-key card / custom base-URL field / remote key panel with mask+reveal+clear,
   stat tiles 2×2, privacy note). All tokens from the design; ARIA-role queries in tests. Split into
-  two PRs (see WI table): **WI-6a** = rail + provider detail + per-vendor key panel + model picker
-  (#5/#29 core); **WI-6b** = test-connection panel + stat tiles + custom base-URL field (#6/#7-WI-4).
+  two PRs (see WI table): **WI-6a** = rail (incl. custom) + provider detail + per-vendor key panel +
+  model picker + the custom base-URL + optional key field (#7-WI-4) + the `usePanelRun` baseUrl
+  run-path wiring; **WI-6b** = test-connection panel + stat tiles (#6). (v3: the custom config surface
+  moved into WI-6a — it is the natural credentials slice, and shipping it without WI-6b avoids a
+  configurable-but-unrunnable custom provider once the run path is wired in the same WI.)
   - **Stat-tile data source:** `ModelCapability` has no price/rate/latency fields and they are out of
     scope to add. Only **Last tested** + **Latency** (post-test) come from `testResult`; **Pricing**
     and **Rate limit** (and pre-test Latency) render a documented placeholder (`—` or a per-vendor
@@ -143,8 +146,8 @@ tiles render registry metadata where we have it and a documented placeholder whe
 | **WI-3** | foundational | `providerStore` per-vendor keys/models + test-state + tests; update callers | M |
 | **WI-4** | behavioral (headless) | flip `implemented:true` (openai/gemini/ollama) + `createProvider` vendor switch + ollama no-key + tests (incl. updating `index.test.ts`'s now-build cases) | S |
 | **WI-5** | behavioral (headless) | `testConnection.ts` probe (#6) + tests | S |
-| **WI-6a** | behavioral (UI, designed) | `SettingsDialog` rebuild — rail + provider detail + per-vendor key panel + model picker (#5/#29 core) + ARIA tests | M |
-| **WI-6b** | behavioral (UI, designed) | test-connection panel + stat tiles + custom base-URL field (#6/#7-WI-4) + ARIA tests | M |
+| **WI-6a** | behavioral (UI, designed) | `SettingsDialog` rebuild — rail (incl. custom) + provider detail + per-vendor key panel + model picker + **custom base-URL + optional key field (#7-WI-4)** + workspace-default + **`usePanelRun` baseUrl run-path wiring** (so an active custom provider is runnable) + ARIA tests | L |
+| **WI-6b** | behavioral (UI, designed) | test-connection panel (wires WI-5 `probeProvider`) + stat tiles (#6) + ARIA tests | M |
 | **WI-7** | behavioral (UI, designed) | `ProviderSwitcher` 4-provider verification + i18n strings + final acceptance | S |
 
 WI-1→WI-4 are headless and independent of the UI; **WI-3 is the linchpin** the UI depends on, and
@@ -218,3 +221,13 @@ Determinism: provider layer + probe mock `fetch`; no live APIs in `check:all` (r
   probe's valid request + own-timeout + abort-after-first-byte, the WI-4 empty-key guard placement, and
   correct the DoD coverage wording (100% on logic layer; components behavior-tested only). **Verdict
   after v2: READY TO BUILD** (zero open Critical/High/Medium).
+- **v3 (2026-06-16):** WI-6a build + Gate-4 fixes. **User decision (#5/#7/#29):** custom gets an
+  OPTIONAL API-key field (the committed design showed none) so keyed proxies (OpenRouter) AND keyless
+  self-hosted both work → `isReady(custom)` = baseUrl + model (key optional); the factory exempts custom
+  from the key requirement. **Scope:** the custom config surface (rail row + base-URL + optional key)
+  moved from WI-6b into WI-6a (the credentials slice), and the `usePanelRun` baseUrl run-path wiring
+  landed in the same WI so custom is never configurable-but-unrunnable (Gate-4 High). Gate-4 was a 4-lens
+  adversarial workflow (behavior/design/security/coverage): 1 High (usePanelRun baseUrl — fixed), 1
+  Medium (this scope-drift doc-sync), and Lows (omit empty `Bearer` for keyless custom; dead i18n key
+  removed; dialog dims 880/252; rail status color; selected-row treatment; model context label;
+  +5 strengthened tests). WI-6b is now just test-connection panel + stat tiles.

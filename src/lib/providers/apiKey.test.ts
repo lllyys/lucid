@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { maskKey, validateKeyShape } from './apiKey'
+import { maskKey, validateKeyShape, keyPrefixHint } from './apiKey'
+
+describe('keyPrefixHint', () => {
+  it('returns the expected key prefix for vendors that have one', () => {
+    expect(keyPrefixHint('anthropic')).toBe('sk-ant-')
+    expect(keyPrefixHint('openai')).toBe('sk-')
+    expect(keyPrefixHint('gemini')).toBe('AIza')
+  })
+  it('returns "" for vendors with no fixed prefix (ollama / custom)', () => {
+    expect(keyPrefixHint('ollama')).toBe('')
+    expect(keyPrefixHint('custom')).toBe('')
+  })
+})
 
 describe('maskKey', () => {
   it('returns empty for an empty / whitespace key', () => {

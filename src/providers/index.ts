@@ -46,9 +46,9 @@ export function createProvider(
   if (!isVendorImplemented(vendor)) {
     throw new ProviderException(makeProviderError('requestFailed', { detail: `provider not implemented: ${vendor}` }))
   }
-  // Ollama runs locally and needs no key (its OpenAI-compatible endpoint requires a placeholder
-  // bearer, which it ignores). Every other vendor requires a key up front.
-  if (vendor !== 'ollama' && !config.apiKey) {
+  // Ollama runs locally and needs no key; custom's key is OPTIONAL (keyless self-hosted OR a keyed
+  // proxy like OpenRouter — #5/#7/#29). The named remote vendors require a key up front.
+  if (vendor !== 'ollama' && vendor !== 'custom' && !config.apiKey) {
     throw new ProviderException(makeProviderError('invalidKey', { detail: 'missing API key' }))
   }
   const model = resolveModel(vendor, config.model)

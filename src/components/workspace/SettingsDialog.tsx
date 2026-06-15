@@ -11,73 +11,75 @@ import {
 } from '@/components/ui/dialog'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
-import { implementedPresentations, presentationFor } from '@/lib/providers/providerPresentation'
-import { maskKey, validateKeyShape } from '@/lib/providers/apiKey'
+import { configurablePresentations, presentationFor } from '@/lib/providers/providerPresentation'
 import { applyKeyChange } from '@/lib/providers/keyChange'
+import { resolveModel } from '@/providers/modelRegistry'
+import type { Vendor } from '@/providers/types'
+import { ModelControl } from './settings/ModelControl'
+import { CredentialFields } from './settings/CredentialFields'
 
 /**
- * Provider Settings / API-key entry (feature #4, WI-1 — designed surface #13). Lists the
- * IMPLEMENTED providers only (rule 51 — no silent no-op rows; Anthropic today) and edits the
- * active vendor's key. Save validates the key SHAPE (a typo guard, not auth), then routes through
- * `applyKeyChange` so changing/clearing the key aborts any in-flight panel and clears a runtime
- * `invalidKey` rejection. The key is held in memory for this session only — never persisted,
- * never logged (rule 65 §5); the copy says exactly that (NOT "secure storage").
+ * Provider Settings — the redesigned 880px provider surface (feature #5 WI-6a — design #29). A left
+ * rail lists every CONFIGURABLE provider (incl. custom); the right pane configures the VIEWED one
+ * (separate from the active workspace vendor — switch with "Use for this workspace"). Per-vendor keys
+ * are held in memory only, never persisted/logged (rule 65 §5). Changing the ACTIVE vendor's key
+ * routes through `applyKeyChange` (aborts in-flight runs, clears a stale `invalidKey`). The
+ * test-connection panel + stat tiles land in WI-6b.
  */
+
+// Display-only endpoint host per vendor (cosmetic header label — not the factory URL).
+const HOST: Record<Vendor, string> = {
+  anthropic: 'api.anthropic.com',
+  openai: 'api.openai.com',
+  gemini: 'generativelanguage.googleapis.com',
+  ollama: 'localhost:11434',
+  custom: '',
+}
+
 export function SettingsDialog() {
   const { t } = useTranslation()
-  const vendor = useProviderStore((s) => s.vendor)
-  const apiKey = useProviderStore((s) => s.apiKey)
+  const activeVendor = useProviderStore((s) => s.vendor)
+  const apiKeys = useProviderStore((s) => s.apiKeys)
+  const models = useProviderStore((s) => s.models)
+  const baseUrl = useProviderStore((s) => s.baseUrl)
   const translate = useOperationStore((s) => s.translate)
   const polish = useOperationStore((s) => s.polish)
   const draftTranslate = useOperationStore((s) => s.draftTranslate)
 
   const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [reveal, setReveal] = useState(false)
-  const [shapeError, setShapeError] = useState('') // i18n key, or '' when none
+  const [viewVendor, setViewVendor] = useState<Vendor>(activeVendor)
 
-  // Closing discards the unsaved draft + reveal so reopening can't expose a typed-but-unsaved key.
-  const onOpenChange = (next: boolean) => {
-    setOpen(next)
-    if (!next) {
-      setDraft('')
-      setReveal(false)
-      setShapeError('')
-    }
-  }
-
-  const providers = implementedPresentations()
-  const activeLabel = t(presentationFor(vendor).labelKey)
-  const masked = maskKey(apiKey)
-  const hasKey = apiKey.trim() !== ''
-  // A runtime 401 is the authoritative "invalid key" — reflected by any panel op left in invalidKey
-  // for the active provider. A key change resets those ops (applyKeyChange), so this tracks the live key.
+  // A runtime 401 on the active provider (any panel op left in invalidKey) is the authoritative
+  // "key rejected" signal — surfaced only on the active vendor's credential panel.
   const runtimeInvalid = [translate, polish, draftTranslate].some(
     (op) => op.status === 'error' && op.error.kind === 'invalidKey',
   )
 
-  const save = () => {
-    const res = validateKeyShape(vendor, draft)
-    if (!res.ok) {
-      setShapeError(res.messageKey ?? 'settings.keyRequired')
-      return
-    }
-    setShapeError('')
-    applyKeyChange(draft.trim())
-    setDraft('')
-    setReveal(false)
-  }
-  const clear = () => {
-    applyKeyChange('')
-    setDraft('')
-    setShapeError('')
+  const onOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (next) setViewVendor(useProviderStore.getState().vendor) // open on the active provider
   }
 
-  const errorMsg = shapeError
-    ? t(shapeError, { provider: activeLabel })
-    : runtimeInvalid
-      ? t('settings.keyRejected')
-      : ''
+  const rows = configurablePresentations()
+  const viewPres = presentationFor(viewVendor)
+  const viewLabel = t(viewPres.labelKey)
+  const isActive = viewVendor === activeVendor
+  const endpoint = viewVendor === 'custom' ? baseUrl.trim() || '—' : HOST[viewVendor]
+
+  const statusFor = (v: Vendor): string => {
+    if (presentationFor(v).isLocal) return t('settings.statusReady')
+    if (v === 'custom') return baseUrl.trim() !== '' ? t('settings.statusEndpointSet') : t('settings.statusNoEndpoint')
+    return apiKeys[v].trim() !== '' ? t('settings.statusKeySet') : t('settings.statusNoKey')
+  }
+  // Design colors the rail status: local providers read "Ready" in green; remote/custom are
+  // idle grey until the test-connection card (WI-6b) lights them up.
+  const statusColor = (v: Vendor): string => (presentationFor(v).isLocal ? 'var(--success)' : 'var(--text-tertiary)')
+
+  const onSaveKey = (key: string) => {
+    if (viewVendor === useProviderStore.getState().vendor) applyKeyChange(key) // active: abort/reset + set/clear
+    else if (key === '') useProviderStore.getState().clearKey(viewVendor)
+    else useProviderStore.getState().setApiKey(key, viewVendor)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,119 +94,107 @@ export function SettingsDialog() {
       </DialogTrigger>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[580px] gap-0 border-[var(--border-color)] bg-[var(--bg-color)] p-0"
+        className="max-w-[880px] gap-0 overflow-hidden border-[var(--border-color)] bg-[var(--bg-color)] p-0"
       >
         <DialogHeader className="flex-row items-center justify-between space-y-0 border-b border-[var(--border-color)] p-4 text-left">
           <div className="flex flex-col gap-0.5">
-            <DialogTitle className="text-[15px] font-semibold text-[var(--text-color)]">
+            <DialogTitle className="text-[16px] font-semibold text-[var(--text-color)]">
               {t('settings.title')}
             </DialogTitle>
-            <DialogDescription className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-[var(--text-tertiary)]">
+            <DialogDescription className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
               {t('settings.subtitle')}
             </DialogDescription>
           </div>
           <DialogClose
             aria-label={t('settings.close')}
-            className="flex size-[30px] items-center justify-center rounded-[9px] border bg-[var(--bg-color)] text-[var(--text-tertiary)] hover:bg-[var(--hover-bg)] hover:text-[var(--text-color)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
+            className="flex size-[31px] items-center justify-center rounded-[9px] border bg-[var(--bg-color)] text-[var(--text-tertiary)] hover:bg-[var(--hover-bg)] hover:text-[var(--text-color)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
           >
             ✕
           </DialogClose>
         </DialogHeader>
 
-        <div className="flex min-h-0">
-          <div className="flex w-[200px] shrink-0 flex-col gap-1.5 border-r border-[var(--border-color)] p-3">
-            <span className="px-1 pb-1 font-mono text-[9.5px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-              {t('settings.providerHeading')}
+        <div className="flex min-h-[440px]">
+          {/* LEFT RAIL */}
+          <div className="flex w-[252px] shrink-0 flex-col gap-1 overflow-auto border-r border-[var(--border-color)] bg-[var(--bg-canvas)] p-3">
+            <span className="px-2 pb-1.5 font-mono text-[9.5px] uppercase tracking-[0.07em] text-[var(--text-tertiary)]">
+              {t('settings.providersHeading')}
             </span>
-            {providers.map((p) => {
-              const active = p.vendor === vendor
-              const set = active && hasKey
+            {rows.map((p) => {
+              const selected = p.vendor === viewVendor
               return (
-                <div
+                <button
                   key={p.vendor}
-                  aria-current={active ? 'true' : undefined}
-                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2"
-                  style={active ? { background: 'var(--accent-bg)' } : undefined}
+                  type="button"
+                  aria-current={selected ? 'true' : undefined}
+                  onClick={() => setViewVendor(p.vendor)}
+                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
+                  style={
+                    selected
+                      ? { background: 'var(--accent-subtle)', boxShadow: 'inset 0 0 0 1px var(--accent-border)' }
+                      : undefined
+                  }
                 >
                   <span className="size-2 shrink-0 rounded-full" style={{ background: `var(${p.dotToken})` }} />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-[12.5px] font-semibold text-[var(--text-color)]">
-                      {t(p.labelKey)}
-                    </span>
-                    <span className="font-mono text-[9.5px] text-[var(--text-secondary)]">
-                      {set ? t('settings.statusKeySet') : t('settings.statusNoKey')}
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate text-[13px] font-semibold text-[var(--text-color)]">{t(p.labelKey)}</span>
+                    <span className="truncate font-mono text-[9.5px]" style={{ color: statusColor(p.vendor) }}>
+                      {statusFor(p.vendor)} · {models[p.vendor] || resolveModel(p.vendor) || '—'}
                     </span>
                   </span>
-                </div>
+                  {p.vendor === activeVendor && (
+                    <span className="rounded-[5px] bg-[var(--accent-bg)] px-1.5 py-[3px] font-mono text-[8px] font-semibold uppercase tracking-[0.05em] text-[var(--accent-ink)]">
+                      {t('settings.inUse')}
+                    </span>
+                  )}
+                </button>
               )
             })}
+            <span className="mt-auto px-2 pt-3 font-mono text-[11px] leading-[1.5] text-[var(--text-tertiary)]">
+              {t('settings.keysMemoryFooter')}
+            </span>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-3.5 p-[18px]">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[15px] font-semibold text-[var(--text-color)]">{activeLabel}</span>
-            </div>
-
-            {hasKey && (
-              <div className="flex items-center gap-2.5 rounded-[11px] border border-[var(--border-color)] bg-[var(--bg-canvas)] px-3 py-2.5">
-                <span className="flex-1 font-mono text-[12.5px] tracking-[0.02em] text-[var(--text-color)]">
-                  {masked}
+          {/* RIGHT DETAIL */}
+          <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-[20px] font-semibold tracking-[-0.015em] text-[var(--text-color)]">
+                  {viewLabel}
                 </span>
-                <span className="rounded-md bg-[var(--success-bg)] px-1.5 py-[3px] font-mono text-[9.5px] uppercase tracking-[0.04em] text-[var(--success)]">
-                  {t('settings.savedBadge')}
-                </span>
-                <button
-                  type="button"
-                  onClick={clear}
-                  className="rounded-lg border bg-[var(--bg-color)] px-2.5 py-[5px] text-[11.5px] text-[var(--error-color)] hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
-                >
-                  {t('settings.clear')}
-                </button>
+                <span className="truncate font-mono text-[11px] text-[var(--text-tertiary)]">{endpoint}</span>
               </div>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-[var(--text-tertiary)]">
-                {t('settings.keyLabel')}
-              </span>
-              <div className="flex items-center gap-2 rounded-[11px] border bg-[var(--bg-color)] py-1 pl-3 pr-1 focus-within:border-[var(--accent-primary)]">
-                <input
-                  type={reveal ? 'text' : 'password'}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder={t('settings.keyPlaceholder')}
-                  aria-label={t('settings.keyLabel')}
-                  spellCheck={false}
-                  className="flex-1 border-none bg-transparent py-1.5 font-mono text-[13px] text-[var(--text-color)] outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setReveal((r) => !r)}
-                  className="rounded-md px-2 py-1.5 font-mono text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-color)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
-                >
-                  {reveal ? t('settings.hide') : t('settings.reveal')}
-                </button>
-                <button
-                  type="button"
-                  onClick={save}
-                  className="rounded-lg bg-[var(--accent-primary)] px-3.5 py-[7px] text-[12.5px] font-semibold text-[var(--on-accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
-                >
-                  {t('settings.save')}
-                </button>
-              </div>
-              {errorMsg && (
-                <span role="alert" className="text-[11.5px] text-[var(--error-color)]">
-                  {errorMsg}
+              {isActive ? (
+                <span className="inline-flex shrink-0 items-center gap-[7px] rounded-[9px] border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-[7px]">
+                  <span className="size-[7px] rounded-full bg-[var(--accent-primary)]" />
+                  <span className="text-[12px] font-semibold text-[var(--accent-ink)]">{t('settings.workspaceDefault')}</span>
                 </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => useProviderStore.getState().setVendor(viewVendor)}
+                  className="shrink-0 rounded-[9px] border border-[var(--accent-border)] bg-[var(--bg-color)] px-3 py-[7px] text-[12.5px] font-semibold text-[var(--accent-ink)] hover:bg-[var(--accent-subtle)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
+                >
+                  {t('settings.useForWorkspace')}
+                </button>
               )}
             </div>
 
-            <div className="flex items-start gap-2.5 rounded-[11px] border border-[var(--border-color)] bg-[var(--bg-canvas)] px-3 py-2.5">
-              <span className="text-[13px] text-[var(--text-tertiary)]">🔒</span>
-              <span className="text-[11.5px] leading-[1.6] text-[var(--text-secondary)]">
-                {t('settings.memoryNote', { provider: activeLabel })}
-              </span>
-            </div>
+            <ModelControl
+              key={`model-${viewVendor}`}
+              vendor={viewVendor}
+              model={models[viewVendor]}
+              onPick={(m) => useProviderStore.getState().setModel(m, viewVendor)}
+            />
+
+            <CredentialFields
+              key={`cred-${viewVendor}`}
+              vendor={viewVendor}
+              savedKey={apiKeys[viewVendor]}
+              baseUrl={baseUrl}
+              rejected={isActive && runtimeInvalid}
+              onSaveKey={onSaveKey}
+              onSaveUrl={(u) => useProviderStore.getState().setBaseUrl(u)}
+            />
           </div>
         </div>
       </DialogContent>
