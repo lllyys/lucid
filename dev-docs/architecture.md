@@ -105,8 +105,16 @@ A Zustand store holding the active `vendor` / `model` / `apiKey` and an `isReady
 Configuration only — it does **not** own a running operation or live `OperationState` (that
 lands with feature #3). `setVendor` refuses an unimplemented vendor (state unchanged) and
 atomically resets the model to that vendor's default; `isReady()` requires an implemented vendor
-AND a non-empty key. The key is in memory only (secure at-rest storage is future, rule 65 §5).
-Components read via selectors (AGENTS.md) — never destructure the store.
+AND a non-empty key. `clearKey()` (feature #4) empties the key additively. The key is in memory
+only (secure at-rest storage is future, rule 65 §5). Components read via selectors (AGENTS.md) —
+never destructure the store.
+
+The Settings dialog (feature #4, `src/components/workspace/SettingsDialog.tsx`) edits the key
+through `src/lib/providers/keyChange.ts` — the ONE place that couples this config store to the
+operation store: on a real key change it aborts any streaming panel and resets any `invalidKey`
+panel before writing the key, so no request continues on a stale credential. The role-token /
+dark-theme layer and the `bidi.ts` (visual direction) + `groupHunks.ts` (per-hunk accept) utils
+also land with feature #4.
 
 ## Coming next
 
