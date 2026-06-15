@@ -4,6 +4,7 @@ import { ProviderSwitcher } from './ProviderSwitcher'
 import { FooterPrivacy } from './FooterPrivacy'
 import { WorkspaceToast } from './WorkspaceToast'
 import { TranslatePanel } from '@/components/translate/TranslatePanel'
+import { PolishPanel } from '@/components/polish/PolishPanel'
 
 /**
  * Top-level workspace layout (feature #2) — header + toolbar (with the provider switcher) +
@@ -23,7 +24,7 @@ export function Workspace() {
         </WorkspaceToolbar>
         <main className="flex min-h-0 flex-1 flex-col overflow-auto">
           <TranslatePanel />
-          {/* PolishPanel — WI-9 */}
+          <PolishPanel />
         </main>
       </div>
       <FooterPrivacy />

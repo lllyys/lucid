@@ -61,4 +61,36 @@ describe('end-to-end provider stack', () => {
       expect(message).not.toContain('raw vendor rate-limit body')
     }
   })
+
+  it('polishes with an original + keywords reference, sent as escaped JSON data (WI-2 contract)', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        streamResponse(
+          sse(
+            { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Polished.' } },
+            { type: 'message_delta', delta: { stop_reason: 'end_turn' } },
+            { type: 'message_stop' },
+          ),
+        ),
+      ),
+    )
+    const provider = createProvider('anthropic', { apiKey: 'sk-test', fetch: fetchMock as unknown as typeof fetch }, fakeDeps)
+    const outcome = await provider.polish({
+      kind: 'polish',
+      text: 'rough draft',
+      goal: 'clarity',
+      lang: 'en',
+      original: '原文参考',
+      keywords: ['inference', 'attention'],
+    })
+    expect(outcome).toEqual({ status: 'done', text: 'Polished.' })
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(init.body as string)
+    expect(body.system.toLowerCase()).toContain('json') // reference-mode instruction
+    const userContent = JSON.parse(body.messages[0].content) // original/keywords are escaped JSON data, not instructions
+    expect(userContent.draft).toBe('rough draft')
+    expect(userContent.original).toBe('原文参考')
+    expect(userContent.keywords).toEqual(['inference', 'attention'])
+  })
 })
