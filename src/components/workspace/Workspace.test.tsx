@@ -4,7 +4,7 @@ import '@/i18n'
 import { Workspace } from './Workspace'
 
 // WI-3 — the static layout shell. Behavioral: the designed chrome (header brand +
-// tagline + run hint + Settings, toolbar subtitle) renders; no sidebar (feature #3).
+// tagline + run hint + Settings, toolbar subtitle) renders, plus the feature-#3 sidebar.
 describe('Workspace shell', () => {
   it('renders the header brand, tagline, run hint, and Settings affordance', () => {
     render(<Workspace />)
@@ -19,8 +19,10 @@ describe('Workspace shell', () => {
     expect(screen.getByText(/one workspace/i)).toBeInTheDocument()
   })
 
-  it('does not render a sidebar (deferred to feature #3)', () => {
+  it('renders the Sessions & Glossary sidebar (feature #3)', () => {
     const { container } = render(<Workspace />)
-    expect(container.querySelector('aside')).toBeNull()
+    expect(container.querySelector('aside')).not.toBeNull()
+    expect(screen.getByRole('tab', { name: 'Sessions' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Glossary' })).toBeInTheDocument()
   })
 })

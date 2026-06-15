@@ -10,6 +10,8 @@ import '@/i18n'
 import { PolishPanel } from './PolishPanel'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
+import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
+import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
 import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
 
 const mockCreate = vi.mocked(createProvider)
@@ -66,6 +68,9 @@ beforeEach(() => {
   mockNotify.mockReset()
   useProviderStore.getState().reset()
   useProviderStore.getState().setApiKey('sk-test')
+  usePolishKeywordsStore.getState().reset()
+  __resetSessionIds()
+  useSessionStore.getState().reset()
   const ops = useOperationStore.getState()
   ops.reset('polish')
   ops.reset('draftTranslate')
@@ -184,6 +189,22 @@ describe('PolishPanel', () => {
     })
   })
 
+  // WI-6: a keyword change (here or from the sidebar glossary) invalidates a showing polish result.
+  it('a keyword change resets a showing polish result', async () => {
+    mockCreate.mockReturnValue(smartProvider())
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'rough draft text')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^polish$/i }))
+      await tick()
+    })
+    expect(screen.getByText('polished result')).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: 'add keyword' }), 'inference{Enter}')
+    expect(useOperationStore.getState().polish.status).toBe('idle')
+    expect(screen.queryByText('polished result')).toBeNull()
+  })
+
   it('polishes the draft, then Accept commits the result to the draft and toasts', async () => {
     mockCreate.mockReturnValue(smartProvider())
     const user = userEvent.setup()
@@ -203,5 +224,9 @@ describe('PolishPanel', () => {
     await user.click(screen.getByRole('button', { name: /^accept$/i }))
     expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('polished result')
     expect(mockNotify).toHaveBeenCalledTimes(1)
+    // WI-7: the accepted polish is recorded as a task in a (auto-created) session
+    const sessions = useSessionStore.getState().sessions
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].tasks[0]).toMatchObject({ kind: 'polish', resultText: 'polished result' })
   })
 })
