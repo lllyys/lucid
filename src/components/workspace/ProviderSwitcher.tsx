@@ -50,7 +50,7 @@ export function ProviderSwitcher() {
                 {t('provider.private')}
               </span>
             )}
-            {p.vendor === vendor && <Check className="size-3.5 text-[var(--accent-primary)]" aria-hidden />}
+            {p.vendor === vendor && <Check className="size-3.5 text-[var(--accent-ink)]" aria-hidden />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

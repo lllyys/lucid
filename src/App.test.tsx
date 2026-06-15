@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import App from '@/App'
 import i18n from '@/i18n'
 import type { ErrorKind } from '@/providers/types'
@@ -35,5 +35,45 @@ describe('App', () => {
     for (const kind of Object.keys(ALL_ERROR_KINDS) as ErrorKind[]) {
       expect(i18n.t(`error.${kind}`), `missing i18n key error.${kind}`).not.toBe(`error.${kind}`)
     }
+  })
+})
+
+// WI-2 — next-themes ThemeProvider follows the OS via the .dark class strategy (rule 34).
+describe('App theme (system / next-themes)', () => {
+  const realMatchMedia = window.matchMedia
+  beforeEach(() => {
+    document.documentElement.className = '' // no localStorage in this env — next-themes uses matchMedia
+  })
+  afterEach(() => {
+    window.matchMedia = realMatchMedia
+    document.documentElement.className = ''
+  })
+
+  const mockPrefersDark = (dark: boolean) => {
+    window.matchMedia = ((query: string) => ({
+      matches: dark && query.includes('dark'),
+      media: query,
+      onchange: null,
+      addListener() {},
+      removeListener() {},
+      addEventListener() {},
+      removeEventListener() {},
+      dispatchEvent() {
+        return false
+      },
+    })) as unknown as typeof window.matchMedia
+  }
+
+  it('applies the .dark class when the OS prefers dark', async () => {
+    mockPrefersDark(true)
+    render(<App />)
+    await waitFor(() => expect(document.documentElement.classList.contains('dark')).toBe(true))
+  })
+
+  it('does not apply .dark when the OS prefers light', async () => {
+    mockPrefersDark(false)
+    render(<App />)
+    await waitFor(() => expect(screen.getByText('Lucid')).toBeInTheDocument())
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 })

@@ -49,7 +49,7 @@ export function DraftCard({
             <button
               type="button"
               onClick={onTranslateOriginal}
-              className="rounded-md border bg-[var(--bg-color)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--accent-primary)] hover:bg-[var(--hover-bg)]"
+              className="rounded-md border bg-[var(--bg-color)] px-2.5 py-[5px] text-[11.5px] font-medium text-[var(--accent-ink)] hover:bg-[var(--hover-bg)]"
             >
               ↻ {t('polish.translateOriginal')}
             </button>

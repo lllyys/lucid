@@ -54,7 +54,7 @@ export function TranslateResult({ accepted, onAccept }: { accepted: boolean; onA
           <button
             type="button"
             onClick={() => onAccept(op.text)}
-            className="rounded-md bg-[var(--success)] px-3 py-1 text-[12px] font-semibold text-white hover:bg-[var(--success-hover)]"
+            className="rounded-md bg-[var(--success-solid)] px-3 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:bg-[var(--success-hover)]"
           >
             {accepted ? t('common.accepted') : t('common.accept')}
           </button>

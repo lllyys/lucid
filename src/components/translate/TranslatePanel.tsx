@@ -57,12 +57,12 @@ export function TranslatePanel() {
     <section className="flex min-h-[296px] flex-col border-b">
       <div className="flex items-center justify-between px-[22px] pb-1 pt-2.5">
         <div className="flex items-center gap-2.5">
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-primary)]">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-ink)]">
             {t('translate.label')}
           </span>
           <div className="flex items-center gap-2 rounded-md border bg-[var(--bg-color)] px-2.5 py-[5px] text-[12.5px] font-semibold">
             <span>{labels.srcNative}</span>
-            <span className="text-[var(--accent-primary)]">→</span>
+            <span className="text-[var(--accent-ink)]">→</span>
             <span>{labels.tgtNative}</span>
           </div>
           <span className="rounded-md bg-[var(--success-bg)] px-1.5 py-[3px] font-mono text-[9.5px] uppercase tracking-[0.05em] text-[var(--success)]">
@@ -80,7 +80,7 @@ export function TranslatePanel() {
         <button
           type="button"
           onClick={onRun}
-          className="rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold text-white"
+          className="rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold text-[var(--on-accent)]"
           style={{ background: isStreaming ? 'var(--text-secondary)' : 'var(--accent-primary)' }}
         >
           {isStreaming ? t('translate.stop') : t('translate.run')}

@@ -104,7 +104,7 @@ export function PolishPanel() {
     <section className="flex min-h-[420px] flex-1 flex-col">
       <div className="flex items-center justify-between px-[22px] pb-1 pt-2.5">
         <div className="flex items-center gap-2.5">
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-primary)]">
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-ink)]">
             {t('polish.label')}
           </span>
           <span className="text-[11.5px] text-[var(--text-disabled)]">{t('polish.subtitle')}</span>
@@ -113,7 +113,7 @@ export function PolishPanel() {
           type="button"
           onClick={onPolish}
           disabled={translating}
-          className="rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold text-white disabled:opacity-40"
+          className="rounded-[10px] px-[17px] py-[9px] text-[13.5px] font-semibold text-[var(--on-accent)] disabled:opacity-40"
           style={{ background: isPolishing ? 'var(--text-secondary)' : 'var(--accent-primary)' }}
         >
           {isPolishing ? t('polish.stop') : t('polish.run')}

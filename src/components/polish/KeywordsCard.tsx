@@ -36,7 +36,7 @@ export function KeywordsCard({
         {keywords.map((k) => (
           <span
             key={k}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-bg)] px-2 py-[5px] text-[12.5px] font-medium text-[var(--accent-primary)]"
+            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-bg)] px-2 py-[5px] text-[12.5px] font-medium text-[var(--accent-ink)]"
           >
             {k}
             <button type="button" aria-label={`remove ${k}`} onClick={() => onRemove(k)} className="text-[13px] leading-none">

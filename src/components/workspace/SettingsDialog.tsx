@@ -72,7 +72,7 @@ export function SettingsDialog() {
       <DialogTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-[7px] rounded-md border bg-[var(--bg-color)] px-[10px] py-1.5 font-sans text-[12.5px] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+          className="flex items-center gap-[7px] rounded-md border bg-[var(--bg-color)] px-[10px] py-1.5 font-sans text-[12.5px] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
         >
           <span className="h-[13px] w-[13px] rounded-full border-[1.5px] border-[var(--text-tertiary)]" />
           {t('header.settings')}
@@ -133,7 +133,7 @@ export function SettingsDialog() {
                 <button
                   type="button"
                   onClick={clear}
-                  className="rounded-lg border bg-[var(--bg-color)] px-2.5 py-[5px] text-[11.5px] text-[var(--error-color)] hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+                  className="rounded-lg border bg-[var(--bg-color)] px-2.5 py-[5px] text-[11.5px] text-[var(--error-color)] hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
                 >
                   {t('settings.clear')}
                 </button>
@@ -157,14 +157,14 @@ export function SettingsDialog() {
                 <button
                   type="button"
                   onClick={() => setReveal((r) => !r)}
-                  className="rounded-md px-2 py-1.5 font-mono text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-color)] focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+                  className="rounded-md px-2 py-1.5 font-mono text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-color)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
                 >
                   {reveal ? t('settings.hide') : t('settings.reveal')}
                 </button>
                 <button
                   type="button"
                   onClick={save}
-                  className="rounded-lg bg-[var(--accent-primary)] px-3.5 py-[7px] text-[12.5px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)]"
+                  className="rounded-lg bg-[var(--accent-primary)] px-3.5 py-[7px] text-[12.5px] font-semibold text-[var(--on-accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
                 >
                   {t('settings.save')}
                 </button>
