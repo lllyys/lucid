@@ -1,40 +1,49 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
 import { createWordDiff, applyDiff, type DiffSegment } from '@/lib/polish/wordDiff'
+import { groupHunks, acceptedIdsForRejected, type Hunk } from '@/lib/polish/groupHunks'
 import { ResultBanner } from '@/components/workspace/ResultBanner'
 
 const wd = createWordDiff()
 
-function segStyle(type: DiffSegment['type']): React.CSSProperties | undefined {
+function segStyle(type: DiffSegment['type'], struck: boolean): React.CSSProperties | undefined {
   if (type === 'add') return { background: 'var(--diff-add-bg)', color: 'var(--diff-add-fg)', borderRadius: '3px', padding: '0 2px' }
-  if (type === 'del') return { color: 'var(--diff-del-fg)', textDecoration: 'line-through', opacity: 0.72 }
+  if (type === 'del') return struck ? { color: 'var(--diff-del-fg)', textDecoration: 'line-through', opacity: 0.72 } : undefined
   return undefined
 }
 
 /**
- * Polished result pane (feature #2, WI-9). Result view = streaming text + caret / done text;
- * Compare view = the live word-diff of the draft vs the polished result. Accept commits the
- * whole-result text to the draft (rule 66 §2 — applyDiff over all change ids reproduces the
- * model result exactly). error/cancelled keep partial text with no message (needs-design #14).
- * The "meaning preserved" footer is needs-design #15 and intentionally not rendered.
+ * Polished result pane (feature #2, WI-9; per-hunk accept/reject added feature #4, WI-7 — #15b).
+ * Result view = streaming/done text; Compare view = the word-diff with per-hunk reject toggles,
+ * Keep-all / Reject-all, and an "N of M kept" summary. Accept commits applyDiff over the kept
+ * hunks (rule 66 §2); explicit Reject discards the polish and keeps the draft. The rejected set
+ * resets whenever a new result arrives (keyed by the op's runId). error/cancelled → ResultBanner.
  */
 export function PolishResult({
   draft,
   onAccept,
   onRegenerate,
+  onReject,
 }: {
   draft: string
   onAccept: (text: string) => void
   onRegenerate: () => void
+  onReject: () => void
 }) {
   const { t } = useTranslation()
   const op = useOperationStore((s) => s.polish)
   const [view, setView] = useState<'result' | 'compare'>('result')
   const [copied, setCopied] = useState(false)
+  const [rejected, setRejected] = useState<ReadonlySet<string>>(new Set())
   const isDone = op.status === 'done'
+  const runId = op.runId
   const text = op.status === 'idle' ? '' : op.text
   const segs = useMemo(() => (isDone ? wd.diff(draft, text) : []), [isDone, draft, text])
+  const hunks = useMemo(() => groupHunks(segs), [segs])
+
+  // A new result (new runId) clears any prior per-hunk rejections.
+  useEffect(() => setRejected(new Set()), [runId])
 
   if (op.status === 'idle') {
     return (
@@ -53,28 +62,88 @@ export function PolishResult({
     setCopied(true)
     setTimeout(() => setCopied(false), 1400)
   }
-  const accept = () => onAccept(applyDiff(segs, new Set(segs.filter((s) => s.type !== 'same').map((s) => s.id))))
+
+  const accepted = acceptedIdsForRejected(hunks, rejected)
+  const accept = () => onAccept(applyDiff(segs, accepted))
+  const toggleHunk = (id: string) =>
+    setRejected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const keepAll = () => setRejected(new Set())
+  const rejectAll = () => setRejected(new Set(hunks.map((h) => h.id)))
+  const keptCount = hunks.length - hunks.filter((h) => rejected.has(h.id)).length
+
+  // segment id → its hunk, so each segment renders its hunk's reject toggle (once, on the first id).
+  const hunkBySeg = new Map<string, Hunk>()
+  hunks.forEach((h) => h.segmentIds.forEach((id) => hunkBySeg.set(id, h)))
+
+  const renderCompare = () =>
+    segs.map((seg) => {
+      if (seg.type === 'same') return <span key={seg.id}>{seg.value}</span>
+      const hunk = hunkBySeg.get(seg.id)!
+      const isRejected = rejected.has(hunk.id)
+      const isFirst = hunk.segmentIds[0] === seg.id
+      const chip = isFirst ? (
+        <button
+          key={`${seg.id}-chip`}
+          type="button"
+          aria-pressed={isRejected}
+          aria-label={isRejected ? t('polish.keepHunk') : t('polish.rejectHunk')}
+          onClick={() => toggleHunk(hunk.id)}
+          className="mx-0.5 inline-flex size-[16px] -translate-y-px items-center justify-center rounded-[5px] border bg-[var(--bg-color)] align-middle text-[9px] leading-none focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
+          style={{ color: isRejected ? 'var(--success)' : 'var(--error-color)' }}
+        >
+          {isRejected ? '↩' : '✕'}
+        </button>
+      ) : null
+      // A rejected add disappears; a rejected del is kept as plain text; a kept del is struck.
+      if (seg.type === 'add' && isRejected) return chip
+      return (
+        <span key={seg.id}>
+          {chip}
+          <span style={segStyle(seg.type, !isRejected)}>{seg.value}</span>
+        </span>
+      )
+    })
 
   return (
     <div>
       {isDone && (
-        <div className="mb-2 inline-flex gap-0.5 rounded-[7px] bg-[var(--bg-tertiary)] p-0.5">
-          <button
-            type="button"
-            aria-pressed={view === 'result'}
-            onClick={() => setView('result')}
-            className="rounded-md px-2.5 py-0.5 text-[11.5px] font-medium aria-pressed:bg-[var(--bg-color)]"
-          >
-            {t('polish.result')}
-          </button>
-          <button
-            type="button"
-            aria-pressed={view === 'compare'}
-            onClick={() => setView('compare')}
-            className="rounded-md px-2.5 py-0.5 text-[11.5px] font-medium aria-pressed:bg-[var(--bg-color)]"
-          >
-            {t('polish.compare')}
-          </button>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <div className="inline-flex gap-0.5 rounded-[7px] bg-[var(--bg-tertiary)] p-0.5">
+            <button
+              type="button"
+              aria-pressed={view === 'result'}
+              onClick={() => setView('result')}
+              className="rounded-md px-2.5 py-0.5 text-[11.5px] font-medium aria-pressed:bg-[var(--bg-color)]"
+            >
+              {t('polish.result')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'compare'}
+              onClick={() => setView('compare')}
+              className="rounded-md px-2.5 py-0.5 text-[11.5px] font-medium aria-pressed:bg-[var(--bg-color)]"
+            >
+              {t('polish.compare')}
+            </button>
+          </div>
+          {view === 'compare' && hunks.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] text-[var(--text-tertiary)]">
+                {t('polish.hunkSummary', { kept: keptCount, total: hunks.length })}
+              </span>
+              <button type="button" onClick={keepAll} className="rounded-[7px] border bg-[var(--bg-color)] px-2 py-[3px] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]">
+                {t('polish.keepAll')}
+              </button>
+              <button type="button" onClick={rejectAll} className="rounded-[7px] border bg-[var(--bg-color)] px-2 py-[3px] text-[11px] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]">
+                {t('polish.rejectAll')}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -84,11 +153,7 @@ export function PolishResult({
         className="whitespace-pre-wrap font-serif text-[20px] leading-[1.78]"
       >
         {view === 'compare' && isDone ? (
-          segs.map((s) => (
-            <span key={s.id} style={segStyle(s.type)}>
-              {s.value}
-            </span>
-          ))
+          renderCompare()
         ) : (
           <>
             {text}
@@ -109,25 +174,38 @@ export function PolishResult({
       )}
 
       {isDone && (
-        <div className="mt-3 flex items-center gap-2">
-          <button type="button" onClick={onRegenerate} className="text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-color)]">
-            {t('polish.regenerate')}
-          </button>
-          <button
-            type="button"
-            onClick={copy}
-            className="rounded-md border bg-[var(--bg-color)] px-2.5 py-1 text-[12px] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]"
-          >
-            {copied ? t('common.copied') : t('common.copy')}
-          </button>
-          <button
-            type="button"
-            onClick={accept}
-            className="rounded-md bg-[var(--success-solid)] px-3 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:bg-[var(--success-hover)]"
-          >
-            {t('common.accept')}
-          </button>
-        </div>
+        <>
+          {view === 'compare' && (
+            <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">{t('polish.reviewHint')}</p>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <button type="button" onClick={onRegenerate} className="text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-color)]">
+              {t('polish.regenerate')}
+            </button>
+            <button
+              type="button"
+              onClick={copy}
+              className="rounded-md border bg-[var(--bg-color)] px-2.5 py-1 text-[12px] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]"
+            >
+              {copied ? t('common.copied') : t('common.copy')}
+            </button>
+            <button
+              type="button"
+              onClick={onReject}
+              title={t('polish.rejectTitle')}
+              className="rounded-md border bg-[var(--bg-color)] px-3 py-1 text-[12px] text-[var(--text-color)] hover:bg-[var(--hover-bg)]"
+            >
+              {t('polish.reject')}
+            </button>
+            <button
+              type="button"
+              onClick={accept}
+              className="rounded-md bg-[var(--success-solid)] px-3 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:bg-[var(--success-hover)]"
+            >
+              {t('common.accept')}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

@@ -99,6 +99,11 @@ export function PolishPanel() {
     resetForInput()
     notify(t('toast.polishAccepted'))
   }
+  const onReject = () => {
+    // Discard the polish result entirely; the draft is left exactly as-is (rule 66 §2).
+    resetPolish()
+    notify(t('toast.polishRejected'))
+  }
 
   return (
     <section className="flex min-h-[420px] flex-1 flex-col">
@@ -138,7 +143,7 @@ export function PolishPanel() {
           <span className="mb-2 font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
             {t('polish.polished')}
           </span>
-          <PolishResult draft={draft} onAccept={onAccept} onRegenerate={onPolish} />
+          <PolishResult draft={draft} onAccept={onAccept} onRegenerate={onPolish} onReject={onReject} />
         </section>
       </div>
     </section>
