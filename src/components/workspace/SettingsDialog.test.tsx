@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -6,11 +6,13 @@ import '@/i18n'
 import { SettingsDialog } from './SettingsDialog'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore, type PanelId } from '@/stores/operationStore'
+import { streamResponse } from '@/test/providerTestUtils'
 
 beforeEach(() => {
   useProviderStore.getState().reset()
   ;(['translate', 'polish', 'draftTranslate'] as PanelId[]).forEach((p) => useOperationStore.getState().reset(p))
 })
+afterEach(() => vi.unstubAllGlobals())
 
 const open = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(screen.getByRole('button', { name: /settings/i }))
@@ -189,5 +191,28 @@ describe('SettingsDialog', () => {
     await user.click(screen.getByRole('button', { name: /clear/i }))
     expect(useProviderStore.getState().apiKeys.openai).toBe('')
     expect(useProviderStore.getState().vendor).toBe('anthropic') // active never switched
+  })
+
+  // ---- test-connection panel (#6 WI-6b) ----
+  it('Test connection on a keyless provider shows the pre-check failure (no network call)', async () => {
+    const user = await setup() // anthropic viewed, no key
+    await user.click(screen.getByRole('button', { name: /test connection/i }))
+    expect(screen.getByText(/add an api key first/i)).toBeInTheDocument()
+  })
+
+  it('Test connection reports Connected against a reachable (mocked) endpoint', async () => {
+    useProviderStore.getState().setApiKey('sk-ant-api03-abcd1234')
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'pong' } })}\n\n`,
+          `data: ${JSON.stringify({ type: 'message_stop' })}\n\n`,
+        ]),
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /test connection/i }))
+    expect(await screen.findByText(/connected/i)).toBeInTheDocument()
   })
 })

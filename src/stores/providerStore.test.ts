@@ -145,6 +145,25 @@ describe('providerStore', () => {
     })
   })
 
+  describe('test-connection results (#6 — WI-6b)', () => {
+    it('initializes every vendor to an idle test result', () => {
+      const r = useProviderStore.getState().testResults
+      for (const v of ['anthropic', 'openai', 'gemini', 'ollama', 'custom'] as const) {
+        expect(r[v]).toEqual({ status: 'idle' })
+      }
+    })
+    it('setTestResult records a per-vendor result (does not touch other vendors)', () => {
+      useProviderStore.getState().setTestResult('openai', { status: 'ok', latencyMs: 142 })
+      expect(useProviderStore.getState().testResults.openai).toEqual({ status: 'ok', latencyMs: 142 })
+      expect(useProviderStore.getState().testResults.anthropic).toEqual({ status: 'idle' })
+    })
+    it('reset clears test results back to idle', () => {
+      useProviderStore.getState().setTestResult('openai', { status: 'fail', msgKey: 'error.invalidKey' })
+      useProviderStore.getState().reset()
+      expect(useProviderStore.getState().testResults.openai).toEqual({ status: 'idle' })
+    })
+  })
+
   describe('custom provider (#7)', () => {
     it('setVendor accepts custom (implemented) and resets the model to its empty default', () => {
       useProviderStore.getState().setVendor('custom')

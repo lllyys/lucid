@@ -128,34 +128,23 @@ export function CredentialFields({ vendor, savedKey, baseUrl, rejected, onSaveKe
   const isCustom = vendor === 'custom'
 
   if (isLocal) {
+    // The "no key needed" card. The privacy note is rendered separately (after the stat tiles) to
+    // match the design's order.
     return (
-      <div className="flex flex-col gap-3.5">
-        <div className="flex items-start gap-2.5 rounded-[13px] border border-[var(--border-color)] bg-[var(--success-bg)] p-3.5">
-          <span className="mt-1 text-[7px] text-[var(--success)]">⬤</span>
-          <span className="flex flex-col gap-1">
-            <span className="text-[13px] font-semibold text-[var(--text-color)]">{t('settings.noKeyTitle')}</span>
-            <span className="text-[12px] leading-[1.55] text-[var(--text-secondary)]">{t('settings.noKeyBody')}</span>
-          </span>
-        </div>
-        <div className="flex items-start gap-2.5 rounded-[11px] border border-[var(--border-color)] bg-[var(--bg-canvas)] px-3 py-2.5">
-          <span className="text-[13px] text-[var(--success)]">🔒</span>
-          <span className="text-[11.5px] leading-[1.6] text-[var(--text-secondary)]">{t('settings.privacyLocal')}</span>
-        </div>
+      <div className="flex items-start gap-2.5 rounded-[13px] border border-[var(--border-color)] bg-[var(--success-bg)] p-3.5">
+        <span className="mt-1 text-[7px] text-[var(--success)]">⬤</span>
+        <span className="flex flex-col gap-1">
+          <span className="text-[13px] font-semibold text-[var(--text-color)]">{t('settings.noKeyTitle')}</span>
+          <span className="text-[12px] leading-[1.55] text-[var(--text-secondary)]">{t('settings.noKeyBody')}</span>
+        </span>
       </div>
     )
   }
 
-  const label = t(presentationFor(vendor).labelKey)
   return (
     <div className="flex flex-col gap-3.5">
       {isCustom && <CustomBaseUrl baseUrl={baseUrl} onSaveUrl={onSaveUrl} />}
       <KeyPanel vendor={vendor} savedKey={savedKey} optional={isCustom} rejected={rejected} onSaveKey={onSaveKey} />
-      <div className="flex items-start gap-2.5 rounded-[11px] border border-[var(--border-color)] bg-[var(--bg-canvas)] px-3 py-2.5">
-        <span className="text-[13px] text-[var(--text-tertiary)]">🔒</span>
-        <span className="text-[11.5px] leading-[1.6] text-[var(--text-secondary)]">
-          {t('settings.memoryNote', { provider: label })}
-        </span>
-      </div>
     </div>
   )
 }
