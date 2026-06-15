@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { PROVIDER_PRESENTATION, presentationFor, implementedPresentations } from './providerPresentation'
+import {
+  PROVIDER_PRESENTATION,
+  presentationFor,
+  implementedPresentations,
+  configurablePresentations,
+} from './providerPresentation'
 import type { Vendor } from '@/providers/types'
 
 describe('providerPresentation', () => {
@@ -31,7 +36,17 @@ describe('providerPresentation', () => {
     for (const p of PROVIDER_PRESENTATION) expect(p.dotToken).toMatch(/^--/)
   })
 
-  it('implementedPresentations returns the four named vendors (custom excluded until its config UI ships)', () => {
+  it('implementedPresentations returns the four named vendors (custom excluded — switcher list)', () => {
     expect(implementedPresentations().map((p) => p.vendor)).toEqual(['anthropic', 'openai', 'gemini', 'ollama'])
+  })
+
+  it('configurablePresentations includes custom (Settings rail — custom is configured there, #5/#7/#29)', () => {
+    expect(configurablePresentations().map((p) => p.vendor)).toEqual([
+      'anthropic',
+      'openai',
+      'gemini',
+      'ollama',
+      'custom',
+    ])
   })
 })

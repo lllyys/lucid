@@ -100,6 +100,19 @@ describe('createProvider', () => {
     expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'hi' })
     expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('https://api.example.com/v1/chat/completions')
   })
+  it('builds a custom provider WITHOUT a key (keyless self-hosted) — key is optional', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(streamResponse(sse({ choices: [{ delta: { content: 'ok' } }] }).concat('data: [DONE]\n\n'))),
+    )
+    const p = createProvider(
+      'custom',
+      { baseUrl: 'https://my-host/v1', model: 'm', fetch: fetchMock as unknown as typeof fetch }, // no apiKey
+      fakeDeps,
+    )
+    expect(p.vendor).toBe('custom')
+    expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'ok' })
+  })
+
   it('a custom provider without a baseUrl throws requestFailed', () => {
     try {
       createProvider('custom', { apiKey: 'sk-test', model: 'm' })

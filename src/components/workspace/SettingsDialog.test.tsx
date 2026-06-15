@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -15,40 +15,43 @@ beforeEach(() => {
 const open = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(screen.getByRole('button', { name: /settings/i }))
 }
+const setup = async () => {
+  const user = userEvent.setup()
+  render(<SettingsDialog />)
+  await open(user)
+  return user
+}
 
 describe('SettingsDialog', () => {
-  it('opens the provider/key dialog from the Settings button', async () => {
+  it('opens the provider surface from the Settings button', async () => {
     const user = userEvent.setup()
     render(<SettingsDialog />)
-    expect(screen.queryByText(/providers & keys/i)).toBeNull()
+    expect(screen.queryByText(/providers · models · keys/i)).toBeNull()
     await open(user)
-    expect(screen.getByText(/providers & keys/i)).toBeInTheDocument()
+    expect(screen.getByText(/providers · models · keys/i)).toBeInTheDocument()
   })
 
-  it('lists the implemented named providers (#5 — Anthropic, OpenAI, Google, Local)', async () => {
-    const user = userEvent.setup()
-    render(<SettingsDialog />)
-    await open(user)
-    expect(screen.getAllByText('Anthropic').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('OpenAI').length).toBeGreaterThanOrEqual(1) // now implemented (#5 WI-4)
-    expect(screen.getAllByText('Google').length).toBeGreaterThanOrEqual(1)
+  it('lists every configurable provider as a rail row — incl. Custom (#5/#7/#29)', async () => {
+    await setup()
+    // OpenAI/Google/Local/Custom appear only as rail rows on open (Anthropic is viewed) → unique buttons.
+    for (const label of ['OpenAI', 'Google', 'Local', 'Custom']) {
+      expect(screen.getByRole('button', { name: new RegExp(label, 'i') })).toBeInTheDocument()
+    }
+    expect(screen.getAllByText('Anthropic').length).toBeGreaterThanOrEqual(1) // rail row + viewed header
   })
 
-  it('saves a valid key and shows it masked with a saved badge', async () => {
-    const user = userEvent.setup()
-    render(<SettingsDialog />)
-    await open(user)
+  // ---- active-vendor (Anthropic) credential behaviors (feature #4, preserved) ----
+  it('saves a valid key for the active vendor and shows it masked + a saved badge', async () => {
+    const user = await setup()
     await user.type(screen.getByLabelText(/api key/i), 'sk-ant-api03-abcd1234')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: /save anthropic/i }))
     expect(useProviderStore.getState().apiKey).toBe('sk-ant-api03-abcd1234')
     expect(screen.getByText('sk-…1234')).toBeInTheDocument()
     expect(screen.getByText(/saved/i)).toBeInTheDocument()
   })
 
   it('reveal toggles the key input between password and text', async () => {
-    const user = userEvent.setup()
-    render(<SettingsDialog />)
-    await open(user)
+    const user = await setup()
     const input = screen.getByLabelText(/api key/i)
     expect(input).toHaveAttribute('type', 'password')
     await user.click(screen.getByRole('button', { name: /show/i }))
@@ -58,11 +61,9 @@ describe('SettingsDialog', () => {
   })
 
   it('rejects a wrong-shaped key with a visible hint and does not save it', async () => {
-    const user = userEvent.setup()
-    render(<SettingsDialog />)
-    await open(user)
+    const user = await setup()
     await user.type(screen.getByLabelText(/api key/i), 'not-a-real-key')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: /save anthropic/i }))
     expect(screen.getByRole('alert')).toBeInTheDocument()
     expect(useProviderStore.getState().apiKey).toBe('')
   })
@@ -71,26 +72,22 @@ describe('SettingsDialog', () => {
     useOperationStore.setState({
       translate: { status: 'streaming', text: 'partial', startedAt: 0, elapsedMs: null, runId: 1 },
     })
-    const user = userEvent.setup()
-    render(<SettingsDialog />)
-    await open(user)
+    const user = await setup()
     await user.type(screen.getByLabelText(/api key/i), 'sk-ant-api03-zzzz9999')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: /save anthropic/i }))
     expect(useOperationStore.getState().translate.status).toBe('cancelled')
   })
 
-  it('clears the key and removes the saved row', async () => {
+  it('clears the active key and removes the saved row', async () => {
     useProviderStore.getState().setApiKey('sk-ant-api03-abcd1234')
-    const user = userEvent.setup()
-    render(<SettingsDialog />)
-    await open(user)
+    const user = await setup()
     expect(screen.getByText('sk-…1234')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /clear/i }))
     expect(useProviderStore.getState().apiKey).toBe('')
     expect(screen.queryByText('sk-…1234')).toBeNull()
   })
 
-  it('saving a new key clears a runtime invalidKey rejection (resets the panel op)', async () => {
+  it('shows a "rejected" hint when the active provider has a runtime invalidKey, and clears it on a new key', async () => {
     useProviderStore.getState().setApiKey('sk-ant-api03-bad00000')
     useOperationStore.setState({
       translate: {
@@ -102,19 +99,72 @@ describe('SettingsDialog', () => {
         runId: 1,
       },
     })
-    const user = userEvent.setup()
-    render(<SettingsDialog />)
-    await open(user)
+    const user = await setup()
     expect(screen.getByRole('alert')).toHaveTextContent(/rejected/i)
     await user.type(screen.getByLabelText(/api key/i), 'sk-ant-api03-good11111')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(useOperationStore.getState().translate.status).toBe('idle') // invalidKey op reset
-    expect(screen.queryByRole('alert')).toBeNull() // rejection cleared
+    await user.click(screen.getByRole('button', { name: /save anthropic/i }))
+    expect(useOperationStore.getState().translate.status).toBe('idle')
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
-  it('shows a rejected hint when a panel reports an invalidKey for the active provider', async () => {
-    vi.useRealTimers()
-    useProviderStore.getState().setApiKey('sk-ant-api03-abcd1234')
+  // ---- multi-provider behaviors (#5 WI-6a) ----
+  it('switches the VIEWED provider without changing the active one, with per-vendor key isolation', async () => {
+    useProviderStore.getState().setApiKey('sk-ant-api03-abcd1234') // anthropic key
+    const user = await setup()
+    expect(screen.getByText('sk-…1234')).toBeInTheDocument() // anthropic's masked key shown
+    await user.click(screen.getByRole('button', { name: /openai/i }))
+    expect(useProviderStore.getState().vendor).toBe('anthropic') // active unchanged by viewing OpenAI
+    expect(screen.queryByText('sk-…1234')).toBeNull() // OpenAI has no key — isolation
+  })
+
+  it('saves a key for a NON-active viewed vendor without switching the active one', async () => {
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /openai/i }))
+    await user.type(screen.getByLabelText(/api key/i), 'sk-openai-abcd1234')
+    await user.click(screen.getByRole('button', { name: /save openai/i }))
+    expect(useProviderStore.getState().apiKeys.openai).toBe('sk-openai-abcd1234')
+    expect(useProviderStore.getState().vendor).toBe('anthropic') // still active anthropic
+  })
+
+  it('"Use for this workspace" makes the viewed provider active', async () => {
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /openai/i }))
+    await user.click(screen.getByRole('button', { name: /use for this workspace/i }))
+    expect(useProviderStore.getState().vendor).toBe('openai')
+  })
+
+  it('Local (Ollama) shows the no-key card and offers no API-key input', async () => {
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /local/i }))
+    expect(screen.getByText(/no key needed/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/api key/i)).toBeNull()
+  })
+
+  it('Custom shows a base-URL field (saving stores it) plus an OPTIONAL key field', async () => {
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /custom/i }))
+    await user.type(screen.getByRole('textbox', { name: /base url/i }), 'https://my-host.example.com/v1')
+    await user.click(screen.getByRole('button', { name: /save base url/i }))
+    expect(useProviderStore.getState().baseUrl).toBe('https://my-host.example.com/v1')
+    expect(screen.getByLabelText(/api key/i)).toBeInTheDocument() // optional key field present
+  })
+
+  it('model picker selects a model for the viewed vendor (dropdown — named vendor)', async () => {
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: 'Model' }))
+    await user.click(await screen.findByRole('menuitem', { name: /claude-opus-4-8/i }))
+    expect(useProviderStore.getState().models.anthropic).toBe('claude-opus-4-8')
+  })
+
+  it('custom uses a free-text model input (no fixed catalog)', async () => {
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /custom/i }))
+    await user.type(screen.getByRole('textbox', { name: 'Model' }), 'my-model')
+    expect(useProviderStore.getState().models.custom).toBe('my-model')
+  })
+
+  it('does NOT show the "rejected" hint on a NON-active viewed vendor', async () => {
+    useProviderStore.getState().setApiKey('sk-ant-api03-bad00000')
     useOperationStore.setState({
       translate: {
         status: 'error',
@@ -125,9 +175,19 @@ describe('SettingsDialog', () => {
         runId: 1,
       },
     })
-    const user = userEvent.setup()
-    render(<SettingsDialog />)
-    await open(user)
-    expect(screen.getByRole('alert')).toHaveTextContent(/rejected/i)
+    const user = await setup()
+    expect(screen.getByRole('alert')).toHaveTextContent(/rejected/i) // active anthropic shows it
+    await user.click(screen.getByRole('button', { name: /openai/i })) // view a NON-active vendor
+    expect(screen.queryByRole('alert')).toBeNull() // hint is scoped to the active provider only
+  })
+
+  it('clears a NON-active viewed vendor key via clearKey(vendor), leaving the active one untouched', async () => {
+    useProviderStore.getState().setApiKey('sk-openai-abcd1234', 'openai')
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /openai/i }))
+    expect(screen.getByText('sk-…1234')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /clear/i }))
+    expect(useProviderStore.getState().apiKeys.openai).toBe('')
+    expect(useProviderStore.getState().vendor).toBe('anthropic') // active never switched
   })
 })

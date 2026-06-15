@@ -34,10 +34,19 @@ export function presentationFor(vendor: Vendor): ProviderPresentation {
 }
 
 /**
- * Vendors the switcher/Settings offer (rule 51 — no silent no-op rows). `custom` (#7) is
- * implemented in the factory but NOT switcher-selectable until its base-URL/model config UI ships
- * with the Settings redesign (#29) — offering it without a way to configure it would be a dead row.
+ * Vendors the toolbar SWITCHER offers (rule 51 — no silent no-op rows). `custom` (#7) is implemented
+ * but excluded here: it has no fixed model and needs a base URL, so it is configured in Settings, not
+ * picked from the toolbar. Use `configurablePresentations()` for the Settings rail.
  */
 export function implementedPresentations(): readonly ProviderPresentation[] {
   return PROVIDER_PRESENTATION.filter((p) => isVendorImplemented(p.vendor) && p.vendor !== 'custom')
+}
+
+/**
+ * Vendors the Settings provider rail lists — every IMPLEMENTED vendor, INCLUDING `custom` (whose
+ * base-URL/model are configured in Settings, #5/#7/#29). This is the superset of
+ * `implementedPresentations()` (which drops custom for the toolbar switcher).
+ */
+export function configurablePresentations(): readonly ProviderPresentation[] {
+  return PROVIDER_PRESENTATION.filter((p) => isVendorImplemented(p.vendor))
 }

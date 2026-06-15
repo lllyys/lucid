@@ -122,6 +122,20 @@ describe('providerStore', () => {
       expect(useProviderStore.getState().models.anthropic).toBe('claude-opus-4-8')
     })
 
+    it('setApiKey/setModel/clearKey can TARGET a non-active vendor without switching (Settings edits the viewed provider)', () => {
+      const s = useProviderStore.getState() // active = anthropic
+      s.setApiKey('sk-openai', 'openai')
+      s.setModel('gpt-5.4-mini', 'openai')
+      const after = useProviderStore.getState()
+      expect(after.apiKeys.openai).toBe('sk-openai')
+      expect(after.models.openai).toBe('gpt-5.4-mini')
+      expect(after.vendor).toBe('anthropic') // active unchanged by editing another vendor
+      expect(after.apiKey).toBe('') // mirror still reflects the active vendor (anthropic), untouched
+      expect(after.model).toBe('claude-fable-5')
+      useProviderStore.getState().clearKey('openai')
+      expect(useProviderStore.getState().apiKeys.openai).toBe('')
+    })
+
     it('initializes per-vendor records (keys empty, models at each vendor default)', () => {
       const s = useProviderStore.getState()
       expect(s.apiKeys).toEqual({ anthropic: '', openai: '', gemini: '', ollama: '', custom: '' })
@@ -141,15 +155,14 @@ describe('providerStore', () => {
       useProviderStore.getState().setBaseUrl('https://api.example.com/v1')
       expect(useProviderStore.getState().baseUrl).toBe('https://api.example.com/v1')
     })
-    it('isReady for custom needs key + baseUrl + model', () => {
+    it('isReady for custom needs baseUrl + model — the key is OPTIONAL (keyless self-hosted OR keyed proxy)', () => {
       const s = useProviderStore.getState()
       s.setVendor('custom')
-      s.setApiKey('sk-test')
-      expect(useProviderStore.getState().isReady()).toBe(false) // no baseUrl/model
+      expect(useProviderStore.getState().isReady()).toBe(false) // nothing set
       useProviderStore.getState().setBaseUrl('https://x/v1')
-      expect(useProviderStore.getState().isReady()).toBe(false) // still no model
+      expect(useProviderStore.getState().isReady()).toBe(false) // no model yet
       useProviderStore.getState().setModel('my-model')
-      expect(useProviderStore.getState().isReady()).toBe(true)
+      expect(useProviderStore.getState().isReady()).toBe(true) // ready WITHOUT a key
     })
   })
 })
