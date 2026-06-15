@@ -15,13 +15,13 @@ describe('ProviderSwitcher', () => {
     expect(screen.getByRole('button', { name: /anthropic/i })).toBeInTheDocument()
   })
 
-  it('lists only implemented vendors and keeps Anthropic active on select', async () => {
+  it('lists the implemented named vendors and switches the active provider on select (#5)', async () => {
     const user = userEvent.setup()
     render(<ProviderSwitcher />)
     await user.click(screen.getByRole('button', { name: /anthropic/i }))
     expect(await screen.findByRole('menuitem', { name: /anthropic/i })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /openai/i })).toBeNull() // unimplemented → absent (rule 51)
-    await user.click(screen.getByRole('menuitem', { name: /anthropic/i }))
-    expect(useProviderStore.getState().vendor).toBe('anthropic')
+    expect(screen.getByRole('menuitem', { name: /openai/i })).toBeInTheDocument() // now implemented (#5 WI-4)
+    await user.click(screen.getByRole('menuitem', { name: /openai/i }))
+    expect(useProviderStore.getState().vendor).toBe('openai')
   })
 })

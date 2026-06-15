@@ -4,12 +4,12 @@
 // what `withFallback` (base.ts) walks so a model degrades without code changes.
 //
 // Anthropic IDs are per the claude-api skill (latest: claude-fable-5, then
-// claude-opus-4-8, claude-sonnet-4-6). OpenAI / Gemini / Ollama carry real model
-// IDs (verified mid-2026) but stay `implemented:false` until #5 WI-4 wires the
-// factory switch — flipping `implemented` without the switch would build the wrong
-// adapter. They use `allowAnyModel` (like `custom`): no fabricated capability
-// figures, the user/registry model is sent as-is, and a drifted ID is a zero-code
-// change (rule 65 §2). The Settings model picker offers `modelChain(vendor)`.
+// claude-opus-4-8, claude-sonnet-4-6). OpenAI / Gemini / Ollama are implemented
+// (#5 WI-4 wires the factory switch — OpenAI/Ollama via openaiCompatibleStream,
+// Gemini via geminiStream) and carry real model IDs (verified mid-2026). They use
+// `allowAnyModel` (like `custom`): no fabricated capability figures, the user/
+// registry model is sent as-is, and a drifted ID is a zero-code change (rule 65 §2).
+// The Settings model picker offers `modelChain(vendor)`.
 
 import type { Vendor } from './types'
 
@@ -75,7 +75,7 @@ export const REGISTRY: Record<Vendor, VendorRegistryEntry> = {
   // OpenAI: OpenAI-compatible chat/completions; gpt-5-pro is Responses-API-only (excluded).
   openai: {
     vendor: 'openai',
-    implemented: false,
+    implemented: true,
     defaultModel: 'gpt-5.5',
     fallbacks: ['gpt-5.4-mini', 'gpt-5.4-nano'],
     models: {},
@@ -84,7 +84,7 @@ export const REGISTRY: Record<Vendor, VendorRegistryEntry> = {
   // Gemini: generateContent (own adapter, WI-2). GA default; the Pro tier is preview-only.
   gemini: {
     vendor: 'gemini',
-    implemented: false,
+    implemented: true,
     defaultModel: 'gemini-3.5-flash',
     fallbacks: ['gemini-3.1-flash-lite'],
     models: {},
@@ -93,7 +93,7 @@ export const REGISTRY: Record<Vendor, VendorRegistryEntry> = {
   // Ollama: OpenAI-compatible at localhost; models are user-installed (no remote catalog).
   ollama: {
     vendor: 'ollama',
-    implemented: false,
+    implemented: true,
     defaultModel: 'llama3.2',
     fallbacks: [],
     models: {},

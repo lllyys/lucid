@@ -31,7 +31,7 @@ describe('providerPresentation', () => {
     for (const p of PROVIDER_PRESENTATION) expect(p.dotToken).toMatch(/^--/)
   })
 
-  it('implementedPresentations returns only implemented vendors (Anthropic today)', () => {
-    expect(implementedPresentations().map((p) => p.vendor)).toEqual(['anthropic'])
+  it('implementedPresentations returns the four named vendors (custom excluded until its config UI ships)', () => {
+    expect(implementedPresentations().map((p) => p.vendor)).toEqual(['anthropic', 'openai', 'gemini', 'ollama'])
   })
 })

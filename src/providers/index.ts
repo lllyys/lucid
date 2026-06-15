@@ -12,7 +12,12 @@ import { defineProvider } from './base'
 import type { VendorStreamFn } from './base'
 import { anthropicStream } from './anthropicProvider'
 import { openaiCompatibleStream } from './openaiCompatibleProvider'
+import { geminiStream } from './geminiProvider'
 import type { RetryDeps } from './retry'
+
+// Fixed endpoints for the named vendors (endpoints, not model IDs — model IDs live in the registry).
+const OPENAI_BASE_URL = 'https://api.openai.com/v1'
+const OLLAMA_BASE_URL = 'http://localhost:11434/v1'
 
 /** Real backoff sleep: resolves after `ms`, or early (without rejecting) if `signal` aborts. */
 export function realSleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -41,23 +46,30 @@ export function createProvider(
   if (!isVendorImplemented(vendor)) {
     throw new ProviderException(makeProviderError('requestFailed', { detail: `provider not implemented: ${vendor}` }))
   }
-  if (!config.apiKey) {
+  // Ollama runs locally and needs no key (its OpenAI-compatible endpoint requires a placeholder
+  // bearer, which it ignores). Every other vendor requires a key up front.
+  if (vendor !== 'ollama' && !config.apiKey) {
     throw new ProviderException(makeProviderError('invalidKey', { detail: 'missing API key' }))
   }
   const model = resolveModel(vendor, config.model)
-  let streamFn: VendorStreamFn
-  if (vendor === 'custom') {
-    // Custom / OpenAI-compatible (#7): user-supplied endpoint + model are required.
-    if (!config.baseUrl) {
-      throw new ProviderException(makeProviderError('requestFailed', { detail: 'custom provider requires a base URL' }))
-    }
-    if (!model) {
-      throw new ProviderException(makeProviderError('requestFailed', { detail: 'custom provider requires a model' }))
-    }
-    streamFn = openaiCompatibleStream({ apiKey: config.apiKey, baseUrl: config.baseUrl, fetch: config.fetch })
-  } else {
-    // Anthropic today; #5 adds OpenAI/Gemini/Ollama branches (Ollama/OpenAI reuse openaiCompatibleStream).
-    streamFn = anthropicStream({ apiKey: config.apiKey, baseUrl: config.baseUrl, fetch: config.fetch })
+  const apiKey = config.apiKey ?? ''
+  // One builder per vendor (Record is exhaustive over Vendor — no fall-through default to leave
+  // a vendor silently on the wrong adapter). UI/feature code never sees which engine backs a vendor.
+  const buildStream: Record<Vendor, () => VendorStreamFn> = {
+    anthropic: () => anthropicStream({ apiKey, baseUrl: config.baseUrl, fetch: config.fetch }),
+    openai: () => openaiCompatibleStream({ apiKey, baseUrl: OPENAI_BASE_URL, fetch: config.fetch }),
+    ollama: () => openaiCompatibleStream({ apiKey: apiKey || 'ollama', baseUrl: OLLAMA_BASE_URL, fetch: config.fetch }),
+    gemini: () => geminiStream({ apiKey, baseUrl: config.baseUrl, fetch: config.fetch }),
+    custom: () => {
+      // Custom / OpenAI-compatible (#7): user-supplied endpoint + model are required.
+      if (!config.baseUrl) {
+        throw new ProviderException(makeProviderError('requestFailed', { detail: 'custom provider requires a base URL' }))
+      }
+      if (!model) {
+        throw new ProviderException(makeProviderError('requestFailed', { detail: 'custom provider requires a model' }))
+      }
+      return openaiCompatibleStream({ apiKey, baseUrl: config.baseUrl, fetch: config.fetch })
+    },
   }
-  return defineProvider({ vendor, model, streamFn, retry: deps })
+  return defineProvider({ vendor, model, streamFn: buildStream[vendor](), retry: deps })
 }
