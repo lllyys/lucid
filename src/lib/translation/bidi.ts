@@ -51,13 +51,22 @@ const RTL_RANGES: readonly (readonly [number, number])[] = [
   [0x1eeab, 0x1eebb],
 ]
 
-/** Binary-search the sorted, disjoint RTL ranges. */
-function isStrongRtl(cp: number): boolean {
+// `\p{L}` codepoints whose bidi class is NOT L/R/AL — all bidi class ON (neutral) modifier letters
+// (e.g. U+02B9 MODIFIER LETTER PRIME). \p{L} alone would treat these as strong-LTR, so a neutral
+// modifier letter before Hebrew/Arabic would wrongly resolve ltr. Derived from the same UCD data;
+// these must be SKIPPED (treated as neutral), not as strong-L.
+const NEUTRAL_LETTER_RANGES: readonly (readonly [number, number])[] = [
+  [0x2b9, 0x2ba], [0x2c6, 0x2cf], [0x2ec, 0x2ec], [0x374, 0x374],
+  [0x2e2f, 0x2e2f], [0xa67f, 0xa67f], [0xa717, 0xa71f], [0xa788, 0xa788],
+]
+
+/** Binary-search a sorted, disjoint range list. */
+function inRanges(cp: number, ranges: readonly (readonly [number, number])[]): boolean {
   let lo = 0
-  let hi = RTL_RANGES.length - 1
+  let hi = ranges.length - 1
   while (lo <= hi) {
     const mid = (lo + hi) >> 1
-    const [start, end] = RTL_RANGES[mid]
+    const [start, end] = ranges[mid]
     if (cp < start) hi = mid - 1
     else if (cp > end) lo = mid + 1
     else return true
@@ -70,17 +79,19 @@ const LRM = 0x200e // LEFT-TO-RIGHT MARK — bidi class L (strong LTR), not a le
 
 /**
  * Resolve the base direction for layout. `override` of `'ltr'`/`'rtl'` forces that direction
- * (visual-only); `'auto'` detects from content by the first STRONG character per UAX#9: a strong
- * R/AL codepoint ⇒ rtl; the first strong-L (any non-RTL letter, or LRM) ⇒ ltr. Weak/neutral
- * characters (digits incl. Arabic-Indic, combining marks, punctuation, whitespace, emoji) are
+ * (visual-only); `'auto'` detects from content by the first STRONG character per UAX#9, classified
+ * from authoritative UCD bidi data: a strong R/AL codepoint ⇒ rtl; the first strong-L (LRM, or a
+ * letter that is not a bidi-neutral modifier letter) ⇒ ltr. Weak/neutral characters (digits incl.
+ * Arabic-Indic, combining marks, punctuation, whitespace, emoji, neutral modifier letters) are
  * skipped. No strong character (empty / neutral-only) ⇒ `'ltr'`.
  */
 export function resolveBidiDirection(text: string, override: BidiOverride): BidiDirection {
   if (override === 'ltr' || override === 'rtl') return override
   for (const ch of text) {
     const cp = ch.codePointAt(0)!
-    if (isStrongRtl(cp)) return 'rtl' // strong R/AL: RTL letters, marks, RLM, ALM, maqaf, …
-    if (cp === LRM || LETTER.test(ch)) return 'ltr' // strong L: LRM, or any non-RTL letter
+    if (inRanges(cp, RTL_RANGES)) return 'rtl' // strong R/AL: RTL letters, marks, RLM, ALM, maqaf, …
+    if (cp === LRM) return 'ltr' // strong L mark
+    if (LETTER.test(ch) && !inRanges(cp, NEUTRAL_LETTER_RANGES)) return 'ltr' // strong-L letter
   }
   return 'ltr'
 }

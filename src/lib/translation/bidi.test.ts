@@ -62,6 +62,11 @@ describe('resolveBidiDirection', () => {
     it('a leading LRM (strong L) resolves ltr even before RTL letters', () => {
       expect(resolveBidiDirection('‎مرحبا', 'auto')).toBe('ltr') // LRM U+200E then Arabic
     })
+    it('a bidi-neutral modifier letter is skipped (not strong-LTR) before RTL text', () => {
+      expect(resolveBidiDirection('ʹשלום', 'auto')).toBe('rtl') // U+02B9 (ON) then Hebrew ⇒ rtl
+      expect(resolveBidiDirection('ʹhello', 'auto')).toBe('ltr') // skipped, then Latin ⇒ ltr
+      expect(resolveBidiDirection('ʹ', 'auto')).toBe('ltr') // neutral only ⇒ default ltr
+    })
   })
 
   describe('bidiAttrs (v4 §4 — isolate for forced, plaintext for auto)', () => {
