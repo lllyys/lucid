@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { createSafeJSONStorage } from '@/lib/storage/safeJSONStorage'
 import { notifyStorageFull } from '@/lib/storage/quotaNotice'
+import { isRecord } from '@/lib/guards'
 
 // Sync envelope (#9): a keyword is now an entity (id/value/updatedAt/deletedAt) rather than a bare
 // string, so the sync layer can track it. `id` is DERIVED from the value (see keywordId) so the same
@@ -44,10 +45,6 @@ export function keywordId(value: string): string {
   for (let i = 0; i < value.length; i++) id += value.charCodeAt(i).toString(16).padStart(4, '0')
   return id
 }
-
-// Local record guard for the never-throwing migration (mirrors the sibling stores; the three copies
-// are extracted to a shared guard in WI-2, which builds the sync type-guard module).
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
 interface PolishKeywordsState {
   keywords: Keyword[]

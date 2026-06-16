@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { createSafeJSONStorage } from '@/lib/storage/safeJSONStorage'
 import { notifyStorageFull } from '@/lib/storage/quotaNotice'
+import { isRecord } from '@/lib/guards'
 
 // Sync envelope (#9): every syncable entity carries `updatedAt` (client logical timestamp — display/
 // merge metadata; the SERVER-assigned rev is the ordering authority) + `deletedAt` (tombstone; null =
@@ -42,10 +43,6 @@ interface GlossaryState {
 }
 
 const INITIAL: Pick<GlossaryState, 'terms'> = { terms: [] }
-
-// Local record guard for the never-throwing migration (mirrors sessionStore; both stores need it —
-// a shared util is the right home once the sync layer (WI-2) becomes the third consumer).
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
 /**
  * persist migrate: v2 (current) passes through; v1 predates the sync envelope. v1 terms carry NO

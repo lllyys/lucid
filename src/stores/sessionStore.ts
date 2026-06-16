@@ -10,6 +10,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { createSafeJSONStorage } from '@/lib/storage/safeJSONStorage'
 import { notifyStorageFull } from '@/lib/storage/quotaNotice'
+import { isRecord } from '@/lib/guards'
 import i18n from '@/i18n'
 
 // Sync envelope (#9): every syncable entity carries `updatedAt` (client logical timestamp — display
@@ -72,8 +73,6 @@ export function searchSessions(sessions: Session[], query: string): Session[] {
       s.tasks.some((t) => t.title.toLowerCase().includes(q) || t.sourceText.toLowerCase().includes(q)),
   )
 }
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
 /**
  * persist migrate: v2 (current) passes through; v1 predates the sync envelope, so backfill
