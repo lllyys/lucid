@@ -128,9 +128,9 @@ Throwaway probe under `dev-docs/grills/feature-9-sync/`, validating the three lo
 | WI-6 | behavioral | offline queue + reconnect — optimistic local, idempotent drain, debounce, single-in-flight; **INERT when disabled** (zero listeners/timers — tested) |
 | WI-7 | behavioral | sync orchestrator: stores ↔ pull/merge/push, per-entity-type rev cursors, opt-in gate, eviction-cap reconciliation |
 | WI-8 | behavioral | `server/` package: Hono + SQLite, bearer auth, `/sync/changes` GET+POST atomic-rev UPSERT + conflict return, `DELETE /sync/data`, single-tenant; `:memory:` non-gating suite; Docker + TLS/Tailscale doc; server engines floor |
-| WI-9 | **behavioral-ui-design-gated** | account/connect-server (token paste) + sync-status (synced/syncing/offline/conflict) + privacy-at-connect copy + conflict-review surface + the sync error banners — **BLOCKED on a committed `dev-docs/designs` bundle (rule 51); file `needs-design`** |
+| WI-9 | **behavioral-ui** | account/connect-server (token paste) + sync-status (8 states) + privacy-at-connect copy + superseded-edit conflict surface + the sync error banners — **DESIGN LANDED & UNBLOCKED:** `dev-docs/designs/lucid-sync/` (PR #60, needs-design #53 closed); routed the #29-style claude.ai/design loop. Builds against that bundle after the headless engine (WI-3..WI-8). Surfaces: A status pill · B connect form + connecting · C connected/idle panel + disconnect zone · D per-state status cards · E conflict surface + disconnect dialog · F error banners |
 
-WI-0→WI-8 are headless/server and buildable now; WI-9 routes through the user's `claude.ai/design` loop (like #29).
+WI-0→WI-8 are headless/server and buildable now; WI-9's design loop is complete (bundle committed at `dev-docs/designs/lucid-sync/`, PR #60) so WI-9 is unblocked and builds against it once the engine lands.
 
 ### Gate-2 implementation watchpoints (Codex re-review, 2026-06-16 — non-blocking, fold into the named WIs)
 
