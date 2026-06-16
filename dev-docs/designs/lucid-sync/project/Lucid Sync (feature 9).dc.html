@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --board:#ECE8E1; --ink:#1E1C19; --on-accent:#FFFFFF;
+      --border:#E9E6E0; --border-strong:#E2DFD8; --border-dashed:#CFCAC1; --fill-muted:#F0EDE7; --dot-idle:#C9C4BB;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7; --faint:#C4BFB5;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-tint:#F3F2FE; --accent-border:#DDDCFB; --accent-dash:#B9B4F0;
+      --hover:#F5F3EF;
+      --ok:#2F7D5B; --ok-strong:#286B4E; --ok-soft:#E8F3EC; --ok-conn:#9FCDB4;
+      --warn:#B8801F; --warn-soft:#FBF1DC; --warn-border:#EDD6A2;
+      --danger:#B23A48; --danger-soft:#FBEAEC; --danger-border:#F0CDD2;
+      --shadow-c1:rgba(30,28,25,0.13); --shadow-c2:rgba(30,28,25,0.06); --shadow-c3:rgba(30,28,25,0.22);
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --board:#100F0C; --ink:#F2EFE9; --on-accent:#FFFFFF;
+      --border:#322E27; --border-strong:#3C3830; --border-dashed:#454037; --fill-muted:#2A2720; --dot-idle:#4A453C;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t3:#A6A199; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --t7:#726D65; --faint:#5E5A51;
+      --accent:#6E66DE; --accent-ink:#AEA7F7; --accent-soft:#2A2649; --accent-tint:#221F40; --accent-border:#3C3768; --accent-dash:#564F94;
+      --hover:#2C2922;
+      --ok:#5FBE90; --ok-strong:#246B49; --ok-soft:#16291E; --ok-conn:#305C46;
+      --warn:#D7A648; --warn-soft:#2A2113; --warn-border:#4A3A1C;
+      --danger:#E27182; --danger-soft:#2E1A1D; --danger-border:#4A2A2F;
+      --shadow-c1:rgba(0,0,0,0.55); --shadow-c2:rgba(0,0,0,0.4); --shadow-c3:rgba(0,0,0,0.65);
+    }
+    html,body{background:var(--board);}
+    *{box-sizing:border-box;}
+    body{margin:0;}
+    @keyframes lucid-pulse{0%,100%{opacity:1;}50%{opacity:0.28;}}
+    @keyframes lucid-spin{to{transform:rotate(360deg);}}
+  </style>
+</helmet>
+
+<div ref="{{ boardRef }}" data-theme="{{ themeAttr }}" style="min-height:100vh;background:var(--board);color:var(--ink);font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 48px 80px;">
+
+  <!-- ===== BOARD HEADER ===== -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;max-width:1340px;margin:0 auto 8px;flex-wrap:wrap;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="position:relative;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span></span>
+        <span style="font-size:19px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--accent-ink);text-transform:uppercase;background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 7px;border-radius:6px;">Feature&nbsp;#9 · WI-9</span>
+      </div>
+      <h1 style="margin:0;font-size:29px;font-weight:600;letter-spacing:-0.022em;line-height:1.1;max-width:24ch;">Self-hosted sync — design bundle</h1>
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:var(--t2);max-width:62ch;">Account · connect-server · sync-status surfaces for the user's own server. Opt-in, local-first; provider keys stay client-side — this syncs workspace <strong style="font-weight:600;color:var(--t1);">data only</strong>. Per-entity last-write-wins with a surfaced (not-yet-reviewable) conflict signal.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">
+      <span>states: not-connected · connecting · idle · syncing · offline · conflict · auth-error · unreachable</span>
+      <span>refs #45 · routes the claude.ai/design loop like #29</span>
+    </div>
+  </div>
+
+  <div style="max-width:1340px;margin:0 auto;display:flex;flex-direction:column;gap:8px;">
+
+    <!-- ============================ SECTION A ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:30px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">A</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Sync status indicator</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">header pill, all eight states · click → opens Settings · Sync</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:20px 28px;">
+      <!-- pill: local-only -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">not-connected</div>
+        <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:7px 13px 7px 11px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);">
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--dot-idle);flex:0 0 auto;"></span>
+          <span style="font-size:12.5px;font-weight:600;color:var(--t2);">Local-only</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">not syncing</span>
+        </div>
+      </div>
+      <!-- pill: synced -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">connected · idle</div>
+        <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:7px 13px 7px 11px;border-radius:9px;border:1px solid var(--ok-conn);background:var(--ok-soft);box-shadow:0 1px 2px var(--shadow-c2);">
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--ok);flex:0 0 auto;"></span>
+          <span style="font-size:12.5px;font-weight:600;color:var(--ok-strong);">Synced</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--ok);">2m ago</span>
+        </div>
+      </div>
+      <!-- pill: syncing -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">syncing</div>
+        <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:7px 13px 7px 11px;border-radius:9px;border:1px solid var(--accent-border);background:var(--accent-tint);box-shadow:0 1px 2px var(--shadow-c2);">
+          <span style="width:11px;height:11px;border-radius:50%;border:1.6px solid var(--accent);border-top-color:transparent;display:inline-block;flex:0 0 auto;animation:lucid-spin 0.7s linear infinite;"></span>
+          <span style="font-size:12.5px;font-weight:600;color:var(--accent-ink);">Syncing…</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-ink);">12 changes</span>
+        </div>
+      </div>
+      <!-- pill: offline-queued -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">offline · queued</div>
+        <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:7px 13px 7px 11px;border-radius:9px;border:1px solid var(--warn-border);background:var(--warn-soft);box-shadow:0 1px 2px var(--shadow-c2);">
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--warn);flex:0 0 auto;"></span>
+          <span style="font-size:12.5px;font-weight:600;color:var(--warn);">Offline</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--warn);">8 queued</span>
+        </div>
+      </div>
+      <!-- pill: conflict -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">conflict</div>
+        <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:7px 13px 7px 11px;border-radius:9px;border:1px solid var(--warn-border);background:var(--warn-soft);box-shadow:0 1px 2px var(--shadow-c2);">
+          <span style="font-size:12px;color:var(--warn);flex:0 0 auto;line-height:1;">⚠</span>
+          <span style="font-size:12.5px;font-weight:600;color:var(--warn);">Conflict</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--warn);">1 superseded</span>
+        </div>
+      </div>
+      <!-- pill: auth-error -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">auth-error</div>
+        <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:7px 13px 7px 11px;border-radius:9px;border:1px solid var(--danger-border);background:var(--danger-soft);box-shadow:0 1px 2px var(--shadow-c2);">
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--danger);flex:0 0 auto;"></span>
+          <span style="font-size:12.5px;font-weight:600;color:var(--danger);">Auth failed</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--danger);">401</span>
+        </div>
+      </div>
+      <!-- pill: unreachable -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">unreachable</div>
+        <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:7px 13px 7px 11px;border-radius:9px;border:1px solid var(--danger-border);background:var(--danger-soft);box-shadow:0 1px 2px var(--shadow-c2);">
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--danger);flex:0 0 auto;animation:lucid-pulse 1.4s ease-in-out infinite;"></span>
+          <span style="font-size:12.5px;font-weight:600;color:var(--danger);">Unreachable</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--danger);">retry 0:14</span>
+        </div>
+      </div>
+      <!-- pill: rate-limited -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">rate-limited</div>
+        <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;padding:7px 13px 7px 11px;border-radius:9px;border:1px solid var(--warn-border);background:var(--warn-soft);box-shadow:0 1px 2px var(--shadow-c2);">
+          <span style="width:9px;height:9px;border-radius:50%;background:var(--warn);flex:0 0 auto;"></span>
+          <span style="font-size:12.5px;font-weight:600;color:var(--warn);">Rate limited</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--warn);">retry 30s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION B ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">B</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Connect server</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">Settings · Sync — not-connected (local-only) with opt-in &amp; privacy copy</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <!-- FRAME: connect form -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">state · not-connected</div>
+        <div style="width:560px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <!-- header -->
+          <div style="display:flex;align-items:flex-start;gap:13px;padding:22px 24px 18px;border-bottom:1px solid var(--border);">
+            <span style="position:relative;width:34px;height:34px;flex:0 0 auto;border-radius:10px;background:var(--accent-soft);border:1px solid var(--accent-border);display:inline-flex;align-items:center;justify-content:center;"><span style="width:11px;height:11px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:4px;height:4px;border-radius:50%;background:var(--accent);"></span></span></span>
+            <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+              <span style="font-size:17px;font-weight:600;letter-spacing:-0.01em;">Connect a sync server</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);">Self-hosted · your data stays on your own box</span>
+            </div>
+            <span style="display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--canvas);"><span style="width:8px;height:8px;border-radius:50%;background:var(--dot-idle);"></span><span style="font-size:11.5px;font-weight:600;color:var(--t3);">Local-only</span></span>
+          </div>
+
+          <div style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:17px;">
+            <!-- opt-in callout -->
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px dashed var(--accent-dash);background:var(--accent-tint);border-radius:12px;">
+              <span style="font-size:13px;color:var(--accent-ink);margin-top:1px;flex:0 0 auto;line-height:1;">◔</span>
+              <span style="font-size:12px;line-height:1.6;color:var(--t2);">Sync is <strong style="font-weight:600;color:var(--ink);">off by default</strong>. Lucid works fully local-only — nothing leaves this device until you connect. Connecting is opt-in and reversible.</span>
+            </div>
+
+            <!-- server url -->
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">Server URL</span>
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);border-radius:11px;padding:10px 12px;">
+                <input type="text" value="https://lucid.myserver.dev" spellcheck="false" style="flex:1;border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:13px;color:var(--ink);padding:0;" />
+              </div>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">https only · the address where you deployed the Lucid sync server</span>
+            </div>
+
+            <!-- token -->
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">Access token <span style="color:var(--t6);">· bearer</span></span>
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);border-radius:11px;padding:4px 5px 4px 12px;">
+                <input type="text" value="••••••••••••••••••••••••" spellcheck="false" style="flex:1;border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:13px;color:var(--ink);padding:8px 0;letter-spacing:0.06em;" />
+                <button style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11px;color:var(--t3);cursor:pointer;padding:6px 8px;">Show</button>
+              </div>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">paste the token printed by your server's setup command</span>
+            </div>
+
+            <!-- what leaves the device -->
+            <div style="display:flex;flex-direction:column;gap:0;border:1px solid var(--border);background:var(--canvas);border-radius:13px;overflow:hidden;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);">
+                <span style="font-size:12.5px;font-weight:600;color:var(--ink);">What leaves this device when sync is on</span>
+                <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:0.04em;">your server only</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);">
+                <div style="display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--canvas);"><span style="color:var(--ok);font-size:12px;flex:0 0 auto;">✓</span><span style="font-size:12px;color:var(--t1);">Sessions &amp; task history</span></div>
+                <div style="display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--canvas);"><span style="color:var(--ok);font-size:12px;flex:0 0 auto;">✓</span><span style="font-size:12px;color:var(--t1);">Glossary terms</span></div>
+                <div style="display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--canvas);"><span style="color:var(--ok);font-size:12px;flex:0 0 auto;">✓</span><span style="font-size:12px;color:var(--t1);">Polish keywords</span></div>
+                <div style="display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--canvas);"><span style="color:var(--faint);font-size:12px;flex:0 0 auto;">○</span><span style="font-size:12px;color:var(--t3);">Provider API keys — never</span></div>
+              </div>
+              <div style="padding:10px 14px;border-top:1px solid var(--border);font-family:'Geist Mono',monospace;font-size:10px;line-height:1.6;color:var(--t4);">Sent only to your server — never to Lucid, never as analytics. Pair with a local model for a zero-third-party path.</div>
+            </div>
+
+            <!-- persisted-token note -->
+            <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);">
+              <span style="font-size:13px;color:var(--t3);flex:0 0 auto;margin-top:1px;">🔒</span>
+              <span style="font-size:11.5px;line-height:1.6;color:var(--t2);">Your token is saved on this device (shown as <span style="font-family:'Geist Mono',monospace;color:var(--ink);">…a4f2</span>) so background sync survives reloads — a deliberate exception to the in-memory-only rule for provider keys. Transmitted over TLS only.</span>
+            </div>
+
+            <!-- actions -->
+            <div style="display:flex;align-items:center;gap:10px;padding-top:2px;">
+              <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;background:var(--accent);color:var(--on-accent);border-radius:11px;padding:12px 16px;font-family:Geist,sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;">Connect server</button>
+              <button style="flex:0 0 auto;border:1px solid var(--border-strong);background:var(--surface);color:var(--t2);border-radius:11px;padding:12px 16px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;cursor:pointer;">Stay local-only</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FRAME: connecting -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">state · connecting</div>
+        <div style="width:380px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 1px 2px var(--shadow-c2);padding:24px;display:flex;flex-direction:column;gap:18px;">
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:18px 0 8px;">
+            <span style="width:44px;height:44px;border-radius:50%;border:2.4px solid var(--accent);border-top-color:transparent;display:inline-block;animation:lucid-spin 0.8s linear infinite;"></span>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <span style="font-size:15px;font-weight:600;">Connecting…</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);">lucid.myserver.dev</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--border);">
+            <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--canvas);"><span style="color:var(--ok);font-size:12px;">✓</span><span style="font-size:12px;color:var(--t1);">Reached server</span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--canvas);"><span style="color:var(--ok);font-size:12px;">✓</span><span style="font-size:12px;color:var(--t1);">Token accepted</span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--canvas);"><span style="width:11px;height:11px;border-radius:50%;border:1.5px solid var(--accent);border-top-color:transparent;display:inline-block;animation:lucid-spin 0.7s linear infinite;"></span><span style="font-size:12px;color:var(--t2);">Pulling changes…</span></div>
+          </div>
+          <button style="border:1px solid var(--border-strong);background:var(--surface);color:var(--t2);border-radius:10px;padding:10px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION C ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">C</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Connected — idle</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">Settings · Sync — connected/synced with data scope &amp; disconnect zone</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">state · connected · idle</div>
+        <div style="width:560px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <!-- header -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 24px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <span style="font-size:17px;font-weight:600;letter-spacing:-0.01em;">Sync</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t5);">your self-hosted server</span>
+            </div>
+            <span style="display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;padding:7px 12px;border-radius:9px;background:var(--ok-soft);border:1px solid var(--ok-conn);"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok);"></span><span style="font-size:12px;font-weight:600;color:var(--ok-strong);">Connected</span></span>
+          </div>
+
+          <div style="padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;">
+            <!-- status card -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid var(--ok-conn);background:var(--ok-soft);border-radius:13px;">
+              <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+                <span style="width:11px;height:11px;border-radius:50%;background:var(--ok);flex:0 0 auto;"></span>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                  <span style="font-size:14px;font-weight:600;color:var(--ok-strong);">Synced</span>
+                  <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--ok);">last synced 2 minutes ago · 2:41 PM</span>
+                </div>
+              </div>
+              <button style="flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--ok-conn);background:var(--surface);color:var(--ok-strong);border-radius:9px;padding:8px 13px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;">↻ Sync now</button>
+            </div>
+
+            <!-- server row -->
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">Connected to</span>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border-strong);background:var(--canvas);border-radius:11px;">
+                <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+                  <span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">lucid.myserver.dev</span>
+                  <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">token …a4f2 · saved on this device · TLS</span>
+                </div>
+                <button style="flex:0 0 auto;border:1px solid var(--border-strong);background:var(--surface);color:var(--t2);border-radius:8px;padding:6px 11px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;cursor:pointer;">Edit</button>
+              </div>
+            </div>
+
+            <!-- data scope -->
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">Syncing to your server</span>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:11px;overflow:hidden;">
+                <div style="display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:var(--canvas);"><span style="font-size:18px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;">12</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">sessions</span></div>
+                <div style="display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:var(--canvas);"><span style="font-size:18px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;">48</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">tasks</span></div>
+                <div style="display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:var(--canvas);"><span style="font-size:18px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;">9</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">terms</span></div>
+                <div style="display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:var(--canvas);"><span style="font-size:18px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;">23</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">keywords</span></div>
+              </div>
+            </div>
+
+            <!-- disconnect zone -->
+            <div style="display:flex;flex-direction:column;gap:11px;padding-top:16px;border-top:1px solid var(--border);">
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.06em;">Disconnect</span>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button style="flex:1;min-width:200px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid var(--border-strong);background:var(--surface);border-radius:11px;padding:11px 14px;cursor:pointer;"><span style="font-size:12.5px;font-weight:600;color:var(--ink);">Disconnect</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;line-height:1.5;color:var(--t5);">revert to local-only · server data kept</span></button>
+                <button style="flex:1;min-width:200px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid var(--danger-border);background:var(--danger-soft);border-radius:11px;padding:11px 14px;cursor:pointer;"><span style="font-size:12.5px;font-weight:600;color:var(--danger);">Disconnect &amp; erase</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;line-height:1.5;color:var(--danger);">also wipe everything on the server</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- side note -->
+      <div style="display:flex;flex-direction:column;width:300px;max-width:100%;gap:9px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);">
+          <span style="font-size:13px;color:var(--ok);flex:0 0 auto;margin-top:1px;">🔒</span>
+          <span style="font-size:11.5px;line-height:1.6;color:var(--t2);">Local copy is always kept. Disconnecting at any time reverts Lucid to exactly how it behaves with no server — nothing is lost on this device.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Ordering authority is the server-assigned <span style="color:var(--ink);">rev</span>, not device clocks — a skewed clock can't silently overwrite.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION D ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">D</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Status card — live states</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">the panel's top card swaps per state · everything else holds</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:22px;">
+      <!-- syncing -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">syncing</div>
+        <div style="width:380px;max-width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:13px;box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+            <span style="width:13px;height:13px;border-radius:50%;border:1.8px solid var(--accent);border-top-color:transparent;display:inline-block;flex:0 0 auto;animation:lucid-spin 0.7s linear infinite;"></span>
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;font-weight:600;color:var(--accent-ink);">Syncing…</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">pushing 12 changes</span></div>
+          </div>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-ink);flex:0 0 auto;">7 / 12</span>
+        </div>
+      </div>
+      <!-- offline-queued -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">offline · queued</div>
+        <div style="width:380px;max-width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid var(--warn-border);background:var(--warn-soft);border-radius:13px;box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+            <span style="width:11px;height:11px;border-radius:50%;background:var(--warn);flex:0 0 auto;"></span>
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;font-weight:600;color:var(--warn);">Offline — changes queued</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--warn);">8 queued · will sync when reachable</span></div>
+          </div>
+          <button style="flex:0 0 auto;border:1px solid var(--warn-border);background:var(--surface);color:var(--warn);border-radius:9px;padding:7px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Retry</button>
+        </div>
+      </div>
+      <!-- conflict -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">conflict</div>
+        <div style="width:380px;max-width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid var(--warn-border);background:var(--warn-soft);border-radius:13px;box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+            <span style="font-size:15px;color:var(--warn);flex:0 0 auto;line-height:1;">⚠</span>
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;font-weight:600;color:var(--warn);">Synced — with a conflict</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--warn);">1 local edit was superseded</span></div>
+          </div>
+          <button style="flex:0 0 auto;border:1px solid var(--warn-border);background:var(--surface);color:var(--warn);border-radius:9px;padding:7px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Details</button>
+        </div>
+      </div>
+      <!-- auth-error -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">auth-error</div>
+        <div style="width:380px;max-width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid var(--danger-border);background:var(--danger-soft);border-radius:13px;box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+            <span style="width:11px;height:11px;border-radius:50%;background:var(--danger);flex:0 0 auto;"></span>
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;font-weight:600;color:var(--danger);">Authentication failed</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--danger);">token rejected (401) · sync paused</span></div>
+          </div>
+          <button style="flex:0 0 auto;border:1px solid var(--danger-border);background:var(--surface);color:var(--danger);border-radius:9px;padding:7px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Update token</button>
+        </div>
+      </div>
+      <!-- unreachable -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">unreachable</div>
+        <div style="width:380px;max-width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid var(--danger-border);background:var(--danger-soft);border-radius:13px;box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+            <span style="width:11px;height:11px;border-radius:50%;background:var(--danger);flex:0 0 auto;animation:lucid-pulse 1.4s ease-in-out infinite;"></span>
+            <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;font-weight:600;color:var(--danger);">Server unreachable</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--danger);">no response · retrying in 0:14</span></div>
+          </div>
+          <button style="flex:0 0 auto;border:1px solid var(--danger-border);background:var(--surface);color:var(--danger);border-radius:9px;padding:7px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Retry now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION E ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">E</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Conflict surface &amp; disconnect</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">the v1 superseded-edit signal · two-way disconnect choice</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <!-- conflict surface -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">conflict-occurred</div>
+        <div style="width:440px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border);background:var(--warn-soft);">
+            <span style="width:30px;height:30px;flex:0 0 auto;border-radius:9px;background:var(--surface);border:1px solid var(--warn-border);display:inline-flex;align-items:center;justify-content:center;color:var(--warn);font-size:14px;">⚠</span>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <span style="font-size:15px;font-weight:600;color:var(--warn);">A local edit was superseded</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--warn);">another device's edit won the merge</span>
+            </div>
+          </div>
+          <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
+            <p style="margin:0;font-size:12.5px;line-height:1.65;color:var(--t2);">You and another device edited the same item while offline. The server kept the most recent write — your earlier version was superseded.</p>
+            <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--border);">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Item</span><span style="font-size:12.5px;font-weight:500;color:var(--ink);">Glossary term · “渲染管线”</span></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Superseded</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t2);">your edit · 4m ago</span></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);text-transform:uppercase;letter-spacing:0.05em;">Kept</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t2);">MacBook · 1m ago</span></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border:1px dashed var(--border-dashed);border-radius:11px;background:var(--canvas);">
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Side-by-side review &amp; restore arrives in a later release. For now this is a heads-up — nothing else needs doing.</span>
+            </div>
+            <div style="display:flex;gap:10px;">
+              <button style="flex:1;border:1px solid var(--border-strong);background:var(--surface);color:var(--t1);border-radius:10px;padding:10px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;">Dismiss</button>
+              <button style="flex:1;border:1px solid var(--border-strong);background:var(--surface);color:var(--t2);border-radius:10px;padding:10px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;">Copy my version</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- disconnect dialog -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">disconnect — choice</div>
+        <div style="width:420px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 24px 60px var(--shadow-c3);overflow:hidden;">
+          <div style="padding:20px 22px 6px;display:flex;flex-direction:column;gap:5px;">
+            <span style="font-size:16px;font-weight:600;letter-spacing:-0.01em;">Disconnect sync?</span>
+            <span style="font-size:12.5px;line-height:1.6;color:var(--t2);">Lucid reverts to local-only. Your data on this device is untouched either way.</span>
+          </div>
+          <div style="padding:14px 22px 22px;display:flex;flex-direction:column;gap:11px;">
+            <button style="display:flex;align-items:flex-start;gap:12px;text-align:left;border:1px solid var(--border-strong);background:var(--surface);border-radius:13px;padding:14px;cursor:pointer;">
+              <span style="width:18px;height:18px;flex:0 0 auto;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;margin-top:1px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);"></span></span>
+              <span style="display:flex;flex-direction:column;gap:3px;"><span style="font-size:13px;font-weight:600;color:var(--ink);">Disconnect</span><span style="font-size:11.5px;line-height:1.55;color:var(--t3);">Stop syncing. Rows already uploaded stay on your server — reconnect later to resume.</span></span>
+            </button>
+            <button style="display:flex;align-items:flex-start;gap:12px;text-align:left;border:1px solid var(--danger-border);background:var(--danger-soft);border-radius:13px;padding:14px;cursor:pointer;">
+              <span style="width:18px;height:18px;flex:0 0 auto;border-radius:50%;border:1.5px solid var(--danger);display:inline-block;margin-top:1px;"></span>
+              <span style="display:flex;flex-direction:column;gap:3px;"><span style="font-size:13px;font-weight:600;color:var(--danger);">Disconnect &amp; erase server data</span><span style="font-size:11.5px;line-height:1.55;color:var(--danger);">Also delete everything Lucid uploaded to lucid.myserver.dev. Can't be undone.</span></span>
+            </button>
+            <div style="display:flex;gap:10px;padding-top:5px;">
+              <button style="flex:0 0 auto;border:1px solid var(--border-strong);background:var(--surface);color:var(--t2);border-radius:10px;padding:11px 18px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;cursor:pointer;">Cancel</button>
+              <button style="flex:1;border:none;background:var(--accent);color:var(--on-accent);border-radius:10px;padding:11px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Disconnect</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION F ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">F</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Sync error banners</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">inline, non-blocking · error.syncUnreachable / syncAuth / syncConflict</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;max-width:760px;">
+      <!-- unreachable -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">error.syncUnreachable</div>
+        <div style="display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border:1px solid var(--danger-border);background:var(--danger-soft);border-radius:13px;">
+          <span style="width:22px;height:22px;flex:0 0 auto;border-radius:7px;background:var(--surface);border:1px solid var(--danger-border);display:inline-flex;align-items:center;justify-content:center;color:var(--danger);font-size:12px;margin-top:1px;">!</span>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:13.5px;font-weight:600;color:var(--danger);">Can't reach your sync server</span><span style="font-size:12px;line-height:1.55;color:var(--t2);">No response from lucid.myserver.dev. Changes are queued locally and will sync once it's back. Retrying automatically.</span></div>
+          <button style="flex:0 0 auto;border:1px solid var(--danger-border);background:var(--surface);color:var(--danger);border-radius:9px;padding:8px 13px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Retry now</button>
+        </div>
+      </div>
+      <!-- auth -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">error.syncAuth</div>
+        <div style="display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border:1px solid var(--danger-border);background:var(--danger-soft);border-radius:13px;">
+          <span style="width:22px;height:22px;flex:0 0 auto;border-radius:7px;background:var(--surface);border:1px solid var(--danger-border);display:inline-flex;align-items:center;justify-content:center;color:var(--danger);font-size:12px;margin-top:1px;">⚿</span>
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:13.5px;font-weight:600;color:var(--danger);">Sync token rejected</span><span style="font-size:12px;line-height:1.55;color:var(--t2);">Your server returned 401. The token may have been rotated or revoked. Paste a fresh token to resume syncing.</span></div>
+          <button style="flex:0 0 auto;border:none;background:var(--danger);color:var(--on-accent);border-radius:9px;padding:8px 13px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Update token</button>
+        </div>
+      </div>
+      <!-- conflict / rate -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">error.syncConflict &amp; rate-limit</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:300px;display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border:1px solid var(--warn-border);background:var(--warn-soft);border-radius:13px;">
+            <span style="width:22px;height:22px;flex:0 0 auto;border-radius:7px;background:var(--surface);border:1px solid var(--warn-border);display:inline-flex;align-items:center;justify-content:center;color:var(--warn);font-size:12px;margin-top:1px;">⚠</span>
+            <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:13.5px;font-weight:600;color:var(--warn);">An edit was superseded</span><span style="font-size:12px;line-height:1.55;color:var(--t2);">A newer change from another device won. Details saved.</span></div>
+            <button style="flex:0 0 auto;border:1px solid var(--warn-border);background:var(--surface);color:var(--warn);border-radius:9px;padding:8px 13px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;cursor:pointer;">Details</button>
+          </div>
+          <div style="flex:1;min-width:300px;display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border:1px solid var(--warn-border);background:var(--warn-soft);border-radius:13px;">
+            <span style="width:22px;height:22px;flex:0 0 auto;border-radius:7px;background:var(--surface);border:1px solid var(--warn-border);display:inline-flex;align-items:center;justify-content:center;color:var(--warn);font-size:12px;margin-top:1px;">◷</span>
+            <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:13.5px;font-weight:600;color:var(--warn);">Server is rate-limiting</span><span style="font-size:12px;line-height:1.55;color:var(--t2);">Backing off — retry in 30s. Queue is safe.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- footer -->
+    <div style="margin-top:44px;padding-top:18px;border-top:1px solid var(--border-strong);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">
+      <span>Lucid · feature #9 · WI-9 design bundle · matches workspace tokens (light + dark)</span>
+      <span>opt-in · local-first · data-only · per-entity LWW · conflict signal surfaced</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1480,&quot;height&quot;:1024},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#574FD6&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  boardRef = React.createRef();
+  applyAccent() {
+    const a = this.props.accent;
+    if (a && this.boardRef.current) this.boardRef.current.style.setProperty('--accent', a);
+  }
+  componentDidMount() { this.applyAccent(); }
+  componentDidUpdate() { this.applyAccent(); }
+  renderVals() {
+    return {
+      themeAttr: this.props.theme ?? 'light',
+      boardRef: this.boardRef,
+    };
+  }
+}
+</script>
+</body>
+</html>
