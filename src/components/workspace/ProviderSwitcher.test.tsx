@@ -24,4 +24,12 @@ describe('ProviderSwitcher', () => {
     await user.click(screen.getByRole('menuitem', { name: /openai/i }))
     expect(useProviderStore.getState().vendor).toBe('openai')
   })
+
+  it('reflects each vendor’s selected model in the menu, not just the registry default (#5 WI-7)', async () => {
+    useProviderStore.getState().setModel('claude-opus-4-8', 'anthropic')
+    const user = userEvent.setup()
+    render(<ProviderSwitcher />)
+    await user.click(screen.getByRole('button', { name: /anthropic/i }))
+    expect(await screen.findByRole('menuitem', { name: /claude-opus-4-8/i })).toBeInTheDocument()
+  })
 })
