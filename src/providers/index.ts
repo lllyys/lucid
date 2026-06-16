@@ -14,27 +14,11 @@ import { anthropicStream } from './anthropicProvider'
 import { openaiCompatibleStream } from './openaiCompatibleProvider'
 import { geminiStream } from './geminiProvider'
 import type { RetryDeps } from './retry'
+import { realSleep } from '@/lib/async/backoff'
 
 // Fixed endpoints for the named vendors (endpoints, not model IDs — model IDs live in the registry).
 const OPENAI_BASE_URL = 'https://api.openai.com/v1'
 const OLLAMA_BASE_URL = 'http://localhost:11434/v1'
-
-/** Real backoff sleep: resolves after `ms`, or early (without rejecting) if `signal` aborts. */
-export function realSleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal?.aborted) {
-      resolve()
-      return
-    }
-    const settle = (): void => {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', settle)
-      resolve()
-    }
-    const timer = setTimeout(settle, ms)
-    signal?.addEventListener('abort', settle)
-  })
-}
 
 const defaultRetryDeps: RetryDeps = { sleep: realSleep, random: Math.random }
 

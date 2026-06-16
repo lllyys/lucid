@@ -6,6 +6,7 @@
 
 import type { ProviderError, ProviderOutcome } from './types'
 import { isRetryableError } from './errors'
+import { clampMs, expBackoff } from '@/lib/async/backoff'
 
 export interface RetryPolicy {
   maxAttempts?: number
@@ -32,12 +33,6 @@ const RATE_LIMIT_MAX_MS = 60_000
 // paths never drift.
 export const RETRY_DEFAULTS = { maxAttempts: 3, baseDelayMs: 500, maxDelayMs: 30_000 } as const
 
-/** Coerce any delay to a finite, non-negative, bounded value before it reaches sleep(). */
-function clampMs(ms: number, max: number): number {
-  if (!Number.isFinite(ms) || ms < 0) return 0
-  return Math.min(ms, max)
-}
-
 export function backoffDelay(
   error: ProviderError,
   attemptIndex: number,
@@ -45,11 +40,12 @@ export function backoffDelay(
   max: number,
   random: () => number,
 ): number {
+  // A server-directed Retry-After overrides the exponential schedule (provider-specific); the
+  // generic jittered-exponential path is the shared primitive (src/lib/async/backoff).
   if (error.kind === 'rateLimited' && error.retryAfterMs != null) {
     return clampMs(error.retryAfterMs, RATE_LIMIT_MAX_MS)
   }
-  const exp = Math.min(base * 2 ** attemptIndex, max)
-  return clampMs(random() * exp, max)
+  return expBackoff(attemptIndex, base, max, random)
 }
 
 export async function withRetry(

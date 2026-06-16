@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { createProvider, realSleep } from './index'
+import { describe, it, expect, vi } from 'vitest'
+import { createProvider } from './index'
 import { ProviderException, type Vendor } from './types'
 import { streamResponse } from '@/test/providerTestUtils'
 import * as registry from './modelRegistry'
@@ -141,30 +141,4 @@ describe('createProvider', () => {
     expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'Hola' })
   })
 })
-
-describe('realSleep', () => {
-  afterEach(() => vi.useRealTimers())
-
-  it('resolves immediately for an already-aborted signal', async () => {
-    const ac = new AbortController()
-    ac.abort()
-    await expect(realSleep(10_000, ac.signal)).resolves.toBeUndefined()
-  })
-  it('resolves after the delay elapses', async () => {
-    vi.useFakeTimers()
-    let done = false
-    const p = realSleep(50).then(() => {
-      done = true
-    })
-    expect(done).toBe(false)
-    await vi.advanceTimersByTimeAsync(50)
-    await p
-    expect(done).toBe(true)
-  })
-  it('resolves early when the signal aborts during the wait', async () => {
-    const ac = new AbortController()
-    const p = realSleep(10_000, ac.signal)
-    ac.abort()
-    await expect(p).resolves.toBeUndefined()
-  })
-})
+// realSleep moved to src/lib/async/backoff.ts (#9 WI-0); its tests live in backoff.test.ts.
