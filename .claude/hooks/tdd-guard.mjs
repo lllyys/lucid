@@ -8,6 +8,8 @@
 //   - src/providers/**/*.{ts,tsx}      (the LLM provider layer)
 //   - src/lib/translation/**/*.{ts,tsx}
 //   - src/lib/polish/**/*.{ts,tsx}
+//   - src/lib/providers/**/*.{ts,tsx}
+//   - src/lib/sync/**/*.{ts,tsx}       (the self-hosted sync layer, #9)
 //   - src/stores/**/*.{ts,tsx}
 //
 // Behavior:
@@ -66,6 +68,7 @@ const SCOPED = [
   /^src\/lib\/translation\/.*\.tsx?$/,
   /^src\/lib\/polish\/.*\.tsx?$/,
   /^src\/lib\/providers\/.*\.tsx?$/,
+  /^src\/lib\/sync\/.*\.tsx?$/,
   /^src\/stores\/.*\.tsx?$/,
 ];
 
@@ -121,7 +124,7 @@ const msg = [
   "  Write the failing test first, then this hook will allow the source edit.",
   "",
   "  This guard is scoped to lucid's high-risk paths only:",
-  "  src/providers/, src/lib/translation/, src/lib/polish/, src/stores/.",
+  "  src/providers/, src/lib/translation/, src/lib/polish/, src/lib/providers/, src/lib/sync/, src/stores/.",
   "  Other lucid code is not affected.",
   "",
 ].join("\n");
