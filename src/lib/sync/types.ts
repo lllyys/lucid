@@ -63,3 +63,21 @@ export type SyncError =
   | { kind: 'unreachable'; detail?: string } // network down / 5xx / timeout — server unavailable
   | { kind: 'auth'; detail?: string } // 401/403 — missing/expired/invalid token
   | { kind: 'badRequest'; detail?: string } // other 4xx / malformed response
+
+/**
+ * A merge conflict: a pending local edit the merge superseded because the server (authoritative by
+ * `rev`) had a newer version. v1 surfaces this as a signal only — side-by-side review/restore is a
+ * later release (the design's "review deferred" note). `local` is the superseded edit; `server` won.
+ */
+export interface Conflict {
+  type: EntityType
+  id: string
+  local: SyncEntity
+  server: SyncEntity
+}
+
+/** `mergeEntities` output: the reconciled entity set + any superseded-local-edit conflicts. */
+export interface MergeResult {
+  resolved: SyncEntity[]
+  conflicts: Conflict[]
+}
