@@ -20,7 +20,14 @@ beforeEach(() => {
   useSessionStore.getState().reset()
 })
 
-const sample = (name: string, tasks: Session['tasks'] = []): Session => ({ id: name, name, createdAt: 1, tasks })
+const sample = (name: string, tasks: Session['tasks'] = []): Session => ({
+  id: name,
+  name,
+  createdAt: 1,
+  updatedAt: 1,
+  deletedAt: null,
+  tasks,
+})
 
 describe('sessionStore', () => {
   it('starts empty with no active session', () => {
@@ -112,9 +119,39 @@ describe('sessionStore', () => {
   })
 })
 
+describe('sessionStore sync envelope (#9 WI-1)', () => {
+  it('newSession stamps updatedAt (=createdAt) and a null deletedAt tombstone', () => {
+    useSessionStore.getState().newSession()
+    const s = useSessionStore.getState().sessions[0]
+    expect(s.createdAt).toBe(s.updatedAt) // both stamped from one clock read
+    expect(s.deletedAt).toBeNull()
+  })
+
+  it('addTask stamps the task updatedAt/deletedAt and bumps the parent session updatedAt', () => {
+    useSessionStore.getState().newSession()
+    const createdSessionUpdatedAt = useSessionStore.getState().sessions[0].updatedAt
+    useSessionStore.getState().addTask({ kind: 'translate', title: 'Hi', sourceText: 'Hi', resultText: '你好' })
+    const session = useSessionStore.getState().sessions[0]
+    const task = session.tasks[0]
+    expect(task.createdAt).toBe(task.updatedAt)
+    expect(task.deletedAt).toBeNull()
+    expect(session.updatedAt).toBe(task.updatedAt) // session touched at the same moment as the task
+    expect(session.updatedAt).toBeGreaterThan(createdSessionUpdatedAt) // and bumped past creation
+  })
+
+  it('renameSession bumps the session updatedAt', () => {
+    const id = useSessionStore.getState().newSession()
+    const before = useSessionStore.getState().sessions[0].updatedAt
+    useSessionStore.getState().renameSession(id, 'Renamed')
+    expect(useSessionStore.getState().sessions[0].updatedAt).toBeGreaterThan(before)
+  })
+})
+
 describe('searchSessions selector', () => {
   const sessions: Session[] = [
-    sample('Alpha project', [{ id: 't1', kind: 'translate', title: 'quantum note', sourceText: 'quantum physics', resultText: '', createdAt: 1 }]),
+    sample('Alpha project', [
+      { id: 't1', kind: 'translate', title: 'quantum note', sourceText: 'quantum physics', resultText: '', createdAt: 1, updatedAt: 1, deletedAt: null },
+    ]),
     sample('Beta notes'),
   ]
   it('empty query returns all', () => {
@@ -138,14 +175,114 @@ describe('persist helpers', () => {
     expect(migrateSessions({ sessions: [] }, 0)).toBeUndefined()
     expect(migrateSessions(undefined, 0)).toBeUndefined()
   })
-  it('migrateSessions passes through current version', () => {
+  it('migrateSessions passes through current version (v2) by reference', () => {
     const state = { sessions: [], activeSessionId: null }
-    expect(migrateSessions(state, 1)).toBe(state)
+    expect(migrateSessions(state, 2)).toBe(state)
   })
-  it('partializeSessions persists only sessions + activeSessionId', () => {
-    expect(partializeSessions({ sessions: [], activeSessionId: 'x' } as never)).toEqual({
-      sessions: [],
-      activeSessionId: 'x',
-    })
+  it('migrateSessions backfills v1 → v2: every session + task gains updatedAt and deletedAt:null', () => {
+    const v1 = {
+      sessions: [
+        {
+          id: 's1',
+          name: 'Legacy',
+          createdAt: 42,
+          tasks: [{ id: 't1', kind: 'translate', title: 'Hi', sourceText: 'Hi', resultText: '你好', createdAt: 7 }],
+        },
+      ],
+      activeSessionId: 's1',
+    }
+    const migrated = migrateSessions(v1, 1) as { sessions: Session[]; activeSessionId: string | null }
+    expect(migrated.activeSessionId).toBe('s1') // valid active id is preserved
+    const session = migrated.sessions[0]
+    // session createdAt (42) is newer than its task (7) → session.updatedAt = 42
+    expect(session).toMatchObject({ id: 's1', name: 'Legacy', createdAt: 42, updatedAt: 42, deletedAt: null })
+    const task = session.tasks[0]
+    expect(task).toMatchObject({ id: 't1', createdAt: 7, updatedAt: 7, deletedAt: null })
+  })
+  it('migrateSessions backfills session.updatedAt from the NEWEST task when a task is newer', () => {
+    const v1 = {
+      sessions: [
+        {
+          id: 's1',
+          name: 'Legacy',
+          createdAt: 10,
+          tasks: [
+            { id: 't1', kind: 'translate', title: 'a', sourceText: 'a', resultText: '', createdAt: 20 },
+            { id: 't2', kind: 'polish', title: 'b', sourceText: 'b', resultText: '', createdAt: 35 },
+          ],
+        },
+      ],
+      activeSessionId: 's1',
+    }
+    const migrated = migrateSessions(v1, 1) as { sessions: Session[] }
+    expect(migrated.sessions[0].updatedAt).toBe(35) // max(10, 20, 35)
+  })
+  it('migrateSessions v1 → v2: empty sessions array yields an empty, null-active store', () => {
+    expect(migrateSessions({ sessions: [], activeSessionId: null }, 1)).toEqual({ sessions: [], activeSessionId: null })
+  })
+  it('migrateSessions v1 → v2: a session with zero tasks keeps updatedAt=createdAt and an empty task list', () => {
+    const migrated = migrateSessions(
+      { sessions: [{ id: 's1', name: 'Empty', createdAt: 99, tasks: [] }], activeSessionId: 's1' },
+      1,
+    ) as { sessions: Session[] }
+    expect(migrated.sessions[0]).toMatchObject({ updatedAt: 99, tasks: [] })
+  })
+  it('migrateSessions v1 → v2: a session missing its tasks array degrades to no tasks (salvaged, not discarded)', () => {
+    const migrated = migrateSessions(
+      { sessions: [{ id: 's1', name: 'NoTasks', createdAt: 5 }], activeSessionId: 's1' },
+      1,
+    ) as { sessions: Session[] }
+    expect(migrated.sessions).toHaveLength(1)
+    expect(migrated.sessions[0]).toMatchObject({ id: 's1', updatedAt: 5, deletedAt: null, tasks: [] })
+  })
+  it('migrateSessions v1 → v2: a non-array sessions field is too broken to salvage → undefined → defaults', () => {
+    expect(migrateSessions({ sessions: 'nope', activeSessionId: null }, 1)).toBeUndefined()
+    expect(migrateSessions({ activeSessionId: null }, 1)).toBeUndefined()
+  })
+  it('migrateSessions v1 → v2: a non-object top level is too broken to salvage → undefined (never throws)', () => {
+    expect(migrateSessions(null, 1)).toBeUndefined()
+    expect(migrateSessions(undefined, 1)).toBeUndefined()
+    expect(migrateSessions(42, 1)).toBeUndefined()
+  })
+  it('migrateSessions v1 → v2: a null/garbage session entry is skipped, the rest are salvaged (never throws)', () => {
+    const migrated = migrateSessions(
+      { sessions: [null, { id: 's1', name: 'Good', createdAt: 3, tasks: [] }, 7], activeSessionId: 's1' },
+      1,
+    ) as { sessions: Session[] }
+    expect(migrated.sessions).toHaveLength(1)
+    expect(migrated.sessions[0]).toMatchObject({ id: 's1', name: 'Good' })
+  })
+  it('migrateSessions v1 → v2: a null/garbage task entry is skipped, valid tasks survive (never throws)', () => {
+    const migrated = migrateSessions(
+      {
+        sessions: [
+          {
+            id: 's1',
+            name: 'A',
+            createdAt: 1,
+            tasks: [null, { id: 't1', kind: 'translate', title: 'ok', sourceText: 'ok', resultText: '', createdAt: 9 }],
+          },
+        ],
+        activeSessionId: 's1',
+      },
+      1,
+    ) as { sessions: Session[] }
+    expect(migrated.sessions[0].tasks).toHaveLength(1)
+    expect(migrated.sessions[0].tasks[0]).toMatchObject({ id: 't1', updatedAt: 9, deletedAt: null })
+  })
+  it('migrateSessions v1 → v2: a dangling activeSessionId (no matching session) is dropped to null', () => {
+    const migrated = migrateSessions(
+      { sessions: [{ id: 's1', name: 'A', createdAt: 1, tasks: [] }], activeSessionId: 'ghost' },
+      1,
+    ) as { activeSessionId: string | null }
+    expect(migrated.activeSessionId).toBeNull()
+  })
+  it('partializeSessions persists only the sessions + activeSessionId slice (no derived/transient fields)', () => {
+    // Call with a genuine SessionState (the live store) — no cast — and assert it narrows to exactly two keys.
+    const id = useSessionStore.getState().newSession()
+    const persisted = partializeSessions(useSessionStore.getState())
+    expect(Object.keys(persisted).sort()).toEqual(['activeSessionId', 'sessions'])
+    expect(persisted.activeSessionId).toBe(id)
+    expect(persisted.sessions).toBe(useSessionStore.getState().sessions)
   })
 })

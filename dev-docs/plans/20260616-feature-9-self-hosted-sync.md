@@ -109,13 +109,18 @@ Throwaway probe under `dev-docs/grills/feature-9-sync/`, validating the three lo
 - **Eviction caps (review High #5):** today's `MAX_SESSIONS=50`/`MAX_TASKS=200` drop-oldest with no tombstone →
   resurrection loops. When sync is ON the **server is the durable store**; client caps become a display window,
   not a deletion (or eviction writes a tombstone). Reconciled in WI-1/WI-7 + a dedicated test.
+- **Migration baseline (WI-1a Gate-4 #6):** the store-model migration only *adds* the envelope. Hard deletes
+  performed before the tombstone-on-delete WI (WI-7) lands produce **no** tombstone — they are simply absent from
+  the migrated state, and the sync layer treats the first push of migrated data as the **baseline**, not a set of
+  resurrections. Selector filtering on `deletedAt` ships in the same WI that first *creates* a tombstone, so there
+  is never a window where a live tombstone goes unfiltered.
 
 ## Work items (re-tiered)
 
 | WI | Tier | Scope |
 |----|------|-------|
 | WI-0 | foundational | workspace `packages:` + check:all scoping (exclude `server/**`); extract `src/lib/async/` shared sleep/backoff |
-| WI-1 | **behavioral** | store-model migration (updatedAt/deletedAt, deterministic keyword ids, PERSIST_VERSION + backfill) — **mutates persisted data → slice-verify lossless upgrade** (review Low #14) |
+| WI-1 | **behavioral** | store-model migration (updatedAt/deletedAt, deterministic keyword ids, PERSIST_VERSION + backfill) — **mutates persisted data → slice-verify lossless upgrade** (review Low #14). **Split into slices to hold quality at depth:** WI-1a = **sessionStore** (done, v0.6.2; Gate-4 CLEAN, surfaced pre-existing id-collision bug GH #55); WI-1b = glossaryStore; WI-1c = `keywords string[] → Keyword[]` (deterministic ids) + PolishPanel/GlossaryView ripple |
 | WI-2 | foundational | `src/lib/sync/types.ts` SyncEntity/EntityType/results/SyncError + type guards (no-any, no zod) |
 | WI-3 | foundational | pure `mergeEntities` — server-rev-primary LWW + causal delete-wins + `{resolved,conflicts}`; table tests incl. clock-skew immunity, delete-then-readd, eviction-resurrection |
 | WI-4 | foundational | `SyncBackend` + `createRestSyncBackend({fetch,baseUrl,token})` — bearer interceptor, timeout/backoff via `src/lib/async`, error mapping; fetch-mock tests |
