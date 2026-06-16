@@ -73,25 +73,6 @@ export function searchSessions(sessions: Session[], query: string): Session[] {
   )
 }
 
-// Shape of the v1 persisted state (pre-sync-envelope) — used only to backfill on migrate.
-// `tasks` is optional here so the migration can defend against partially-corrupt records:
-// safeJSONStorage guarantees valid JSON, but NOT a valid shape (a hand-edited or partially
-// written blob can parse yet lack `sessions`/`tasks`).
-interface TaskV1 {
-  id: string
-  kind: 'translate' | 'polish'
-  title: string
-  sourceText: string
-  resultText: string
-  createdAt: number
-}
-interface SessionV1 {
-  id: string
-  name: string
-  createdAt: number
-  tasks?: TaskV1[]
-}
-
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
 /**
@@ -100,12 +81,13 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
  * max of its own createdAt and its newest task's createdAt — the same invariant `addTask` keeps for
  * live sessions, so migrated and live data look identical.
  *
- * Migration never throws. safeJSONStorage guarantees valid JSON but NOT a valid shape, so each
- * level is guarded: a non-object top level or a non-array `sessions` → undefined → defaults; a
- * non-object session or task entry is skipped (one malformed entry never discards the rest). Field
- * *types* inside a well-formed entry are trusted — v1 data is written by our own v1 code, and the
- * guards exist to prevent a crash on tampered/partially-corrupt storage, not to sanitize arbitrary
- * input (a tampered non-numeric createdAt yields a cosmetically-odd timestamp, never an exception).
+ * Migration never throws AND never poisons the store. safeJSONStorage guarantees valid JSON but NOT
+ * a valid shape, so each level is guarded: a non-object top level or a non-array `sessions` →
+ * undefined → defaults; a session/task entry that is not an object OR is missing a required field of
+ * the right type is skipped (one malformed entry never discards the rest). Validating the string
+ * fields matters — `searchSessions` calls `.toLowerCase()` on `name`/`title`/`sourceText`, so a
+ * non-string there would crash normal use, not merely look odd; numeric `createdAt` is validated too
+ * so a tampered value can't poison `updatedAt` with NaN.
  *
  * Sync baseline (#9): this only adds the envelope. Hard deletes performed before the
  * tombstone-on-delete WI lands produce NO tombstone — they are simply absent from the migrated
@@ -120,27 +102,38 @@ export function migrateSessions(persisted: unknown, version: number): unknown {
     const sessions: Session[] = []
     for (const rawSession of persisted.sessions as unknown[]) {
       if (!isRecord(rawSession)) continue // null/garbage entry → skip, don't crash; salvage the rest
-      const s = rawSession as unknown as SessionV1
+      if (typeof rawSession.id !== 'string' || typeof rawSession.name !== 'string' || typeof rawSession.createdAt !== 'number') {
+        continue // malformed session → skip
+      }
       const tasks: Task[] = []
-      for (const rawTask of (Array.isArray(s.tasks) ? s.tasks : []) as unknown[]) {
+      for (const rawTask of (Array.isArray(rawSession.tasks) ? rawSession.tasks : []) as unknown[]) {
         if (!isRecord(rawTask)) continue
-        const t = rawTask as unknown as TaskV1
+        if (
+          typeof rawTask.id !== 'string' ||
+          (rawTask.kind !== 'translate' && rawTask.kind !== 'polish') ||
+          typeof rawTask.title !== 'string' ||
+          typeof rawTask.sourceText !== 'string' ||
+          typeof rawTask.resultText !== 'string' ||
+          typeof rawTask.createdAt !== 'number'
+        ) {
+          continue // malformed task → skip
+        }
         tasks.push({
-          id: t.id,
-          kind: t.kind,
-          title: t.title,
-          sourceText: t.sourceText,
-          resultText: t.resultText,
-          createdAt: t.createdAt,
-          updatedAt: t.createdAt,
+          id: rawTask.id,
+          kind: rawTask.kind,
+          title: rawTask.title,
+          sourceText: rawTask.sourceText,
+          resultText: rawTask.resultText,
+          createdAt: rawTask.createdAt,
+          updatedAt: rawTask.createdAt,
           deletedAt: null,
         })
       }
       sessions.push({
-        id: s.id,
-        name: s.name,
-        createdAt: s.createdAt,
-        updatedAt: tasks.reduce((max, t) => Math.max(max, t.createdAt), s.createdAt),
+        id: rawSession.id,
+        name: rawSession.name,
+        createdAt: rawSession.createdAt,
+        updatedAt: tasks.reduce((max, t) => Math.max(max, t.createdAt), rawSession.createdAt),
         deletedAt: null,
         tasks,
       })
