@@ -42,7 +42,7 @@ describe('GlossaryView (WI-6)', () => {
     const user = userEvent.setup()
     render(<GlossaryView />)
     await user.click(screen.getByRole('button', { name: /use neural net/i }))
-    expect(usePolishKeywordsStore.getState().keywords).toContain('neural net')
+    expect(usePolishKeywordsStore.getState().keywords.map((k) => k.value)).toContain('neural net')
   })
 
   it('extracts candidate terms from the active session and adds a suggestion', async () => {

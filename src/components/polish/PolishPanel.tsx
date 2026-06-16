@@ -23,8 +23,10 @@ export function PolishPanel() {
   const [tgtLang, setTgtLang] = useState('en')
   const [original, setOriginal] = useState('')
   const [draft, setDraft] = useState('')
-  // Keywords live in a store (feature #3) so the sidebar Glossary's "use" can inject a term.
+  // Keywords live in a store (feature #3) so the sidebar Glossary's "use" can inject a term. The
+  // store holds Keyword entities (#9 sync envelope); the card + the polish request want bare values.
   const keywords = usePolishKeywordsStore((s) => s.keywords)
+  const keywordValues = keywords.map((k) => k.value)
   const polishOp = useOperationStore((s) => s.polish)
   const dt = useOperationStore((s) => s.draftTranslate)
   const { run, abort } = usePanelRun()
@@ -78,7 +80,7 @@ export function PolishPanel() {
       goal: 'clarity',
       lang: tgtLang,
       original: original.trim() || undefined,
-      keywords: keywords.length ? keywords : undefined,
+      keywords: keywordValues.length ? keywordValues : undefined,
     })
   }
   const onOriginal = (v: string) => {
@@ -149,7 +151,7 @@ export function PolishPanel() {
             onStopTranslate={onStopTranslate}
             translating={translating}
           />
-          <KeywordsCard keywords={keywords} onAdd={addKeyword} onRemove={removeKeyword} />
+          <KeywordsCard keywords={keywordValues} onAdd={addKeyword} onRemove={removeKeyword} />
         </div>
         <section className="flex flex-1 flex-col border-l bg-[var(--bg-color)] px-6 py-4">
           <span className="mb-2 font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">

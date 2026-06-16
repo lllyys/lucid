@@ -1,9 +1,21 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { usePolishKeywordsStore, migrateKeywords, partializeKeywords } from './polishKeywordsStore'
+import {
+  usePolishKeywordsStore,
+  migrateKeywords,
+  partializeKeywords,
+  keywordId,
+  __setKeywordsClock,
+  type Keyword,
+} from './polishKeywordsStore'
 
+let t = 1000
 beforeEach(() => {
+  t = 1000
+  __setKeywordsClock(() => ++t)
   usePolishKeywordsStore.getState().reset()
 })
+
+const values = (): string[] => usePolishKeywordsStore.getState().keywords.map((k) => k.value)
 
 describe('polishKeywordsStore', () => {
   it('starts empty', () => {
@@ -15,7 +27,7 @@ describe('polishKeywordsStore', () => {
     addKeyword('  inference  ')
     addKeyword('inference')
     addKeyword('neural net')
-    expect(usePolishKeywordsStore.getState().keywords).toEqual(['inference', 'neural net'])
+    expect(values()).toEqual(['inference', 'neural net'])
   })
 
   it('ignores an empty / whitespace-only keyword', () => {
@@ -28,7 +40,7 @@ describe('polishKeywordsStore', () => {
     s.addKeyword('alpha')
     s.addKeyword('beta')
     s.removeKeyword('alpha')
-    expect(usePolishKeywordsStore.getState().keywords).toEqual(['beta'])
+    expect(values()).toEqual(['beta'])
   })
 
   it('reset clears keywords', () => {
@@ -36,23 +48,75 @@ describe('polishKeywordsStore', () => {
     usePolishKeywordsStore.getState().reset()
     expect(usePolishKeywordsStore.getState().keywords).toEqual([])
   })
+
+  it('addKeyword stamps the sync envelope + a deterministic id derived from the value', () => {
+    usePolishKeywordsStore.getState().addKeyword('inference')
+    const k = usePolishKeywordsStore.getState().keywords[0]
+    expect(k).toMatchObject({ value: 'inference', deletedAt: null })
+    expect(k.id).toBe(keywordId('inference')) // id derived from value → cross-device convergence
+    expect(typeof k.updatedAt).toBe('number')
+  })
 })
 
-// #8 — keywords now persist globally (lucid.keywords) via the same crash-proof
-// safeJSONStorage the glossary uses. The localStorage round-trip is verified at
-// Gate 5 (no localStorage backend in this jsdom env); here we cover the persist
-// helpers as pure functions, exactly as glossaryStore.test.ts does to reach 100%.
-describe('persist helpers (#8)', () => {
-  it('migrateKeywords discards an older version', () => {
+describe('keywordId', () => {
+  it('is deterministic — the same value always yields the same id (cross-device convergence)', () => {
+    expect(keywordId('inference')).toBe(keywordId('inference'))
+  })
+  it('distinguishes different values', () => {
+    expect(keywordId('inference')).not.toBe(keywordId('attention'))
+  })
+  it('is collision-free — distinct values never share an id (regression: these collided under a 32-bit hash)', () => {
+    // 'dgackrhf' and 'xlellzqn' both hashed to the same djb2 id; an encoded id cannot collide, so a
+    // sync layer keyed on id will never merge two distinct keywords into one entity.
+    expect(keywordId('dgackrhf')).not.toBe(keywordId('xlellzqn'))
+  })
+  it('never throws on a lone surrogate and keeps distinct surrogates distinct (encodeURIComponent would throw)', () => {
+    expect(() => keywordId('\uD800')).not.toThrow()
+    expect(keywordId('\uD800')).not.toBe(keywordId('\uD801'))
+  })
+})
+
+// #9 WI-1c — keywords convert from string[] to Keyword[] (sync envelope: id/value/updatedAt/deletedAt).
+// The localStorage round-trip is verified at Gate 5 (no localStorage backend in this jsdom env);
+// here we cover the persist helpers as pure functions to reach 100%, as the sibling stores do.
+describe('persist helpers (#9 WI-1c)', () => {
+  it('migrateKeywords discards an older/unknown version (→ undefined → defaults)', () => {
     expect(migrateKeywords({ keywords: [] }, 0)).toBeUndefined()
   })
-  it('migrateKeywords passes through the current version', () => {
-    const state = { keywords: ['inference'] }
-    expect(migrateKeywords(state, 1)).toBe(state)
+  it('migrateKeywords passes through the current version (v2) by reference', () => {
+    const state = { keywords: [] as Keyword[] }
+    expect(migrateKeywords(state, 2)).toBe(state)
+  })
+  it('migrateKeywords backfills v1 string[] → v2 Keyword[] (id from value, updatedAt 0, deletedAt null)', () => {
+    const migrated = migrateKeywords({ keywords: ['inference', 'neural net'] }, 1) as { keywords: Keyword[] }
+    expect(migrated.keywords).toEqual([
+      { id: keywordId('inference'), value: 'inference', updatedAt: 0, deletedAt: null },
+      { id: keywordId('neural net'), value: 'neural net', updatedAt: 0, deletedAt: null },
+    ])
+  })
+  it('migrateKeywords v1 → v2: trims, drops empties, and de-dupes (no two entries share a derived id)', () => {
+    const migrated = migrateKeywords({ keywords: ['  inference  ', 'inference', '   ', 'neural net'] }, 1) as {
+      keywords: Keyword[]
+    }
+    expect(migrated.keywords.map((k) => k.value)).toEqual(['inference', 'neural net'])
+  })
+  it('migrateKeywords v1 → v2: skips a non-string entry (never throws)', () => {
+    const migrated = migrateKeywords({ keywords: [42, 'ok', null] }, 1) as { keywords: Keyword[] }
+    expect(migrated.keywords.map((k) => k.value)).toEqual(['ok'])
+  })
+  it('migrateKeywords v1 → v2: a non-array keywords field or non-object top level → undefined', () => {
+    expect(migrateKeywords({ keywords: 'nope' }, 1)).toBeUndefined()
+    expect(migrateKeywords(null, 1)).toBeUndefined()
+    expect(migrateKeywords(42, 1)).toBeUndefined()
+  })
+  it('migrateKeywords v1 → v2: a lone-surrogate keyword migrates without throwing (never-throws contract)', () => {
+    const migrated = migrateKeywords({ keywords: ['\uD800', 'ok'] }, 1) as { keywords: Keyword[] }
+    expect(migrated.keywords.map((k) => k.value)).toEqual(['\uD800', 'ok'])
   })
   it('partializeKeywords persists only keywords', () => {
-    expect(partializeKeywords({ keywords: ['inference', 'neural net'] } as never)).toEqual({
-      keywords: ['inference', 'neural net'],
-    })
+    usePolishKeywordsStore.getState().addKeyword('inference')
+    const persisted = partializeKeywords(usePolishKeywordsStore.getState())
+    expect(Object.keys(persisted)).toEqual(['keywords'])
+    expect(persisted.keywords).toBe(usePolishKeywordsStore.getState().keywords)
   })
 })
