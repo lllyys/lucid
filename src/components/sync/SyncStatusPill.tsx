@@ -3,6 +3,7 @@
 // Reads the store via selectors (AGENTS.md — never destructure); maps the pure `syncPillView` tone to
 // design tokens (rule 30/31 — tokens only, no hardcoded colors) and localizes every string with t().
 
+import { forwardRef, type ComponentPropsWithoutRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSyncStore } from '@/stores/syncStore'
 import { syncPillView, type PillTone, type PillView } from './syncPillView'
@@ -22,8 +23,10 @@ const TONE: Record<PillTone, { border: string; bg: string; dot: string; label: s
   danger: { border: 'var(--danger-border)', bg: 'var(--error-bg)', dot: 'var(--error-color)', label: 'var(--error-color)', detail: 'var(--error-color)' },
 }
 
-export interface SyncStatusPillProps {
-  /** Opens the Settings · Sync surface — the design's pill is click → settings (wired in WI-9c). */
+export interface SyncStatusPillProps extends ComponentPropsWithoutRef<'button'> {
+  /** Opens the Settings · Sync surface — the design's pill is click → settings. When used as a Radix
+   *  Dialog trigger (WI-9d), `asChild` injects its own onClick/data-state/aria via `...rest`, so this
+   *  prop is omitted there; the remaining button props are spread onto the underlying element. */
   onOpenSettings?: () => void
 }
 
@@ -53,7 +56,13 @@ function Indicator({ view, color }: { view: PillView; color: string }) {
   )
 }
 
-export function SyncStatusPill({ onOpenSettings }: SyncStatusPillProps) {
+// forwardRef so the pill works as a Radix `DialogTrigger asChild` child (WI-9d): Slot composes a ref onto
+// the underlying <button>, which is what returns focus to the trigger when the dialog closes (WCAG). A
+// plain function component would drop that ref. Standalone use (onOpenSettings, no ref) is unaffected.
+export const SyncStatusPill = forwardRef<HTMLButtonElement, SyncStatusPillProps>(function SyncStatusPill(
+  { onOpenSettings, ...rest },
+  ref,
+) {
   const { t } = useTranslation()
   const status = useSyncStore((s) => s.status)
   const queuedCount = useSyncStore((s) => s.queuedCount)
@@ -63,10 +72,20 @@ export function SyncStatusPill({ onOpenSettings }: SyncStatusPillProps) {
   const tone = TONE[view.tone]
   const label = t(view.labelKey)
 
+  // Compose the standalone onOpenSettings with any onClick injected by an `asChild` Radix trigger so both
+  // the WI-9d dialog toggle and the original click-to-settings affordance work.
+  const { onClick: injectedOnClick, ...buttonRest } = rest
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    injectedOnClick?.(event)
+    onOpenSettings?.()
+  }
+
   return (
     <button
+      ref={ref}
       type="button"
-      onClick={onOpenSettings}
+      {...buttonRest}
+      onClick={handleClick}
       aria-label={t('sync.pill.aria', { status: label })}
       className="inline-flex items-center gap-2 rounded-[9px] border px-[11px] py-[7px] shadow-[var(--shadow-tab)] hover:opacity-90"
       style={{ borderColor: tone.border, background: tone.bg }}
@@ -82,4 +101,4 @@ export function SyncStatusPill({ onOpenSettings }: SyncStatusPillProps) {
       )}
     </button>
   )
-}
+})

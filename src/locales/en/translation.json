@@ -278,5 +278,19 @@
   "sync.conflict.entitySession": "Session",
   "sync.conflict.entityTask": "Task",
   "sync.conflict.entityTerm": "Glossary term",
-  "sync.conflict.entityKeyword": "Polish keyword"
+  "sync.conflict.entityKeyword": "Polish keyword",
+  "error.syncUnreachable": "Can't reach your sync server — changes are queued locally and will sync once it's back.",
+  "error.syncAuth": "Sync token rejected — paste a fresh token to resume syncing.",
+  "error.syncConflict": "An edit was superseded — a newer change from another device won.",
+  "sync.banner.unreachableTitle": "Can't reach your sync server",
+  "sync.banner.unreachableBody": "No response from your sync server. Changes are queued locally and will sync once it's back. Retrying automatically.",
+  "sync.banner.retry": "Retry now",
+  "sync.banner.authTitle": "Sync token rejected",
+  "sync.banner.authBody": "Your server returned 401. The token may have been rotated or revoked. Paste a fresh token to resume syncing.",
+  "sync.banner.updateToken": "Update token",
+  "sync.banner.conflictTitle": "An edit was superseded",
+  "sync.banner.conflictBody": "A newer change from another device won. Details saved.",
+  "sync.banner.details": "Details",
+  "sync.dialog.title": "Sync",
+  "sync.dialog.description": "Connect a self-hosted sync server, or manage your existing connection."
 }
