@@ -18,16 +18,18 @@ describe('syncStore', () => {
     expect(s.counts).toEqual({ sessions: 0, tasks: 0, terms: 0, keywords: 0 })
     expect(s.queuedCount).toBe(0)
     expect(s.lastConflict).toBeNull()
+    expect(s.revs).toEqual({})
   })
 
-  it('connect stores the config, enters connecting, and resets cursor + seeded for a fresh connection', () => {
-    useSyncStore.setState({ cursor: 9, seeded: true }) // stale prior-server state
+  it('connect stores the config, enters connecting, and resets cursor + seeded + revs for a fresh connection', () => {
+    useSyncStore.setState({ cursor: 9, seeded: true, revs: { a: 3 } }) // stale prior-server state
     useSyncStore.getState().connect(cfg)
     const s = useSyncStore.getState()
     expect(s.config).toEqual(cfg)
     expect(s.status).toBe('connecting')
     expect(s.cursor).toBe(0) // fresh server → re-seed/re-pull from scratch (idempotent)
     expect(s.seeded).toBe(false)
+    expect(s.revs).toEqual({}) // stale per-entity revs cleared
   })
 
   it('disconnect reverts fully to local-only (config + transient cleared)', () => {
@@ -70,38 +72,50 @@ describe('syncStore', () => {
     useSyncStore.getState().markSeeded()
     expect(useSyncStore.getState().seeded).toBe(true)
   })
+
+  it('setRevs merges per-entity revs (does not replace the whole map)', () => {
+    useSyncStore.getState().setRevs({ a: 1, b: 2 })
+    useSyncStore.getState().setRevs({ b: 5, c: 3 }) // b updated, c added, a kept
+    expect(useSyncStore.getState().revs).toEqual({ a: 1, b: 5, c: 3 })
+  })
 })
 
 describe('syncStore persist helpers', () => {
-  it('migrateSync accepts a well-formed current-version value (sanitized to the durable fields)', () => {
-    expect(migrateSync({ config: cfg, cursor: 5, seeded: true }, 1)).toEqual({ config: cfg, cursor: 5, seeded: true })
-    expect(migrateSync({ config: null, cursor: 0, seeded: false }, 1)).toEqual({ config: null, cursor: 0, seeded: false })
+  // migrateSync is zustand's cross-version upgrade path (called ONLY on a version mismatch). It keeps
+  // a valid connection `config` but forces a full, idempotent re-sync — a pre-rev-map blob's bare
+  // cursor is NOT self-healing (an incremental pull never rebuilds the missing revs), so carrying it
+  // forward would false-conflict the next edit to an unchanged entity.
+  it('preserves a valid config but resets cursor + seeded + revs (untrusted across a version boundary)', () => {
+    expect(migrateSync({ config: cfg, cursor: 42, seeded: true, revs: { a: 9 } })).toEqual({ config: cfg, cursor: 0, seeded: false, revs: {} })
   })
-  it('migrateSync discards an older version or a non-object', () => {
-    expect(migrateSync({ config: null, cursor: 0, seeded: false }, 0)).toBeUndefined()
-    expect(migrateSync(null, 1)).toBeUndefined()
-    expect(migrateSync(42, 1)).toBeUndefined()
+  it('preserves a null (local-only) config and resets the rest', () => {
+    expect(migrateSync({ config: null, cursor: 7, seeded: true })).toEqual({ config: null, cursor: 0, seeded: false, revs: {} })
+  })
+  it('discards a pre-rev-map blob’s cursor/seeded even when they look valid (the non-self-healing case)', () => {
+    // a bare cursor with no matching rev map is exactly the state we refuse to trust across versions
+    expect(migrateSync({ config: cfg, cursor: 1000, seeded: true })).toEqual({ config: cfg, cursor: 0, seeded: false, revs: {} })
+  })
+  it('migrateSync returns undefined (→ local-only defaults) for a non-object', () => {
+    expect(migrateSync(null)).toBeUndefined()
+    expect(migrateSync(42)).toBeUndefined()
   })
   it.each([
     { desc: 'config not an object', v: { config: 42, cursor: 0, seeded: false } },
     { desc: 'config serverUrl not a string', v: { config: { serverUrl: 1, token: 't' }, cursor: 0, seeded: false } },
     { desc: 'config token not a string', v: { config: { serverUrl: 'x', token: null }, cursor: 0, seeded: false } },
-    { desc: 'cursor not a number', v: { config: null, cursor: 'x', seeded: false } },
-    { desc: 'cursor not an integer', v: { config: null, cursor: 1.5, seeded: false } },
-    { desc: 'cursor negative', v: { config: null, cursor: -1, seeded: false } },
-    { desc: 'seeded not a boolean', v: { config: null, cursor: 0, seeded: 'yes' } },
-  ])('migrateSync rejects a tampered persisted value: $desc → undefined → defaults', ({ v }) => {
-    expect(migrateSync(v, 1)).toBeUndefined()
+  ])('migrateSync rejects a tampered config: $desc → undefined → defaults', ({ v }) => {
+    expect(migrateSync(v)).toBeUndefined()
   })
-  it('partializeSync persists ONLY config + cursor + seeded (never the transient status/counts)', () => {
+  it('partializeSync persists ONLY config + cursor + seeded + revs (never the transient status/counts)', () => {
     useSyncStore.getState().connect(cfg)
     useSyncStore.getState().setCursor(5)
     useSyncStore.getState().markSeeded()
+    useSyncStore.getState().setRevs({ a: 2 })
     useSyncStore.getState().setStatus('syncing')
     useSyncStore.getState().setCounts({ sessions: 9, tasks: 0, terms: 0, keywords: 0 })
     const persisted = partializeSync(useSyncStore.getState())
-    expect(Object.keys(persisted).sort()).toEqual(['config', 'cursor', 'seeded'])
-    expect(persisted).toEqual({ config: cfg, cursor: 5, seeded: true })
+    expect(Object.keys(persisted).sort()).toEqual(['config', 'cursor', 'revs', 'seeded'])
+    expect(persisted).toEqual({ config: cfg, cursor: 5, seeded: true, revs: { a: 2 } })
   })
 })
 
