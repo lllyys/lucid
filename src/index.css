@@ -54,6 +54,11 @@
   --error-color: #b23a48;
   --error-bg: #fbeaec;
   --danger-border: #f0cdd2;     /* error-banner border (feature #4, WI-5) */
+  --warning-bg: #fbf1dc;        /* warn soft fill — sync offline/conflict surfaces (feature #9, WI-9) */
+  --warning-border: #edd6a2;    /* warn border (sync offline/conflict) */
+  --success-border: #9fcdb4;    /* "connected" green border — design --ok-conn (feature #9) */
+  --dot-idle: #c9c4bb;          /* neutral/idle status dot (sync local-only) */
+  --accent-dash: #b9b4f0;       /* dashed accent border — opt-in callout (feature #9) */
   --status-info: var(--accent-primary);
   --status-success: var(--success);
   --status-warning: var(--warning);
@@ -146,6 +151,11 @@
   --error-color: #e27182;
   --error-bg: #2e1a1d;
   --danger-border: #4a2a2f;
+  --warning-bg: #2a2113;        /* sync warn surfaces (feature #9, WI-9) */
+  --warning-border: #4a3a1c;
+  --success-border: #305c46;    /* design --ok-conn (dark) */
+  --dot-idle: #4a453c;
+  --accent-dash: #564f94;
   /* diff bg + selection + toast */
   --diff-add-bg: #2a2649;
   --selection-color: #353160;
