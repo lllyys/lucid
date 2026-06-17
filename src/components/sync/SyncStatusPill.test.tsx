@@ -1,4 +1,5 @@
 // WI-9a — the sync status pill: renders the live status, localizes detail, and opens settings on click.
+import { createRef } from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -70,5 +71,11 @@ describe('SyncStatusPill', () => {
     render(<SyncStatusPill onOpenSettings={onOpenSettings} />)
     await user.click(screen.getByRole('button', { name: /sync status/i }))
     expect(onOpenSettings).toHaveBeenCalledOnce()
+  })
+
+  it('forwards its ref to the underlying button (so it works as a Radix asChild dialog trigger)', () => {
+    const ref = createRef<HTMLButtonElement>()
+    render(<SyncStatusPill ref={ref} />)
+    expect(ref.current).toBeInstanceOf(HTMLButtonElement)
   })
 })
