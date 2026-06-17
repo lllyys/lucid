@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { isEntityType, isSyncEntity, isPullResult, isPushResult } from './guards'
-import type { SyncEntity } from './types'
+import { isEntityType, isSyncEntity, isPullResult, isPushResult, isPushOp } from './guards'
+import type { PushOp, SyncEntity } from './types'
 
 const entity: SyncEntity = {
   type: 'keyword',
@@ -42,6 +42,30 @@ describe('isSyncEntity', () => {
     { desc: 'unsafe-integer updatedAt', v: { ...entity, updatedAt: Number.MAX_SAFE_INTEGER + 1 } },
   ])('rejects $desc', ({ v }) => {
     expect(isSyncEntity(v)).toBe(false)
+  })
+})
+
+describe('isPushOp', () => {
+  const op: PushOp = { type: 'term', id: 'g1', payload: { label: 'x', createdAt: 1 }, updatedAt: 5, deletedAt: null, baseRev: 0 }
+  it('accepts a well-formed op (expect-new baseRev 0, an advanced baseRev, and a tombstone)', () => {
+    expect(isPushOp(op)).toBe(true)
+    expect(isPushOp({ ...op, baseRev: 7 })).toBe(true)
+    expect(isPushOp({ ...op, deletedAt: 9 })).toBe(true)
+  })
+  it.each([
+    { desc: 'not a record', v: null },
+    { desc: 'bad type', v: { ...op, type: 'nope' } },
+    { desc: 'non-string id', v: { ...op, id: 1 } },
+    { desc: 'array payload', v: { ...op, payload: [] } },
+    { desc: 'non-object payload', v: { ...op, payload: 'x' } },
+    { desc: 'fractional updatedAt', v: { ...op, updatedAt: 1.5 } },
+    { desc: 'negative updatedAt', v: { ...op, updatedAt: -1 } },
+    { desc: 'deletedAt neither null nor number', v: { ...op, deletedAt: 'x' } },
+    { desc: 'non-number baseRev', v: { ...op, baseRev: 'x' } },
+    { desc: 'fractional baseRev', v: { ...op, baseRev: 1.5 } },
+    { desc: 'negative baseRev', v: { ...op, baseRev: -1 } },
+  ])('rejects $desc', ({ v }) => {
+    expect(isPushOp(v)).toBe(false)
   })
 })
 

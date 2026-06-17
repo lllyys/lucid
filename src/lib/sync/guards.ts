@@ -5,7 +5,7 @@
 // validate the envelope, not the domain payload's inner shape.
 
 import { isRecord, isNonNegInt } from '@/lib/guards'
-import type { EntityType, PullResult, PushResult, SyncEntity } from './types'
+import type { EntityType, PullResult, PushOp, PushResult, SyncEntity } from './types'
 
 const ENTITY_TYPES: readonly EntityType[] = ['session', 'task', 'term', 'keyword']
 
@@ -34,6 +34,21 @@ export function isSyncEntity(v: unknown): v is SyncEntity {
     isNonNegInt(v.updatedAt) &&
     (v.deletedAt === null || isNonNegInt(v.deletedAt)) &&
     isPosInt(v.rev)
+  )
+}
+
+// A PushOp shares the SyncEntity envelope but carries `baseRev` (the last-seen rev; 0 = expect-new)
+// instead of a server-assigned `rev`, so `baseRev` is a NON-negative int (0 valid), not a positive one.
+// Used to sanitize the PERSISTED offline queue (untrusted localStorage), not the server boundary.
+export function isPushOp(v: unknown): v is PushOp {
+  return (
+    isRecord(v) &&
+    isEntityType(v.type) &&
+    typeof v.id === 'string' &&
+    isPayload(v.payload) &&
+    isNonNegInt(v.updatedAt) &&
+    (v.deletedAt === null || isNonNegInt(v.deletedAt)) &&
+    isNonNegInt(v.baseRev)
   )
 }
 
