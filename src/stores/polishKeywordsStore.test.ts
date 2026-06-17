@@ -3,10 +3,10 @@ import {
   usePolishKeywordsStore,
   migrateKeywords,
   partializeKeywords,
-  keywordId,
   __setKeywordsClock,
   type Keyword,
 } from './polishKeywordsStore'
+import { keywordId } from '@/lib/keywordId'
 
 let t = 1000
 beforeEach(() => {
@@ -55,24 +55,6 @@ describe('polishKeywordsStore', () => {
     expect(k).toMatchObject({ value: 'inference', deletedAt: null })
     expect(k.id).toBe(keywordId('inference')) // id derived from value → cross-device convergence
     expect(typeof k.updatedAt).toBe('number')
-  })
-})
-
-describe('keywordId', () => {
-  it('is deterministic — the same value always yields the same id (cross-device convergence)', () => {
-    expect(keywordId('inference')).toBe(keywordId('inference'))
-  })
-  it('distinguishes different values', () => {
-    expect(keywordId('inference')).not.toBe(keywordId('attention'))
-  })
-  it('is collision-free — distinct values never share an id (regression: these collided under a 32-bit hash)', () => {
-    // 'dgackrhf' and 'xlellzqn' both hashed to the same djb2 id; an encoded id cannot collide, so a
-    // sync layer keyed on id will never merge two distinct keywords into one entity.
-    expect(keywordId('dgackrhf')).not.toBe(keywordId('xlellzqn'))
-  })
-  it('never throws on a lone surrogate and keeps distinct surrogates distinct (encodeURIComponent would throw)', () => {
-    expect(() => keywordId('\uD800')).not.toThrow()
-    expect(keywordId('\uD800')).not.toBe(keywordId('\uD801'))
   })
 })
 
