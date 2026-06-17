@@ -7,8 +7,8 @@
 // ACCESS TOKEN is PERSISTED here alongside the server URL. This is a deliberate, user-chosen exception
 // (see dev-docs/designs/lucid-sync + the plan): background sync must survive reloads, the server is the
 // user's own single-tenant box, and the token is transmitted over TLS only. The UI shows it redacted
-// (…last4); it is NEVER logged. Only config + cursor + seeded are persisted — never the transient
-// status/counts/conflict. The trust boundary is documented further with the WI-8 server package.
+// (…last4); it is NEVER logged. Only config + cursor + seeded + revs (the per-entity rev map) are
+// persisted — never the transient status/counts/conflict. The trust boundary is documented further with the WI-8 server package.
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
@@ -49,6 +49,10 @@ export interface SyncState {
   config: SyncConfig | null // null = local-only (PERSISTED, incl. token — see header)
   cursor: number // last-seen server rev (PERSISTED)
   seeded: boolean // has the current server been seeded? (PERSISTED)
+  // Per-entity last-synced rev (PERSISTED). The orchestrator feeds it from applied push revs + pulled
+  // entity revs; it's the source of `baseRev` when a local edit is queued, so a future edit doesn't
+  // false-conflict. Keyed by entity id.
+  revs: Record<string, number>
   status: SyncStatus // transient
   lastSyncedAt: number | null // transient
   counts: SyncCounts // transient
@@ -62,16 +66,18 @@ export interface SyncState {
   setQueuedCount: (n: number) => void
   recordConflict: (conflict: SyncConflictInfo | null) => void
   setCursor: (rev: number) => void
+  setRevs: (updates: Record<string, number>) => void
   markSeeded: () => void
   reset: () => void
 }
 
-const PERSIST_VERSION = 1
+const PERSIST_VERSION = 2
 const ZERO_COUNTS: SyncCounts = { sessions: 0, tasks: 0, terms: 0, keywords: 0 }
 const INITIAL = {
   config: null as SyncConfig | null,
   cursor: 0,
   seeded: false,
+  revs: {} as Record<string, number>,
   status: 'local-only' as SyncStatus,
   lastSyncedAt: null as number | null,
   counts: ZERO_COUNTS,
@@ -80,24 +86,29 @@ const INITIAL = {
 }
 
 /**
- * persist migrate: accept only the current version, and SANITIZE — safeJSONStorage proves valid JSON,
- * not a valid shape, so a tampered/partially-corrupt blob (`cursor:'x'`, `token:null`, a stray
- * `status` key) must not hydrate invalid durable state. Returns only the validated durable fields
- * ({config, cursor, seeded}); anything malformed → undefined → defaults (local-only).
+ * persist migrate — the cross-version upgrade path. zustand calls this ONLY when the persisted
+ * version differs from PERSIST_VERSION; a matching-version blob hydrates as-is (so an established
+ * cursor + rev map survive a normal reload). A pre-rev-map blob has no trustworthy per-entity rev
+ * map, and a bare `cursor` WITHOUT a matching rev map is not self-healing: an incremental pull from
+ * that cursor never re-fetches unchanged entities, so their revs stay missing and the next local
+ * edit to one false-conflicts (and under v1 server-wins, is dropped). So across a version boundary
+ * we keep only the connection `config` and force a full, idempotent re-sync (cursor 0, seeded false,
+ * revs {}) rather than carrying a half-trusted cursor forward. A malformed/absent config →
+ * undefined → local-only defaults. (Independent of `version` — a downgrade is salvaged the same
+ * safe way, so the param is intentionally unused.)
  */
-export function migrateSync(persisted: unknown, version: number): unknown {
-  if (version !== PERSIST_VERSION || !isRecord(persisted)) return undefined
-  const { config, cursor, seeded } = persisted
+export function migrateSync(persisted: unknown): unknown {
+  if (!isRecord(persisted)) return undefined
+  const { config } = persisted
   const configOk =
     config === null ||
     (isRecord(config) && typeof config.serverUrl === 'string' && typeof config.token === 'string')
-  const cursorOk = typeof cursor === 'number' && Number.isSafeInteger(cursor) && cursor >= 0
-  if (!configOk || typeof seeded !== 'boolean' || !cursorOk) return undefined
-  return { config, cursor, seeded }
+  if (!configOk) return undefined
+  return { config, cursor: 0, seeded: false, revs: {} }
 }
-/** Persist ONLY the durable connection state — never the transient status/counts/conflict. */
-export function partializeSync(s: SyncState): Pick<SyncState, 'config' | 'cursor' | 'seeded'> {
-  return { config: s.config, cursor: s.cursor, seeded: s.seeded }
+/** Persist ONLY the durable sync state — never the transient status/counts/conflict. */
+export function partializeSync(s: SyncState): Pick<SyncState, 'config' | 'cursor' | 'seeded' | 'revs'> {
+  return { config: s.config, cursor: s.cursor, seeded: s.seeded, revs: s.revs }
 }
 
 export const useSyncStore = create<SyncState>()(
@@ -107,7 +118,7 @@ export const useSyncStore = create<SyncState>()(
       // A fresh connection re-seeds + re-pulls from scratch (cursor 0, seeded false) — idempotent, so
       // reconnecting to the same server is safe. A reload rehydrates config/cursor/seeded and does NOT
       // call connect(), so an established cursor survives restarts.
-      connect: (config) => set({ config, status: 'connecting', cursor: 0, seeded: false }),
+      connect: (config) => set({ config, status: 'connecting', cursor: 0, seeded: false, revs: {} }),
       disconnect: () => set({ ...INITIAL }),
       setStatus: (status) => set({ status }),
       setLastSynced: (lastSyncedAt) => set({ lastSyncedAt }),
@@ -115,6 +126,7 @@ export const useSyncStore = create<SyncState>()(
       setQueuedCount: (queuedCount) => set({ queuedCount }),
       recordConflict: (lastConflict) => set({ lastConflict }),
       setCursor: (cursor) => set({ cursor }),
+      setRevs: (updates) => set((s) => ({ revs: { ...s.revs, ...updates } })),
       markSeeded: () => set({ seeded: true }),
       reset: () => set({ ...INITIAL }),
     }),
