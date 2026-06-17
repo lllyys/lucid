@@ -19,7 +19,7 @@ import { mergeEntities } from './merge'
 import { reconcileStores } from './reconcile'
 import type { SyncBackend } from './backend'
 import type { LocalSnapshot } from './seed'
-import type { Conflict, SyncError } from './types'
+import type { Conflict, SyncEntity, SyncError } from './types'
 import type { Session } from '@/stores/sessionStore'
 import type { Term } from '@/stores/glossaryStore'
 import type { Keyword } from '@/stores/polishKeywordsStore'
@@ -30,6 +30,11 @@ export type PullOutcome =
       cursor: number
       conflicts: Conflict[]
       snapshot: { sessions: Session[]; terms: Term[]; keywords: Keyword[] }
+      // The raw merge output (server-authoritative reconciled entities, pre-reconstruction). The cycle
+      // engine (WI-7b-vi-c) applies a SUBSET of this against the LIVE store at commit — excluding ids
+      // still dirty after ack — so a mid-cycle edit isn't clobbered. `snapshot` is the convenience
+      // reconcile of the same set against the passed-in snapshot (a standalone, race-free view).
+      resolved: SyncEntity[]
       // The resolved entities' revs, keyed by id — the orchestrator folds this into its persisted rev
       // map so a later edit to a pulled/kept entity pushes from the right baseRev (no false-conflict).
       revUpdates: Record<string, number>
@@ -56,5 +61,5 @@ export async function syncPull(
   // local-kept entities carry their (full-rev-map-sourced) last-synced rev — so no entry regresses.
   const revUpdates: Record<string, number> = {}
   for (const e of resolved) revUpdates[e.id] = e.rev
-  return { ok: true, cursor: nextCursor, conflicts, snapshot: reconcileStores(snapshot, resolved), revUpdates }
+  return { ok: true, cursor: nextCursor, conflicts, snapshot: reconcileStores(snapshot, resolved), resolved, revUpdates }
 }

@@ -41,6 +41,7 @@ describe('syncPull', () => {
     if (out.ok) {
       expect(out.snapshot.terms).toEqual([term('g1', 'API')])
       expect(out.revUpdates).toEqual({ g1: 3 }) // orchestrator records the new server rev
+      expect(out.resolved).toEqual([remoteTerm('g1', 'API', 3)]) // raw merge output the cycle engine applies
     }
   })
 
