@@ -11,3 +11,12 @@
 export function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
+
+/**
+ * True iff `v` is a non-negative SAFE integer — the shape of every timestamp and rev/cursor that
+ * crosses an untrusted boundary (persisted blobs, server payloads). Rejects NaN, Infinity, fractions,
+ * negatives, and values past 2^53 (where JSON precision is lost). `0` is valid (the legacy sentinel).
+ */
+export function isNonNegInt(v: unknown): v is number {
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isRecord } from './guards'
+import { isRecord, isNonNegInt } from './guards'
 
 describe('isRecord', () => {
   it('is true for a plain object', () => {
@@ -16,5 +16,24 @@ describe('isRecord', () => {
     expect(isRecord(undefined)).toBe(false)
     expect(isRecord(42)).toBe(false)
     expect(isRecord('x')).toBe(false)
+  })
+})
+
+describe('isNonNegInt', () => {
+  it('is true for non-negative safe integers (including 0)', () => {
+    expect(isNonNegInt(0)).toBe(true)
+    expect(isNonNegInt(42)).toBe(true)
+    expect(isNonNegInt(Number.MAX_SAFE_INTEGER)).toBe(true)
+  })
+  it.each([
+    { d: 'negative', v: -1 },
+    { d: 'fraction', v: 1.5 },
+    { d: 'NaN', v: NaN },
+    { d: 'Infinity', v: Infinity },
+    { d: 'past 2^53', v: Number.MAX_SAFE_INTEGER + 1 },
+    { d: 'string', v: '5' },
+    { d: 'null', v: null },
+  ])('is false for $d', ({ v }) => {
+    expect(isNonNegInt(v)).toBe(false)
   })
 })

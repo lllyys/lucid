@@ -4,18 +4,16 @@
 // shared `isRecord` primitive (src/lib/guards). The merge layer treats `payload` as opaque, so these
 // validate the envelope, not the domain payload's inner shape.
 
-import { isRecord } from '@/lib/guards'
+import { isRecord, isNonNegInt } from '@/lib/guards'
 import type { EntityType, PullResult, PushResult, SyncEntity } from './types'
 
 const ENTITY_TYPES: readonly EntityType[] = ['session', 'task', 'term', 'keyword']
 
-// Envelope numbers are integers, not arbitrary floats: timestamps + the cursor are non-negative
-// (0 is valid — the legacy `updatedAt` sentinel and the initial pull cursor), and a SERVER-assigned
-// `rev` is a positive monotonic counter (≥ 1). Tightening this keeps a malformed row (negative /
-// fractional rev, NaN timestamp) from passing the untrusted boundary.
-// Number.isSafeInteger (not isInteger): a rev/cursor above 2^53 has lost JSON precision, so two
-// distinct server revs could compare equal — corrupting the ordering authority. Reject them.
-const isNonNegInt = (v: unknown): boolean => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0
+// Envelope numbers are integers, not arbitrary floats. Timestamps + the cursor use the shared
+// `isNonNegInt` (0 valid — the legacy `updatedAt` sentinel + the initial pull cursor). A SERVER-
+// assigned `rev` is a positive monotonic counter (≥ 1); Number.isSafeInteger (not isInteger) rejects
+// a rev above 2^53 where JSON precision is lost (two distinct revs could compare equal, corrupting
+// the ordering authority).
 const isPosInt = (v: unknown): boolean => typeof v === 'number' && Number.isSafeInteger(v) && v >= 1
 
 // A domain payload is a plain object record — never an array (arrays pass isRecord, but a SyncEntity
