@@ -6,9 +6,12 @@
 // The domain stores HARD-DELETE (filter the entity out) rather than tombstone in place, so a delete
 // shows up here as an entity present in `prev` but absent from `next`; we SYNTHESIZE a tombstone op for
 // it (delete-wins on the server). An entity that was ALREADY tombstoned and then vanished is a GC of a
-// prior tombstone, not a new delete, so it produces nothing. (Disconnect purges the server — WI-7b-vi-d
-// — so a delete made while fully disconnected can't resurrect on reconnect; only connected edits diff
-// here, and those are captured the instant they happen, even when the network is offline.)
+// prior tombstone, not a new delete, so it produces nothing. (Only connected edits diff here, and those
+// are captured the instant they happen, even when the network is offline. Disconnect-WITH-erase purges
+// the server, so an offline delete made before such a disconnect can't resurrect on reconnect; a
+// keep-mode disconnect — `erase:false`, WI-9b — intentionally leaves server data, so a delete made
+// while disconnected in keep-mode CAN resurrect on the next reconnect's re-seed+pull. That is a
+// design-sanctioned v1 trade-off — see syncController.ts disconnect({ erase }).)
 //
 // Change detection compares `updatedAt` + `deletedAt` + payload. Payload is compared (not just
 // updatedAt) because the stores stamp updatedAt from a millisecond clock, so two rapid same-ms edits
