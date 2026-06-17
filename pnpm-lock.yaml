@@ -114,6 +114,9 @@ importers:
 
   server:
     dependencies:
+      '@hono/node-server':
+        specifier: ^2.0.5
+        version: 2.0.5(hono@4.12.25)
       hono:
         specifier: ^4.12.25
         version: 4.12.25
@@ -463,6 +466,12 @@ packages:
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
+
+  '@hono/node-server@2.0.5':
+    resolution: {integrity: sha512-yQFvDmyDo3y6rEOJZDUYPJ49DIKTPpIk4kGvm40xx4Ejne0Pu9a1+exxPN+C1UppWK/WGZX9F++/Xs231tE86g==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      hono: ^4
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2948,6 +2957,10 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
 
   '@floating-ui/utils@0.2.11': {}
+
+  '@hono/node-server@2.0.5(hono@4.12.25)':
+    dependencies:
+      hono: 4.12.25
 
   '@humanfs/core@0.19.2':
     dependencies:

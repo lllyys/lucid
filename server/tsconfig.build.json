@@ -1,0 +1,12 @@
+{
+  // Build-only config: emit JS to dist/, but EXCLUDE test files so the Docker image (and any release
+  // artifact) ships only production code. `typecheck` still uses tsconfig.json, which DOES include the
+  // tests. `exclude` here replaces the (absent) parent exclude; `include: ["src"]` is inherited.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "declaration": false
+  },
+  "exclude": ["src/**/*.test.ts"]
+}
