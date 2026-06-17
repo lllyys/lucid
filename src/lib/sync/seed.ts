@@ -22,9 +22,9 @@ export interface LocalSnapshot {
 }
 
 /** The shared core of a projected entity — a SyncEntity without the `rev`/`baseRev` wrapper. */
-type FlatEntity = Pick<SyncEntity, 'type' | 'id' | 'payload' | 'updatedAt' | 'deletedAt'>
+export type FlatEntity = Pick<SyncEntity, 'type' | 'id' | 'payload' | 'updatedAt' | 'deletedAt'>
 
-function flattenLocal(snapshot: LocalSnapshot): FlatEntity[] {
+export function flattenLocal(snapshot: LocalSnapshot): FlatEntity[] {
   const out: FlatEntity[] = []
   for (const s of snapshot.sessions) {
     out.push({
