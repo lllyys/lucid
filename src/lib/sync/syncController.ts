@@ -9,11 +9,15 @@
 //   • resume(): re-attach an already-connected session after a reload — start the orchestrator WITHOUT
 //     re-seeding (the persisted `seeded` flag is still true) and WITHOUT clearing the queue (its
 //     un-pushed edits are still bound for the same server). No-op when local-only (no config).
-//   • disconnect(): stop the orchestrator, best-effort PURGE this client's data from the server (so a
-//     later reconnect re-seeds from scratch — preventing offline-delete resurrection, see diff.ts), then
-//     clear the queue and revert the store to local-only. The local domain data is KEPT. Returns whether
-//     the purge SUCCEEDED — a failed purge leaves server data behind (a later reconnect could resurrect
-//     it, and the user's "erase" intent didn't fully take), so the caller (WI-9 UI) should surface it.
+//   • syncNow(): force an immediate sync cycle (the UI's "Sync now" / "Retry now") via the orchestrator's
+//     single-in-flight drain. No-op when local-only/stopped.
+//   • disconnect({ erase }): stop the orchestrator, optionally PURGE this client's data from the server,
+//     clear the queue, and revert the store to local-only — the local domain data is always KEPT. With
+//     erase:true (default) it purges (so a later reconnect re-seeds from scratch, preventing offline-delete
+//     resurrection, see diff.ts) and returns whether the purge SUCCEEDED — a failed erase leaves server
+//     data behind (a later reconnect could resurrect it), so the UI surfaces it. With erase:false (the
+//     design's "Disconnect · keep server data · reconnect later to resume") it skips the purge and returns
+//     true; a later reconnect re-seeds + rejoins the kept data.
 //
 // A controller `generation` guards the async disconnect tail: if a connect()/resume() starts a new
 // session while disconnect() awaits a slow purge, the disconnect's post-purge local reset is skipped so
@@ -42,8 +46,16 @@ export interface SyncControllerDeps extends OrchestratorTuning {
 export interface SyncController {
   connect: (config: SyncConfig) => void
   resume: () => void
-  /** Resolves to whether the server purge succeeded (false → server data may persist; surface to the user). */
-  disconnect: () => Promise<boolean>
+  /** Force an immediate sync cycle (the UI's "Sync now" / "Retry now"). No-op when local-only/stopped. */
+  syncNow: () => void
+  /**
+   * Stop syncing and revert to local-only (local domain data is always KEPT). `opts.erase` (default
+   * true — the original purge-on-disconnect semantics) also PURGES this client's data from the server;
+   * pass `erase: false` for the design's "Disconnect (keep server data) · reconnect later to resume".
+   * Resolves to whether the purge SUCCEEDED — true when `erase: false` (nothing to purge); when erasing,
+   * false means server data may persist (a later reconnect could resurrect it), so the UI surfaces it.
+   */
+  disconnect: (opts?: { erase?: boolean }) => Promise<boolean>
 }
 
 const snapshot = () => ({
@@ -89,13 +101,19 @@ export function createSyncController(deps: SyncControllerDeps = {}): SyncControl
       if (config === null) return // local-only — nothing to resume
       launch(config) // `seeded` persisted as true → launch() does not re-seed; the persisted queue is kept
     },
-    async disconnect() {
+    syncNow() {
+      orchestrator?.sync() // no-op when local-only/stopped (no orchestrator); the loop owns the rest
+    },
+    async disconnect(opts = {}) {
+      const erase = opts.erase ?? true // default keeps the original purge-on-disconnect semantics
       const myGen = (generation += 1)
       orchestrator?.stop()
       orchestrator = undefined
       const b = backend
       backend = undefined
-      const purged = b ? (await b.purge()).ok : true // best-effort erase; report success so the UI can surface a failure
+      // erase:false → "Disconnect (keep server data)": revert to local-only WITHOUT purging, so a later
+      // reconnect re-seeds + rejoins the kept server data. erase:true → also purge (best-effort).
+      const purged = erase && b ? (await b.purge()).ok : true // report success so the UI can surface a failed erase
       // A connect()/resume() during the awaited purge started a NEW session (bumped generation) — don't
       // let this stale tail reset it back to local-only.
       if (generation === myGen) {

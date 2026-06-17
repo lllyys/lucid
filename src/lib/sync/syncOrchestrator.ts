@@ -33,6 +33,13 @@ export interface SyncOrchestratorDeps {
 export interface SyncOrchestrator {
   start: () => void
   stop: () => void
+  /**
+   * Force an immediate sync cycle (the UI's "Sync now" / "Retry now"). Routes through the same
+   * single-in-flight `requestDrain` as the automatic triggers, so it coalesces with an in-flight cycle
+   * rather than overlapping. No-op when stopped, paused (auth-error — a 4xx won't fix itself), or offline
+   * (sets the offline status instead, like the automatic path).
+   */
+  sync: () => void
 }
 
 const defaultSubscribeConnectivity = (onChange: () => void): (() => void) => {
@@ -147,6 +154,9 @@ export function createSyncOrchestrator(deps: SyncOrchestratorDeps): SyncOrchestr
         clearTimeout(editTimer)
         editTimer = undefined
       }
+    },
+    sync() {
+      void requestDrain() // manual immediate trigger; requestDrain owns the started/paused/offline guards
     },
   }
 }

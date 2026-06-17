@@ -201,6 +201,85 @@ describe('createSyncController', () => {
     expect(be.pull).toHaveBeenCalledOnce()
     await ctrl.disconnect()
   })
+
+  it('syncNow() forces an immediate sync cycle without waiting for the poll', async () => {
+    const be = okBackend()
+    const ctrl = makeController(be)
+    ctrl.connect(CONFIG)
+    await tick()
+    clearMock(be)
+    ctrl.syncNow()
+    await tick()
+    expect(be.pull).toHaveBeenCalledOnce() // drained immediately, not on the 1000ms poll
+    await ctrl.disconnect()
+  })
+
+  it('syncNow() is a no-op when local-only (never connected)', async () => {
+    const be = okBackend()
+    const ctrl = makeController(be)
+    ctrl.syncNow()
+    await tick()
+    expect(be.pull).not.toHaveBeenCalled()
+  })
+
+  it('disconnect({ erase: false }) reverts to local-only WITHOUT purging the server (keep)', async () => {
+    useGlossaryStore.setState({ terms: [term('g1', 'API')] })
+    const be = okBackend()
+    const ctrl = makeController(be)
+    ctrl.connect(CONFIG)
+    await tick()
+    expect(await ctrl.disconnect({ erase: false })).toBe(true) // nothing purged → reported success
+    expect(be.purge).not.toHaveBeenCalled() // server data KEPT for a later reconnect
+    expect(useSyncQueueStore.getState().entries).toEqual([]) // queue still cleared
+    expect(useSyncStore.getState().config).toBeNull() // reverted to local-only
+    expect(useSyncStore.getState().status).toBe('local-only')
+  })
+
+  it('disconnect({ erase: true }) purges the server (explicit erase, same as the default)', async () => {
+    const be = okBackend()
+    const ctrl = makeController(be)
+    ctrl.connect(CONFIG)
+    await tick()
+    expect(await ctrl.disconnect({ erase: true })).toBe(true)
+    expect(be.purge).toHaveBeenCalledOnce()
+  })
+
+  it('disconnect({ erase: false }) then reconnect re-seeds local data and never purges (server kept)', async () => {
+    useGlossaryStore.setState({ terms: [term('g1', 'API')] })
+    const be = okBackend()
+    const ctrl = makeController(be)
+    ctrl.connect(CONFIG)
+    await tick()
+    await ctrl.disconnect({ erase: false })
+    expect(be.purge).not.toHaveBeenCalled()
+    expect(useSyncQueueStore.getState().entries).toEqual([]) // queue cleared on disconnect
+
+    ctrl.connect(CONFIG) // reconnect — server data was kept; re-seed the current local data
+    expect(useSyncQueueStore.getState().entries.map((e) => e.op.id)).toEqual(['g1'])
+    expect(be.purge).not.toHaveBeenCalled() // still never purged across the whole keep→reconnect cycle
+    await tick()
+    await ctrl.disconnect({ erase: false })
+  })
+
+  it('syncNow() while offline issues no pull and marks the status offline', async () => {
+    const be = okBackend()
+    const ctrl = createSyncController({
+      createBackend: () => be,
+      now: () => 5000,
+      debounceMs: 100,
+      pollMs: 1000,
+      isOnline: () => false,
+      subscribeConnectivity: () => () => {},
+    })
+    ctrl.connect(CONFIG)
+    await tick() // initial drain sees offline
+    clearMock(be)
+    ctrl.syncNow()
+    await tick()
+    expect(be.pull).not.toHaveBeenCalled() // requestDrain's offline guard short-circuits
+    expect(useSyncStore.getState().status).toBe('offline')
+    await ctrl.disconnect({ erase: false })
+  })
 })
 
 function clearMock(be: SyncBackend): void {
