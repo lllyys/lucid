@@ -52,6 +52,14 @@ function isNonNegInt(value: unknown): boolean {
 }
 
 /**
+ * Thrown by `assertValidOp` when a pushed op is malformed — a CLIENT/protocol error. The HTTP layer
+ * (WI-8c) maps THIS error to 400, while ANY OTHER throw from `applyOps` (an internal SQLite fault) must
+ * surface as 500 — so a transient server error stays retryable for the client rather than being misread
+ * as a non-retryable bad request.
+ */
+export class InvalidOpError extends Error {}
+
+/**
  * Reject a malformed op BEFORE it can be stored. The store is the untrusted SERVER boundary (the HTTP
  * layer, WI-8c, parses arbitrary JSON), so it must enforce its own input contract: a value the store
  * persists is later re-emitted on the conflict path as a `server` SyncEntity, and the client validates
@@ -72,7 +80,7 @@ function assertValidOp(op: PushOp): void {
     isNonNegInt(op.updatedAt) &&
     (op.deletedAt === null || isNonNegInt(op.deletedAt)) &&
     isNonNegInt(op.baseRev)
-  if (!ok) throw new Error(`invalid push op${typeof op?.id === 'string' ? ` for id ${op.id}` : ''}`)
+  if (!ok) throw new InvalidOpError(`invalid push op${typeof op?.id === 'string' ? ` for id ${op.id}` : ''}`)
 }
 
 /** Coerce a possibly-bigint SQLite integer column to a JS number. */
