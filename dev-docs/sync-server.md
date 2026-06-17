@@ -1,0 +1,122 @@
+# Self-hosted sync server
+
+The lucid sync server (`server/`) is a single-binary HTTP service the lucid web client
+syncs its workspace against (sessions, tasks, terms, keywords). It is **single-tenant by
+design**: one server holds exactly one human's data — there is no per-user partitioning,
+no accounts, just one bearer token that gates the whole API. Run one box per person.
+
+This doc covers running it (Docker), securing it (a token + TLS), and the trust boundary
+its data volume implies.
+
+## What it is
+
+- A [Hono](https://hono.dev) app (`server/src/app.ts`) over a `node:sqlite` store
+  (`server/src/db.ts`). The serve entry is `server/src/index.ts`.
+- Three routes, all behind a constant-time bearer-auth guard:
+  - `GET /sync/changes?since=<rev>` — pull entities changed since a cursor.
+  - `POST /sync/changes` — push a batch of changes (body capped, see below).
+  - `DELETE /sync/data` — erase everything (the client's disconnect-and-erase).
+- The client half is `src/lib/sync/backend.ts`; it talks to this server over a
+  bearer-authenticated REST API and bounds every request with a 15 s timeout.
+
+## 1. Generate a token
+
+The server **refuses to start without `SYNC_TOKEN`** — a tokenless server is an open
+auth hole, so there is no default. Generate a high-entropy token once and keep it secret:
+
+```bash
+openssl rand -base64 32
+```
+
+The client stores this token via the browser's secure mechanisms and presents it on every
+request (`Authorization: Bearer <token>`). Treat it like a password: never commit it,
+never bake it into the Docker image, never paste it into a bug report. The server never
+logs it (the single startup line prints only the port and DB path).
+
+## 2. Run it (Docker)
+
+The image is built from `server/Dockerfile` (base `node:24-slim` — `node:sqlite` is stable
+and flag-free from Node 24; see "Node version" below).
+
+```bash
+docker build -t lucid-sync ./server
+
+docker run -d --name lucid-sync \
+  -e SYNC_TOKEN="$(openssl rand -base64 32)" \
+  -e DB_PATH=/data/sync.db \
+  -p 8787:8787 \
+  -v lucid-sync-data:/data \
+  lucid-sync
+```
+
+> Generate the token **once** and reuse the same value — the snippet above generates a
+> fresh token on each run, which would invalidate the client's saved token. Generate it,
+> save it, then pass the saved value.
+
+### Environment
+
+| Var | Required | Default | Notes |
+|-----|----------|---------|-------|
+| `SYNC_TOKEN` | **yes** | — | Bearer token. Non-empty. No default (tokenless = auth hole). |
+| `DB_PATH` | no | `sync.db` | SQLite file. Point it **inside the mounted volume** (e.g. `/data/sync.db`) so data survives restarts. Never `:memory:` (test-only — loses everything on restart). |
+| `PORT` | no | `8787` | Listen port, must be `1..65535`. |
+| `MAX_BODY_BYTES` | no | `5242880` (5 MiB) | Cap on the `POST /sync/changes` body. A normal push is a few KB; this is a resource-exhaustion guard. An over-cap body → `413`. |
+
+### The data volume (trust boundary)
+
+The mounted volume (`/data` above) holds the SQLite file, which contains the user's entire
+synced workspace **in plaintext** — there is no at-rest encryption layer in the server. The
+trust boundary is therefore the box and its disk:
+
+- Anyone with read access to the volume/disk can read the workspace data.
+- Anyone with the token can read and write it over the network.
+
+Encrypt the underlying disk (full-disk encryption / an encrypted volume) if the host is not
+already trusted, and restrict filesystem access to the volume. This matches the
+single-tenant / one-human-box model — the server is not a multi-user service and makes no
+attempt to isolate tenants.
+
+## 3. Put it behind TLS
+
+The client talks **TLS-only** and persists the token (rule 65 §5: keys are sensitive in
+transit and at rest). Never expose the plain HTTP port to the internet — terminate TLS in
+front of the server. Two recommended options:
+
+### Option A — Caddy reverse proxy (automatic TLS)
+
+[Caddy](https://caddyserver.com) provisions and renews a Let's Encrypt certificate
+automatically. A minimal `Caddyfile`:
+
+```caddyfile
+sync.example.com {
+    reverse_proxy localhost:8787
+}
+```
+
+Point the lucid client's server URL at `https://sync.example.com`. Caddy handles the cert;
+the lucid server stays on plain HTTP on `localhost`, never exposed directly.
+
+### Option B — Tailscale (private mesh)
+
+For a server that should never touch the public internet, put the box on a
+[Tailscale](https://tailscale.com) tailnet and reach it over the mesh. Tailscale provides
+encrypted transport (WireGuard) between your devices and the server without opening a public
+port; `tailscale serve` / `tailscale cert` can additionally provide an HTTPS endpoint on the
+tailnet. This is the most private option — the server is reachable only by your own devices.
+
+Whichever you pick, the client URL must be `https://…` — the token must never cross the wire
+unencrypted.
+
+## Node version
+
+`node:sqlite` (the only DB dependency) became **stable and flag-free in Node 24.0.0**; on
+Node 22.x it was experimental behind `--experimental-sqlite`. The image base is therefore
+`node:24-slim` and `server/package.json` pins `engines.node` to `>=24`, so the container
+`CMD` runs with no `--experimental-*` flag.
+
+## Body-size limit
+
+`POST /sync/changes` is capped at `MAX_BODY_BYTES` (default 5 MiB). A body over the cap is
+rejected with HTTP `413` before the store sees it (nothing is persisted). The client maps
+`4xx` to a non-retryable `badRequest` — correct here, because a body that large is a client
+bug, not a transient fault. A normal push is a few KB, so the cap never bites real use.

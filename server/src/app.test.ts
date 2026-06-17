@@ -282,6 +282,65 @@ describe('createApp configuration', () => {
   })
 })
 
+describe('request body-size limit', () => {
+  // A tiny cap makes the boundary testable; a real push is a few KB, far under the 5 MB default.
+  const SMALL_CAP = 64
+
+  function cappedApp(maxBodyBytes: number): ReturnType<typeof createApp> {
+    return createApp({ store, token: TOKEN, maxBodyBytes })
+  }
+
+  function postTo(
+    capped: ReturnType<typeof createApp>,
+    body: string,
+  ): Response | Promise<Response> {
+    return capped.request('/sync/changes', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body,
+    })
+  }
+
+  it('rejects a POST body larger than the cap → 413', async () => {
+    const capped = cappedApp(SMALL_CAP)
+    // One op with a long payload string easily exceeds 64 bytes once serialized.
+    const big = JSON.stringify([op({ id: 'x', payload: { value: 'y'.repeat(500) } })])
+    expect(big.length).toBeGreaterThan(SMALL_CAP)
+    const res = await postTo(capped, big)
+    expect(res.status).toBe(413)
+  })
+
+  it('lets a small POST body through → 200 (a normal push is tiny)', async () => {
+    const capped = cappedApp(SMALL_CAP)
+    const small = JSON.stringify([]) // 2 bytes, well under the cap
+    expect(small.length).toBeLessThanOrEqual(SMALL_CAP)
+    const res = await postTo(capped, small)
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual([])
+  })
+
+  it('persists nothing when an over-cap POST is rejected', async () => {
+    const capped = cappedApp(SMALL_CAP)
+    const big = JSON.stringify([op({ id: 'x', payload: { value: 'z'.repeat(500) } })])
+    const res = await postTo(capped, big)
+    expect(res.status).toBe(413)
+    const after = await authed('/sync/changes?since=0')
+    const body = (await after.json()) as PullResult
+    expect(body.changes).toHaveLength(0)
+  })
+
+  it('applies a generous default cap when maxBodyBytes is omitted (a normal push works)', async () => {
+    // No maxBodyBytes → the 5 MB default; a normal-sized push still applies.
+    const res = await authed('/sync/changes', {
+      method: 'POST',
+      body: JSON.stringify([op({ id: 'a' })]),
+    })
+    expect(res.status).toBe(200)
+    const results = (await res.json()) as PushResult[]
+    expect(results[0]?.status).toBe('applied')
+  })
+})
+
 describe('end-to-end round-trip', () => {
   it('POST creates → GET returns with server revs → restful baseRev applies, stale conflicts', async () => {
     // 1. POST creates two entities.

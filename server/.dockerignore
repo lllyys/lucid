@@ -1,0 +1,7 @@
+# Keep the Docker build context lean: the image installs its own deps and compiles its own dist.
+node_modules
+dist
+.smoke-build
+*.db
+*.db-journal
+*.db-wal
