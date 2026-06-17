@@ -5,6 +5,7 @@ import {
   searchSessions,
   __setSessionClock,
   __resetSessionIds,
+  __useRandomSessionIds,
   MAX_SESSIONS,
   MAX_TASKS_PER_SESSION,
   type Session,
@@ -142,6 +143,28 @@ describe('sessionStore sync envelope (#9 WI-1)', () => {
     const before = useSessionStore.getState().sessions[0].updatedAt
     useSessionStore.getState().renameSession(id, 'Renamed')
     expect(useSessionStore.getState().sessions[0].updatedAt).toBeGreaterThan(before)
+  })
+})
+
+describe('session id uniqueness (bug #55)', () => {
+  it('mints collision-free session ids across reloads — production uses crypto.randomUUID, not a resettable counter', () => {
+    // Production never resets an id counter; simulate two app loads via the prod-generator seam.
+    __useRandomSessionIds()
+    const first = useSessionStore.getState().newSession()
+    __useRandomSessionIds() // a reload re-initializes the generator
+    const afterReload = useSessionStore.getState().newSession()
+    expect(afterReload).not.toBe(first) // the counter bug re-issued 's1' here → collision
+    expect(first).toMatch(/^s_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i) // s_ + v4 uuid
+  })
+
+  it('mints collision-free task ids in production too', () => {
+    __useRandomSessionIds()
+    useSessionStore.getState().newSession()
+    useSessionStore.getState().addTask({ kind: 'translate', title: 'x', sourceText: 'x', resultText: 'y' })
+    useSessionStore.getState().addTask({ kind: 'polish', title: 'y', sourceText: 'y', resultText: 'z' })
+    const tasks = useSessionStore.getState().sessions[0].tasks
+    expect(tasks[0].id).not.toBe(tasks[1].id)
+    expect(tasks[0].id).toMatch(/^t_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i) // t_ + v4 uuid
   })
 })
 

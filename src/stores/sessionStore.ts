@@ -11,6 +11,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { createSafeJSONStorage } from '@/lib/storage/safeJSONStorage'
 import { notifyStorageFull } from '@/lib/storage/quotaNotice'
 import { isRecord } from '@/lib/guards'
+import { randomUuid } from '@/lib/uuid'
 import i18n from '@/i18n'
 
 // Sync envelope (#9): every syncable entity carries `updatedAt` (client logical timestamp — display
@@ -39,15 +40,26 @@ export const MAX_SESSIONS = 50
 export const MAX_TASKS_PER_SESSION = 200
 const PERSIST_VERSION = 2
 
-// Injectable clock + id counter (test seams, mirroring operationStore.setOperationClock).
+// Injectable clock (test seam, mirroring operationStore.setOperationClock).
 let clock: () => number = Date.now
-let idSeq = 0
-const genId = (prefix: string): string => `${prefix}${++idSeq}`
 export function __setSessionClock(fn: () => number): void {
   clock = fn
 }
+
+// Globally-unique ids (crypto.randomUUID) so they never collide — not after a reload (bug #55: the
+// in-memory counter reset to 0 and re-issued live ids) nor across devices (a #9-sync prerequisite —
+// a shared id would merge two distinct entities). Tests install a deterministic counter via the seams
+// below; production never calls those, so production always mints uuids.
+const randomGenId = (prefix: string): string => `${prefix}_${randomUuid()}`
+let genId: (prefix: string) => string = randomGenId
+/** Test seam: deterministic counter ids (s1, t1, …) for stable assertions. */
 export function __resetSessionIds(): void {
-  idSeq = 0
+  let n = 0
+  genId = (prefix) => `${prefix}${++n}`
+}
+/** Test seam: restore the production crypto.randomUUID generator (bug-#55 regression). */
+export function __useRandomSessionIds(): void {
+  genId = randomGenId
 }
 
 interface SessionState {

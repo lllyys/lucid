@@ -9,6 +9,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { createSafeJSONStorage } from '@/lib/storage/safeJSONStorage'
 import { notifyStorageFull } from '@/lib/storage/quotaNotice'
 import { isRecord } from '@/lib/guards'
+import { randomUuid } from '@/lib/uuid'
 
 // Sync envelope (#9): every syncable entity carries `updatedAt` (client logical timestamp — display/
 // merge metadata; the SERVER-assigned rev is the ordering authority) + `deletedAt` (tombstone; null =
@@ -24,15 +25,25 @@ export interface Term {
 
 const PERSIST_VERSION = 2
 
-// Injectable clock + id counter (test seams, mirroring sessionStore).
+// Injectable clock (test seam, mirroring sessionStore).
 let clock: () => number = Date.now
-let idSeq = 0
-const genId = (): string => `g${++idSeq}`
 export function __setGlossaryClock(fn: () => number): void {
   clock = fn
 }
+
+// Globally-unique ids (crypto.randomUUID), collision-free across reloads (bug #55) and devices
+// (#9-sync prerequisite). Tests install a deterministic counter via the seams below; production
+// never calls those, so production always mints uuids. (Mirrors sessionStore.)
+const randomGenId = (): string => `g_${randomUuid()}`
+let genId: () => string = randomGenId
+/** Test seam: deterministic counter ids (g1, g2, …) for stable assertions. */
 export function __resetGlossaryIds(): void {
-  idSeq = 0
+  let n = 0
+  genId = () => `g${++n}`
+}
+/** Test seam: restore the production crypto.randomUUID generator (bug-#55 regression). */
+export function __useRandomGlossaryIds(): void {
+  genId = randomGenId
 }
 
 interface GlossaryState {

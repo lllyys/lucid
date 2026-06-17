@@ -4,6 +4,7 @@ import {
   migrateGlossary,
   partializeGlossary,
   __resetGlossaryIds,
+  __useRandomGlossaryIds,
   __setGlossaryClock,
   type Term,
 } from './glossaryStore'
@@ -14,6 +15,19 @@ beforeEach(() => {
   t = 1000
   __setGlossaryClock(() => ++t)
   useGlossaryStore.getState().reset()
+})
+
+describe('glossary id uniqueness (bug #55)', () => {
+  it('mints collision-free term ids across reloads — production uses crypto.randomUUID, not a resettable counter', () => {
+    __useRandomGlossaryIds()
+    useGlossaryStore.getState().addTerm('alpha')
+    const first = useGlossaryStore.getState().terms[0].id
+    __useRandomGlossaryIds() // a reload re-initializes the generator
+    useGlossaryStore.getState().addTerm('beta')
+    const afterReload = useGlossaryStore.getState().terms[1].id
+    expect(afterReload).not.toBe(first) // the counter bug re-issued 'g1' here → collision
+    expect(first).toMatch(/^g_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i) // g_ + v4 uuid
+  })
 })
 
 describe('glossaryStore', () => {

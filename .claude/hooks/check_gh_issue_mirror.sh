@@ -135,11 +135,14 @@ def parse_rows(content):
             continue
         rid = m.group(1)
         cells = [c.strip() for c in line.split("|")]
-        # Cells: ['', id, title, area, priority, status, notes, '']
-        if len(cells) < 7:
+        # Both trackers are 5-column: `| id | title | status | priority|severity | notes |`.
+        # split("|") → ['', id, title, status, priority|severity, notes, ''] → status=cells[3],
+        # notes=cells[5]. (Earlier this read cells[5]/cells[6], a 6-column assumption that does not
+        # match either table: it silently no-op'd features and false-blocked the first bug row.)
+        if len(cells) < 6:
             continue
-        status = cells[5] if len(cells) > 5 else ""
-        notes = cells[6] if len(cells) > 6 else ""
+        status = cells[3] if len(cells) > 3 else ""
+        notes = cells[5] if len(cells) > 5 else ""
         rows[rid] = (status, notes)
     return rows
 
