@@ -36,7 +36,13 @@ function errorStatus(error: SyncError): SyncStatus {
   return 'unreachable' // unreachable | badRequest both surface as "can't reach the server"
 }
 
-export async function runSyncCycle(backend: SyncBackend): Promise<void> {
+/**
+ * `shouldCommit` is checked AFTER the awaited engine cycle, before any store write. The orchestrator
+ * passes a liveness predicate (epoch unchanged + still connected) so a cycle whose backend I/O resolves
+ * AFTER stop()/disconnect commits NOTHING — a stale cycle must not resurrect sync state into a
+ * disconnected client. Defaults to always-commit for direct callers/tests.
+ */
+export async function runSyncCycle(backend: SyncBackend, shouldCommit: () => boolean = () => true): Promise<void> {
   useSyncStore.getState().setStatus('syncing')
 
   const startEntries = useSyncQueueStore.getState().entries
@@ -47,6 +53,8 @@ export async function runSyncCycle(backend: SyncBackend): Promise<void> {
     queue: toMap(startEntries),
     liveQueue: () => toMap(useSyncQueueStore.getState().entries), // re-read for ack-gating
   })
+
+  if (!shouldCommit()) return // stopped/disconnected mid-cycle — commit nothing (no stale resurrection)
 
   if (!outcome.ok) {
     useSyncStore.getState().setStatus(errorStatus(outcome.error))
