@@ -165,5 +165,22 @@
   "error.refusal": "The model declined to respond to this request.",
   "error.incomplete": "The response was cut off before it finished.",
   "error.validation": "Please check your input and try again.",
-  "error.unknown": "Something went wrong — please try again."
+  "error.unknown": "Something went wrong — please try again.",
+  "sync.status.localOnly": "Local-only",
+  "sync.status.connecting": "Connecting…",
+  "sync.status.synced": "Synced",
+  "sync.status.syncing": "Syncing…",
+  "sync.status.offline": "Offline",
+  "sync.status.conflict": "Conflict",
+  "sync.status.authFailed": "Auth failed",
+  "sync.status.unreachable": "Unreachable",
+  "sync.detail.notSyncing": "not syncing",
+  "sync.detail.justNow": "just now",
+  "sync.detail.minutesAgo": "{{n}}m ago",
+  "sync.detail.hoursAgo": "{{n}}h ago",
+  "sync.detail.changes": "{{n}} changes",
+  "sync.detail.queued": "{{n}} queued",
+  "sync.detail.superseded": "{{n}} superseded",
+  "sync.detail.retrying": "retrying",
+  "sync.pill.aria": "Sync status: {{status}}"
 }
