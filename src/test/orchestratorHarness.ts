@@ -19,13 +19,13 @@ export const term = (id: string, label: string): Term => ({ id, label, createdAt
 export const okBackend = (): SyncBackend => ({
   pull: vi.fn(() => Promise.resolve<BackendResult<PullResult>>({ ok: true, value: { changes: [], maxRev: 0 } })),
   push: vi.fn(() => Promise.resolve<BackendResult<PushResult[]>>({ ok: true, value: [] })),
-  purge: vi.fn(),
+  purge: vi.fn(() => Promise.resolve<BackendResult<void>>({ ok: true, value: undefined })),
 })
 
 export const errBackend = (kind: 'auth' | 'unreachable'): SyncBackend => ({
   pull: vi.fn(() => Promise.resolve<BackendResult<PullResult>>({ ok: false, error: { kind } })),
   push: vi.fn(() => Promise.resolve<BackendResult<PushResult[]>>({ ok: true, value: [] })),
-  purge: vi.fn(),
+  purge: vi.fn(() => Promise.resolve<BackendResult<void>>({ ok: true, value: undefined })),
 })
 
 /** A backend whose pull stays pending until `resolve()` is called — for in-flight / mid-cycle tests. */
