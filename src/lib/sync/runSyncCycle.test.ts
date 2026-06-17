@@ -111,6 +111,20 @@ describe('runSyncCycle', () => {
     expect(useSyncStore.getState().lastConflict).toBeNull()
   })
 
+  it('skips the entire commit when shouldCommit() is false (a stale cycle after stop/disconnect)', async () => {
+    useGlossaryStore.setState({ terms: [term('g1', 'mine')] })
+    useSyncStore.setState({ cursor: 7 })
+    await runSyncCycle(
+      backend({ ok: true, value: { changes: [remoteTerm('g2', 'New', 3)], maxRev: 3 } }, { ok: true, value: [] }),
+      () => false,
+    )
+    expect(useGlossaryStore.getState().terms).toEqual([term('g1', 'mine')]) // g2 NOT applied
+    expect(useSyncStore.getState().cursor).toBe(7) // unchanged
+    expect(useSyncStore.getState().revs).toEqual({}) // unchanged
+    expect(useSyncStore.getState().lastSyncedAt).toBeNull()
+    expect(useSyncStore.getState().status).toBe('syncing') // set pre-await; no post-await commit
+  })
+
   it('commits the domain-store writes UNDER the echo guard (so the edit subscription can skip them)', async () => {
     let guardedDuringWrite = false
     const unsub = useGlossaryStore.subscribe(() => {
