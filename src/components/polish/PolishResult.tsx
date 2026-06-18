@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
 import { createWordDiff, applyDiff, type DiffSegment } from '@/lib/polish/wordDiff'
 import { groupHunks, acceptedIdsForRejected, type Hunk } from '@/lib/polish/groupHunks'
+import { cleanPolishOutput } from '@/lib/polish/cleanPolishOutput'
 import { ResultBanner } from '@/components/workspace/ResultBanner'
 
 const wd = createWordDiff()
@@ -39,7 +40,10 @@ export function PolishResult({
   const [rejected, setRejected] = useState<ReadonlySet<string>>(new Set())
   const isDone = op.status === 'done'
   const runId = op.runId
-  const text = op.status === 'idle' ? '' : op.text
+  // On done, strip any model meta-prose (preamble / surrounding quotes / "Changes made:" list) so the
+  // Result text, the Compare word-diff, copy, and Accept all use ONLY the polished sentence (bug #96).
+  // While streaming we show the raw partial (preamble detection needs the full text).
+  const text = op.status === 'idle' ? '' : isDone ? cleanPolishOutput(op.text) : op.text
   const segs = useMemo(() => (isDone ? wd.diff(draft, text) : []), [isDone, draft, text])
   const hunks = useMemo(() => groupHunks(segs), [segs])
 
