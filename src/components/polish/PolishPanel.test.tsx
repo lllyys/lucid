@@ -12,6 +12,7 @@ import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
 import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
+import { __resetAutoRecord } from '@/lib/sessions/autoRecord'
 import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
 
 const mockCreate = vi.mocked(createProvider)
@@ -71,6 +72,7 @@ beforeEach(() => {
   usePolishKeywordsStore.getState().reset()
   __resetSessionIds()
   useSessionStore.getState().reset()
+  __resetAutoRecord() // feature #14 — clear the per-panel auto-record dedup map between tests
   const ops = useOperationStore.getState()
   ops.reset('polish')
   ops.reset('draftTranslate')
@@ -224,9 +226,39 @@ describe('PolishPanel', () => {
     await user.click(screen.getByRole('button', { name: /^accept$/i }))
     expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('polished result')
     expect(mockNotify).toHaveBeenCalledTimes(1)
-    // WI-7: the accepted polish is recorded as a task in a (auto-created) session
+    // feature #14: the completed polish run was auto-recorded (on done, not Accept); exactly one task.
     const sessions = useSessionStore.getState().sessions
     expect(sessions).toHaveLength(1)
+    expect(sessions[0].tasks).toHaveLength(1)
     expect(sessions[0].tasks[0]).toMatchObject({ kind: 'polish', resultText: 'polished result' })
+  })
+
+  it('auto-saves the CLEANED full polish result, not the model prose (feature #14 + #96)', async () => {
+    const prose = 'Here is the improved sentence:\n\n"polished result"\n\nChanges made:\n- tidied it up'
+    const proseStream = () =>
+      (async function* (): AsyncGenerator<StreamChunk, ProviderOutcome, void> {
+        yield { text: prose }
+        return { status: 'done', text: prose }
+      })()
+    const provider: LLMProvider = {
+      vendor: 'anthropic',
+      model: 'm',
+      stream: proseStream,
+      streamOp: proseStream,
+      translate: async () => ({ status: 'done', text: '' }),
+      polish: async () => ({ status: 'done', text: '' }),
+    }
+    mockCreate.mockReturnValue(provider)
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'rough draft')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^polish$/i }))
+      await tick()
+    })
+    // No Accept — the completed run is auto-saved with the CLEANED result (no preamble / changes list).
+    const tasks = useSessionStore.getState().sessions.flatMap((s) => s.tasks)
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0].resultText).toBe('polished result')
   })
 })
