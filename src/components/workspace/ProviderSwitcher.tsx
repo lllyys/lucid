@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useProviderStore } from '@/stores/providerStore'
-import { implementedPresentations } from '@/lib/providers/providerPresentation'
+import { implementedPresentations, presentationFor } from '@/lib/providers/providerPresentation'
 import { resolveModel } from '@/providers/modelRegistry'
 
 /**
@@ -21,7 +21,10 @@ export function ProviderSwitcher() {
   const vendor = useProviderStore((s) => s.vendor)
   const models = useProviderStore((s) => s.models)
   const providers = implementedPresentations()
-  const active = providers.find((p) => p.vendor === vendor) ?? providers[0]
+  // The trigger reflects the REAL active vendor via the full presentation map — including `custom`,
+  // which is excluded from the switcher list above. The old `?? providers[0]` fallback silently
+  // mislabeled an active Custom provider as Anthropic (bug #3).
+  const active = presentationFor(vendor)
 
   return (
     <DropdownMenu>
