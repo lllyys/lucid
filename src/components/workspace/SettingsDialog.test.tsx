@@ -33,6 +33,17 @@ describe('SettingsDialog', () => {
     expect(screen.getByText(/providers · models · keys/i)).toBeInTheDocument()
   })
 
+  // Regression for bug #90: the dialog's 880px width override must be `sm:`-scoped so tailwind-merge
+  // reconciles it with the shared DialogContent base's `sm:max-w-lg` (same variant → caller wins). An
+  // unprefixed `max-w-[880px]` does NOT defeat `sm:max-w-lg`, so the dialog clamped to 512px and the
+  // right pane was clipped. This guards against a revert to the unprefixed form (or a base regression).
+  it('applies the 880px width as sm:max-w-[880px], dropping the base sm:max-w-lg (bug #90)', async () => {
+    await setup()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.className).toContain('sm:max-w-[880px]')
+    expect(dialog.className).not.toContain('sm:max-w-lg')
+  })
+
   it('lists every configurable provider as a rail row — incl. Custom (#5/#7/#29)', async () => {
     await setup()
     // OpenAI/Google/Local/Custom appear only as rail rows on open (Anthropic is viewed) → unique buttons.

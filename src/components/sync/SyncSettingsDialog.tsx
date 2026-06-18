@@ -33,7 +33,7 @@ export function SyncSettingsDialog({ controller, open, onOpenChange }: SyncSetti
       </DialogTrigger>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[520px] gap-0 overflow-hidden border-[var(--border-color)] bg-[var(--bg-color)] p-0"
+        className="sm:max-w-[520px] gap-0 overflow-hidden border-[var(--border-color)] bg-[var(--bg-color)] p-0"
       >
         <DialogHeader className="flex-row items-center justify-between space-y-0 border-b border-[var(--border-color)] p-4 text-left">
           <div className="flex flex-col gap-0.5">

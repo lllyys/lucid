@@ -78,7 +78,7 @@ export function DisconnectDialog({ open, onOpenChange, serverUrl, initialErase, 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[420px] gap-0 overflow-hidden border-[var(--border-color)] bg-[var(--bg-color)] p-0"
+        className="sm:max-w-[420px] gap-0 overflow-hidden border-[var(--border-color)] bg-[var(--bg-color)] p-0"
       >
         <div className="flex flex-col gap-[5px] p-[20px_22px_6px]">
           <DialogTitle className="text-[16px] font-semibold tracking-[-0.01em] text-[var(--text-color)]">
