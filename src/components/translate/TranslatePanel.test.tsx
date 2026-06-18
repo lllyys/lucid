@@ -11,6 +11,7 @@ import { TranslatePanel } from './TranslatePanel'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
+import { __resetAutoRecord } from '@/lib/sessions/autoRecord'
 import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
 
 const mockCreate = vi.mocked(createProvider)
@@ -38,6 +39,7 @@ beforeEach(() => {
   useProviderStore.getState().reset()
   __resetSessionIds()
   useSessionStore.getState().reset()
+  __resetAutoRecord() // feature #14 — clear the per-panel auto-record dedup map between tests
   useOperationStore.getState().reset('translate')
   useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0 } })
 })
@@ -83,10 +85,29 @@ describe('TranslatePanel', () => {
     // committed → button flips to the accepted label, and the confirmation toast fired
     expect(screen.getByRole('button', { name: 'Accepted ✓' })).toBeInTheDocument()
     expect(mockNotify).toHaveBeenCalledTimes(1)
-    // WI-7: the accepted translation is recorded as a task in a (auto-created) session
+    // feature #14: the completed run was auto-recorded (on done, not on Accept); Accept commits to the
+    // editor and does NOT additionally record — exactly one task.
     const sessions = useSessionStore.getState().sessions
     expect(sessions).toHaveLength(1)
+    expect(sessions[0].tasks).toHaveLength(1)
     expect(sessions[0].tasks[0]).toMatchObject({ kind: 'translate', sourceText: 'Hello world', resultText: 'Hola mundo' })
+  })
+
+  it('auto-records a completed run to history WITHOUT requiring Accept (feature #14)', async () => {
+    useProviderStore.getState().setApiKey('sk-test')
+    mockCreate.mockReturnValue(okProvider('Hola mundo'))
+    const user = userEvent.setup()
+    render(<TranslatePanel />)
+    await user.type(screen.getByLabelText('Source'), 'Hello world')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^translate$/i }))
+      await tick()
+    })
+    // No Accept click — the completed run is already in history.
+    const sessions = useSessionStore.getState().sessions
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].tasks).toHaveLength(1)
+    expect(sessions[0].tasks[0]).toMatchObject({ kind: 'translate', resultText: 'Hola mundo' })
   })
 
   // WI-4: the direction override changes the source editor's visual dir (never the request).

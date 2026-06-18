@@ -1,8 +1,9 @@
-// Purpose: record a completed (accepted) translate/polish result as a task in the active session
-// (feature #3, WI-7). The single decoupling point between the translate/polish panels and the
-// session store — the panels call recordTask(...) at their accept handlers instead of mutating the
-// store directly (per the Gate-2 audit). If no session is active, one is created so an accepted
-// result is never silently dropped. Session text is the user's own, stored locally (rule 65 §6).
+// Purpose: record a completed translate/polish run as a task in the active session. The single
+// decoupling point between the translate/polish flows and the session store (per the feature-3 Gate-2
+// audit). Originally called from the panels' accept handlers (feature #3, WI-7); since feature #14 it is
+// invoked by `recordRunIfNew` (`./autoRecord.ts`) on a run's `done` transition — Accept now only commits
+// to the editor. If no session is active, one is created so a completed result is never silently
+// dropped. Session text is the user's own, stored locally (rule 65 §6).
 
 import { useSessionStore, type Task } from '@/stores/sessionStore'
 

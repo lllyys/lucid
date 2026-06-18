@@ -4,7 +4,8 @@ import { useOperationStore } from '@/stores/operationStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
 import { usePanelRun } from '@/hooks/usePanelRun'
 import { notify } from '@/components/workspace/notify'
-import { recordTask } from '@/lib/sessions/recordTask'
+import { cleanPolishOutput } from '@/lib/polish/cleanPolishOutput'
+import { useAutoRecordTask } from '@/hooks/useAutoRecordTask'
 import { OriginalCard } from './OriginalCard'
 import { DraftCard } from './DraftCard'
 import { KeywordsCard } from './KeywordsCard'
@@ -30,6 +31,8 @@ export function PolishPanel() {
   const polishOp = useOperationStore((s) => s.polish)
   const dt = useOperationStore((s) => s.draftTranslate)
   const { run, abort } = usePanelRun()
+  // feature #14 — auto-save each completed polish run; store the CLEANED result (feature #96), not prose.
+  useAutoRecordTask('polish', 'polish', draft, cleanPolishOutput)
 
   const translating = dt.status === 'streaming'
   const isPolishing = polishOp.status === 'streaming'
@@ -103,7 +106,8 @@ export function PolishPanel() {
   const addKeyword = (k: string) => usePolishKeywordsStore.getState().addKeyword(k)
   const removeKeyword = (k: string) => usePolishKeywordsStore.getState().removeKeyword(k)
   const onAccept = (text: string) => {
-    recordTask('polish', draft, text) // save the accepted polish to the active session (WI-7) — before setDraft
+    // Commit the (possibly per-hunk-edited) polish to the draft. History is auto-saved on the run's
+    // completion (feature #14) with the FULL cleaned result, so Accept no longer records here.
     setDraft(text)
     // Commit the polished text AND stop any in-flight "Translate original" — otherwise its next
     // mirrored chunk would clobber the text we just accepted.

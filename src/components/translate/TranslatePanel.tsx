@@ -5,7 +5,7 @@ import { usePanelRun } from '@/hooks/usePanelRun'
 import { detectDirection, directionLabels } from '@/lib/translation/detectDirection'
 import { bidiAttrs, type BidiOverride } from '@/lib/translation/bidi'
 import { notify } from '@/components/workspace/notify'
-import { recordTask } from '@/lib/sessions/recordTask'
+import { useAutoRecordTask } from '@/hooks/useAutoRecordTask'
 import { TranslateResult } from './TranslateResult'
 import { DirectionOverride } from './DirectionOverride'
 
@@ -23,6 +23,7 @@ export function TranslatePanel() {
   const [dirOverride, setDirOverride] = useState<BidiOverride>('auto')
   const op = useOperationStore((s) => s.translate)
   const { run, abort } = usePanelRun()
+  useAutoRecordTask('translate', 'translate', source) // feature #14 — auto-save each completed run to history
 
   const labels = directionLabels(detectDirection(source))
   const isStreaming = op.status === 'streaming'
@@ -55,8 +56,9 @@ export function TranslatePanel() {
     useOperationStore.getState().reset('translate')
   }
   const onAccept = (text: string) => {
-    setAcceptedText(text) // commit the accepted working translation (rule 66 §2 — not a bare toast)
-    recordTask('translate', source, text) // save it to the active session (feature #3, WI-7)
+    // Commit the accepted working translation to the editor (rule 66 §2). History is auto-saved on the
+    // run's completion (feature #14), so Accept no longer records — it only commits to the editor.
+    setAcceptedText(text)
     notify(t('toast.translateAccepted'))
   }
 
