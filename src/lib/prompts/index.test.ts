@@ -85,6 +85,18 @@ describe('buildPrompt — polish', () => {
     const systems = POLISH_GOALS.map((goal) => buildPrompt(polish({ goal })).system)
     expect(new Set(systems).size).toBe(POLISH_GOALS.length)
   })
+  // Bug #96: the prompt must explicitly forbid the three observed pollutants (preamble, surrounding
+  // quotes, a changes list) in BOTH plain and reference modes — not just the generic "no commentary".
+  it('forbids a preamble, surrounding quotes, and a changes list — both modes (bug #96)', () => {
+    const plain = buildPrompt(polish({})).system.toLowerCase()
+    const ref = buildPrompt(polish({ original: '原文', keywords: ['x'] })).system.toLowerCase()
+    for (const sys of [plain, ref]) {
+      expect(sys).toContain('output only the polished text')
+      expect(sys).toContain('preamble')
+      expect(sys).toContain('quotation marks')
+      expect(sys).toContain('explanation of the changes')
+    }
+  })
 })
 
 describe('buildPrompt — polish with reference (original + keywords)', () => {

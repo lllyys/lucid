@@ -95,3 +95,27 @@ describe('PolishResult per-hunk accept/reject (WI-7)', () => {
     expect(onAccept).toHaveBeenCalledWith('the dog sat')
   })
 })
+
+describe('PolishResult strips model meta-prose from the done result (bug #96)', () => {
+  // A non-compliant model wraps the answer in a preamble + quotes + a "Changes made:" list.
+  const RAW = 'Here is the improved sentence:\n\n"the dog sat"\n\nChanges made:\n- cat → dog'
+
+  it('shows only the polished sentence in the Result view (no preamble, no changes list)', () => {
+    setDone(RAW)
+    renderResult()
+    expect(screen.getByText('the dog sat')).toBeInTheDocument()
+    expect(screen.queryByText(/Here is the improved sentence/i)).toBeNull()
+    expect(screen.queryByText(/Changes made/i)).toBeNull()
+  })
+
+  it('Accept commits the cleaned text, and the Compare diff is computed against it (cat → dog)', async () => {
+    setDone(RAW)
+    const { onAccept } = renderResult()
+    const user = userEvent.setup()
+    // the diff is the clean draft→result diff, so one hunk; Accept commits the clean sentence
+    await user.click(screen.getByRole('button', { name: /compare/i }))
+    expect(screen.getByText('1 of 1 kept')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Accept' }))
+    expect(onAccept).toHaveBeenCalledWith('the dog sat')
+  })
+})
