@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { useProviderStore } from './providerStore'
+import {
+  useProviderStore,
+  partializeProvider,
+  migrateProvider,
+  mergeProvider,
+  PERSIST_VERSION,
+} from './providerStore'
 import * as registry from '@/providers/modelRegistry'
 
 beforeEach(() => {
@@ -182,6 +188,120 @@ describe('providerStore', () => {
       expect(useProviderStore.getState().isReady()).toBe(false) // no model yet
       useProviderStore.getState().setModel('my-model')
       expect(useProviderStore.getState().isReady()).toBe(true) // ready WITHOUT a key
+    })
+  })
+
+  // feature #12 — persistence of the NON-SECRET config (vendor/models/baseUrl); keys stay in-memory.
+  describe('persist', () => {
+    const current = () => useProviderStore.getState() // initial state + actions (reset in beforeEach)
+
+    it('partializeProvider persists ONLY vendor/models/baseUrl — never keys/model/testResults (§5)', () => {
+      useProviderStore.getState().setApiKey('sk-secret-key')
+      const p = partializeProvider(useProviderStore.getState())
+      expect(Object.keys(p).sort()).toEqual(['baseUrl', 'models', 'vendor'])
+      expect(JSON.stringify(p)).not.toContain('sk-secret-key')
+    })
+
+    it('round-trips vendor/baseUrl/models and re-derives the model mirror', () => {
+      useProviderStore.getState().setVendor('custom')
+      useProviderStore.getState().setBaseUrl('https://api.example.com/v1')
+      useProviderStore.getState().setModel('gpt-4o-mini', 'custom')
+      const persisted = partializeProvider(useProviderStore.getState())
+      useProviderStore.getState().reset()
+      const merged = mergeProvider(persisted, current())
+      expect(merged.vendor).toBe('custom')
+      expect(merged.baseUrl).toBe('https://api.example.com/v1')
+      expect(merged.models.custom).toBe('gpt-4o-mini')
+      expect(merged.model).toBe('gpt-4o-mini') // mirror re-derived = models[vendor]
+    })
+
+    it('preserves the store actions through merge (the ...current spread)', () => {
+      const merged = mergeProvider({ vendor: 'openai', models: {}, baseUrl: '' }, current())
+      expect(typeof merged.setVendor).toBe('function')
+      expect(typeof merged.reset).toBe('function')
+      expect(typeof merged.isReady).toBe('function')
+    })
+
+    it('NEVER rehydrates API keys, even if a persisted blob contains them (§5)', () => {
+      const blob = {
+        vendor: 'custom',
+        models: { custom: 'm' },
+        baseUrl: 'u',
+        apiKey: 'leak',
+        apiKeys: { anthropic: 'leak2', custom: 'leak3' },
+      }
+      const merged = mergeProvider(blob, current())
+      expect(merged.apiKey).toBe('')
+      expect(merged.apiKeys.custom).toBe('')
+      expect(merged.apiKeys.anthropic).toBe('')
+    })
+
+    it('falls back to the default vendor when the persisted vendor is unknown/invalid', () => {
+      const merged = mergeProvider({ vendor: 'mistral', models: {}, baseUrl: '' }, current())
+      expect(merged.vendor).toBe('anthropic')
+      expect(merged.model).toBe(merged.models.anthropic)
+    })
+
+    it('falls back when the persisted vendor is a non-string', () => {
+      const merged = mergeProvider({ vendor: 42, models: {}, baseUrl: '' }, current())
+      expect(merged.vendor).toBe('anthropic')
+    })
+
+    it('keeps default models when the persisted models field is not a record', () => {
+      const c = current()
+      const merged = mergeProvider({ vendor: 'custom', models: null, baseUrl: 'u' }, c)
+      expect(merged.models).toEqual(c.models)
+      expect(merged.baseUrl).toBe('u')
+    })
+
+    it('keyless implemented vendor rehydrates to not-ready (panel needs a key)', () => {
+      useProviderStore.setState(
+        mergeProvider({ vendor: 'openai', models: { openai: 'gpt-4o' }, baseUrl: '' }, current()),
+      )
+      const s = useProviderStore.getState()
+      expect(s.vendor).toBe('openai')
+      expect(s.model).toBe('gpt-4o')
+      expect(s.apiKey).toBe('')
+      expect(s.isReady()).toBe(false)
+    })
+
+    it('overlays a partial persisted models onto complete defaults (missing vendors keep defaults)', () => {
+      const c = current()
+      const merged = mergeProvider({ vendor: 'anthropic', models: { custom: 'my-model' }, baseUrl: '' }, c)
+      expect(merged.models.custom).toBe('my-model')
+      expect(merged.models.gemini).toBe(c.models.gemini) // default kept
+    })
+
+    it('restores baseUrl regardless of the active vendor (intentional — keeps it for switching back)', () => {
+      const merged = mergeProvider({ vendor: 'anthropic', models: {}, baseUrl: 'https://saved.example/v1' }, current())
+      expect(merged.vendor).toBe('anthropic')
+      expect(merged.baseUrl).toBe('https://saved.example/v1')
+    })
+
+    it.each([null, undefined, 'a string', 42, []])(
+      'returns defaults for a non-object persisted blob: %j',
+      (blob) => {
+        const merged = mergeProvider(blob, current())
+        expect(merged.vendor).toBe('anthropic')
+        expect(merged.baseUrl).toBe('')
+      },
+    )
+
+    it('skips non-string and empty model entries and a non-string baseUrl (no throw)', () => {
+      const c = current()
+      const merged = mergeProvider(
+        { vendor: 'custom', models: { custom: 123, openai: 'ok', gemini: '' }, baseUrl: 99 },
+        c,
+      )
+      expect(merged.models.custom).toBe(c.models.custom) // numeric entry skipped → default kept
+      expect(merged.models.gemini).toBe(c.models.gemini) // empty string skipped → default kept
+      expect(merged.models.openai).toBe('ok') // non-empty string → kept
+      expect(merged.baseUrl).toBe('') // non-string → default
+    })
+
+    it('migrateProvider passes through the current version and drops any other', () => {
+      expect(migrateProvider({ vendor: 'custom' }, PERSIST_VERSION)).toEqual({ vendor: 'custom' })
+      expect(migrateProvider({ vendor: 'custom' }, 99)).toBeUndefined()
     })
   })
 })
