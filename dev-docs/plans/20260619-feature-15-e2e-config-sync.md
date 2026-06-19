@@ -147,7 +147,7 @@ round-1 "rev vs client-clock" double-mechanism is eliminated.
 | WI | Tier | Design-gated? | Notes |
 |---|---|---|---|
 | WI-1 configCrypto (+secure-context guard, AAD, base64) | foundational | no | coverage-gated |
-| WI-2 providerConfigCodec (+`updatedAt`) | foundational | no | coverage-gated |
+| WI-2 providerConfigCodec | foundational | no | coverage-gated |
 | WI-3 server `/config` (+optimistic-concurrency, cap) | behavioral | no | reuse `/sync` baseRev |
 | WI-4 server serves app (mount-order/root/SPA) | behavioral | no | + doc-sync |
 | WI-5 configSync service | behavioral | no | coverage-gated logic |
@@ -162,8 +162,8 @@ completion → minor/major bump) waits on WI-6. Feature reaches `DONE` only when
   **AAD tamper on `v` AND `kdf` (and iterations/salt) → throws**; base64 over **all 0–255 bytes** +
   non-ASCII ciphertext; **insecure-context (stub `crypto` without `subtle`) → `InsecureContextError`/
   localized, no uncaught TypeError**; empty/large plaintext.
-- `providerConfigCodec.test.ts`: serialize→parse incl. apiKeys + `updatedAt`; skip-bad-fields; emits only
-  the defined fields.
+- `providerConfigCodec.test.ts`: serialize→parse incl. apiKeys; skip-bad-fields; arrays-as-maps dropped;
+  emits only the defined keys (v/vendor/models/baseUrl/apiKeys).
 - `configSync.test.ts`: load (GET→decrypt→parse, mocked fetch); save (serialize→encrypt→PUT with
   baseRev); **409 → re-pull path**; 404/empty → null; unreachable/4xx → mapped localized errors;
   wrong-passphrase surfaced.
