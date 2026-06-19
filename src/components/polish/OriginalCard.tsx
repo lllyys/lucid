@@ -15,7 +15,7 @@ export function OriginalCard({
 }) {
   const { t } = useTranslation()
   return (
-    <div className="flex min-h-[120px] flex-1 flex-col overflow-hidden rounded-[14px] border bg-[var(--bg-color)]">
+    <div className="flex min-h-[130px] shrink-0 flex-col overflow-hidden rounded-[14px] border bg-[var(--bg-color)]">
       <div className="flex items-center justify-between border-b px-4 py-2.5">
         <div className="flex items-center gap-2.5">
           <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
@@ -33,7 +33,7 @@ export function OriginalCard({
         spellCheck={false}
         dir="auto"
         style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
-        className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-serif text-[18px] leading-[1.7]"
+        className="field-sizing-content min-h-[88px] max-h-[88vh] resize-none bg-transparent px-4 py-3 font-serif text-[18px] leading-[1.7]"
       />
     </div>
   )
