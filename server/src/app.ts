@@ -18,6 +18,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { InvalidOpError, type SyncStore } from './db.js'
 import type { PushOp } from './types.js'
 
@@ -31,6 +32,12 @@ export interface AppDeps {
    * client error), which is correct — a body that big is a client bug, not a transient server fault.
    */
   maxBodyBytes?: number
+  /**
+   * Absolute (or cwd-relative) path to the built web-app `dist/` to serve at the same origin (#15 WI-4),
+   * so any device loads the app AND calls `/config` + `/sync` from one origin — no CORS, no URL to type.
+   * Omit for an API-only server (the pre-#15 behavior).
+   */
+  staticDir?: string
 }
 
 const BEARER_PREFIX = 'Bearer '
@@ -88,13 +95,13 @@ export function createApp(deps: AppDeps): Hono {
   const maxBodyBytes = deps.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES
   const app = new Hono()
 
-  // 1. Bearer-auth on the /sync routes. Missing header / wrong scheme / wrong token → 401. The body
-  //    never reveals whether the token was the right length or value. `/config` (#15) is EXEMPT: it
-  //    stores only E2E ciphertext that is useless without the user's passphrase, the Tailscale network
-  //    is the transport perimeter, and the user explicitly wants no token to type — so it is reachable
-  //    unauthenticated. (Its own optimistic-concurrency guards against an accidental stale overwrite.)
-  app.use('*', async (c, next) => {
-    if (c.req.path === '/config') return next()
+  // 1. Bearer-auth scoped to the /sync routes ONLY (the plaintext workspace data). Missing header /
+  //    wrong scheme / wrong token → 401; the body never reveals the token's length or value. `/config`
+  //    (#15) and the served web app (WI-4) are intentionally OUTSIDE this scope: `/config` stores only
+  //    E2E ciphertext that is useless without the user's passphrase (its own optimistic-concurrency
+  //    guards against an accidental stale overwrite), the static app must load before any token could
+  //    be entered, the Tailscale network is the transport perimeter, and the user wants no token to type.
+  app.use('/sync/*', async (c, next) => {
     const header = c.req.header('Authorization')
     if (header === undefined || !header.startsWith(BEARER_PREFIX)) {
       return c.json({ error: 'unauthorized' }, 401)
@@ -180,7 +187,16 @@ export function createApp(deps: AppDeps): Hono {
     },
   )
 
-  // 7. Catch-all: any unexpected error → 500 with a generic body. Never echo a stack trace or token.
+  // 7. Serve the built web app at the same origin (#15 WI-4), if a static dir was provided. Mounted
+  //    LAST so it never shadows the /sync + /config API routes (which are registered above and return
+  //    first); serveStatic passes through (next()) when no file matches, so an unknown non-API GET falls
+  //    to Hono's 404. lucid is a single-screen app with no client-side router, so `/` serves index.html
+  //    and no HTML5-history SPA fallback is needed. Public — auth is /sync-scoped (step 1).
+  if (deps.staticDir !== undefined) {
+    app.use('/*', serveStatic({ root: deps.staticDir, index: 'index.html' }))
+  }
+
+  // 8. Catch-all: any unexpected error → 500 with a generic body. Never echo a stack trace or token.
   app.onError((_err, c) => c.json({ error: 'internal error' }, 500))
 
   return app

@@ -6,7 +6,7 @@ source-of-truth doc from here (`.claude/rules/20-logging-and-docs.md`).
 | Doc | Topic |
 |-----|-------|
 | [architecture.md](architecture.md) | The LLM provider layer — contract, error model, secret hygiene, resilience |
-| [sync-server.md](sync-server.md) | The self-hosted sync server — running it (Docker), token + TLS, the data trust boundary |
+| [sync-server.md](sync-server.md) | The self-hosted sync server — running it (Docker), token + TLS, the data trust boundary, and cross-device E2E config sync (`/config`, #15) |
 | [plans/](plans/) | Per-feature implementation plans (`YYYYMMDD-feature-N-<slug>.md`) |
 
 Other conventions:
