@@ -78,8 +78,9 @@ which is server-assigned, monotonic, and clock-skew-immune. The config shape is 
 
 ### WI-3 — `@lucid/server` `/config` endpoint (server; behavioral) + **optimistic concurrency (H2)** + cap (M3)
 `GET /config` → `{ blob: EncryptedBlob | null, rev: number }`; `PUT /config` body `{ blob, baseRev }` →
-`204` if `baseRev === currentRev` (then `rev++`), else **`409 Conflict`** (stale — client re-pulls,
-re-merges, retries). This reuses the `/sync` store's `baseRev` optimistic-concurrency so a stale second
+`200 { status:'applied', rev }` if `baseRev === currentRev` (then `rev++`), else **`409 Conflict`
+`{ status:'conflict', rev, blob }`** (stale — client re-pulls, re-merges, retries). *(As shipped in WI-3;
+an earlier draft said `204` — the body carries the new `rev`, so `200` with a JSON body.)* This reuses the `/sync` store's `baseRev` optimistic-concurrency so a stale second
 device can't silently clobber the only copy of the key. **Body cap: 64 KB.** Server treats the blob as
 **opaque bytes** — never parses/inspects/logs the ciphertext. **Auth/trust model:** no token (E2E → the
 blob is useless without the passphrase; Tailscale is the transport perimeter; the tailnet = the user's
@@ -119,7 +120,7 @@ round-1 "rev vs client-clock" double-mechanism is eliminated.
   pull `{blob, rev}`; **adopt the server config IFF `rev > syncedRev` AND the user has not edited config
   since load** (a `dirty` flag). The `dirty` guard prevents the async blob from clobbering a local edit
   made during the load window (test). Set `syncedRev = rev` on adopt.
-- **On config change:** set `dirty`; debounced `encryptAndSave(baseRev = syncedRev)` → `204` sets
+- **On config change:** set `dirty`; debounced `encryptAndSave(baseRev = syncedRev)` → `200 applied` sets
   `syncedRev = newRev` + clears `dirty`; **`409`** (another device advanced `rev`) → re-pull + adopt the
   server config (last-successful-write-wins) and reset `syncedRev`. The retry terminates: each PUT carries
   the freshly re-pulled `baseRev`.
