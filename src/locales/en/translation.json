@@ -173,7 +173,7 @@
   "sidebar.noResults": "No sessions match your search.",
   "glossary.termCount": "{{count}} domain terms",
   "glossary.addTerm": "Add a domain term + Enter…",
-  "glossary.extract": "Extract from current text",
+  "glossary.extract": "Extract from this session",
   "glossary.use": "use",
   "glossary.useAria": "Use {{term}} as a keyword",
   "glossary.removeTerm": "Remove {{term}}",
