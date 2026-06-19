@@ -87,9 +87,12 @@ describe('usePanelRun', () => {
 
   it('threads the custom base URL into createProvider so an active custom provider can run (#5 WI-6a)', async () => {
     const s = useProviderStore.getState()
-    s.setVendor('custom')
+    // #10: readiness now follows the ACTIVE custom provider. The call-site config resolution (the
+    // legacy baseUrl/model mirror) is rewired in WI-2; here we set both so this WI-1 slice stays green.
+    const id = s.addCustomProvider({ label: 'My host', baseUrl: 'https://my-host.example.com/v1', model: 'm' })
+    s.setVendor({ type: 'custom', id })
     s.setBaseUrl('https://my-host.example.com/v1')
-    s.setModel('m', 'custom') // keyless, but ready (baseUrl + model)
+    s.setModel('m', 'custom') // keyless, but ready (active custom has baseUrl + model)
     expect(useProviderStore.getState().isReady()).toBe(true)
     mockCreate.mockReturnValue(okProvider())
     const { result } = renderHook(() => usePanelRun())

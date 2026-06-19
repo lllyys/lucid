@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
 import {
   useProviderStore,
   partializeProvider,
@@ -6,10 +6,16 @@ import {
   mergeProvider,
   PERSIST_VERSION,
 } from './providerStore'
+import { __resetCustomIds, __useRandomCustomIds, MAX_CUSTOM_PROVIDERS } from './providerStoreMigrate'
 import * as registry from '@/providers/modelRegistry'
 
 beforeEach(() => {
+  __resetCustomIds() // deterministic c1, c2, … ids for stable assertions
   useProviderStore.getState().reset()
+})
+
+afterAll(() => {
+  __useRandomCustomIds() // restore production uuid generator
 })
 
 describe('providerStore', () => {
@@ -180,13 +186,14 @@ describe('providerStore', () => {
       useProviderStore.getState().setBaseUrl('https://api.example.com/v1')
       expect(useProviderStore.getState().baseUrl).toBe('https://api.example.com/v1')
     })
-    it('isReady for custom needs baseUrl + model — the key is OPTIONAL (keyless self-hosted OR keyed proxy)', () => {
-      const s = useProviderStore.getState()
-      s.setVendor('custom')
+    it('isReady for an active custom needs its baseUrl + model — the key is OPTIONAL (#10)', () => {
+      // #10: a bare vendor='custom' (no active id) is NOT ready; readiness reads the active custom.
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: '', model: '' })
+      useProviderStore.getState().setVendor({ type: 'custom', id })
       expect(useProviderStore.getState().isReady()).toBe(false) // nothing set
-      useProviderStore.getState().setBaseUrl('https://x/v1')
+      useProviderStore.getState().setBaseUrl('https://x/v1', id)
       expect(useProviderStore.getState().isReady()).toBe(false) // no model yet
-      useProviderStore.getState().setModel('my-model')
+      useProviderStore.getState().setModel('my-model', undefined, id)
       expect(useProviderStore.getState().isReady()).toBe(true) // ready WITHOUT a key
     })
   })
@@ -195,10 +202,10 @@ describe('providerStore', () => {
   describe('persist', () => {
     const current = () => useProviderStore.getState() // initial state + actions (reset in beforeEach)
 
-    it('partializeProvider persists ONLY vendor/models/baseUrl — never keys/model/testResults (§5)', () => {
+    it('partializeProvider persists vendor/models/baseUrl/customProviders/activeCustomId — never keys/model/testResults (§5)', () => {
       useProviderStore.getState().setApiKey('sk-secret-key')
       const p = partializeProvider(useProviderStore.getState())
-      expect(Object.keys(p).sort()).toEqual(['baseUrl', 'models', 'vendor'])
+      expect(Object.keys(p).sort()).toEqual(['activeCustomId', 'baseUrl', 'customProviders', 'models', 'vendor'])
       expect(JSON.stringify(p)).not.toContain('sk-secret-key')
     })
 
@@ -299,9 +306,244 @@ describe('providerStore', () => {
       expect(merged.baseUrl).toBe('') // non-string → default
     })
 
-    it('migrateProvider passes through the current version and drops any other', () => {
-      expect(migrateProvider({ vendor: 'custom' }, PERSIST_VERSION)).toEqual({ vendor: 'custom' })
+    it('migrateProvider passes a v2 (current) blob through and drops an unknown version', () => {
+      const v2 = { vendor: 'custom', models: {}, baseUrl: '', customProviders: {}, activeCustomId: null }
+      expect(migrateProvider(v2, PERSIST_VERSION)).toBe(v2)
       expect(migrateProvider({ vendor: 'custom' }, 99)).toBeUndefined()
+    })
+
+    it('migrateProvider (v1→v2) carries a v1 single-custom config into ONE active custom entry', () => {
+      const v1 = { vendor: 'custom', models: { custom: 'm' }, baseUrl: 'https://x/v1' }
+      const out = migrateProvider(v1, 1) as {
+        customProviders: Record<string, { id: string; label: string; baseUrl: string; model: string }>
+        activeCustomId: string | null
+      }
+      const ids = Object.keys(out.customProviders)
+      expect(ids).toHaveLength(1)
+      expect(out.customProviders[ids[0]]).toMatchObject({ label: 'Custom', baseUrl: 'https://x/v1', model: 'm' })
+      expect(out.activeCustomId).toBe(ids[0])
+    })
+  })
+
+  describe('multiple custom providers (#10 WI-1)', () => {
+    it('initializes empty: no custom providers, no active custom', () => {
+      const s = useProviderStore.getState()
+      expect(s.customProviders).toEqual({})
+      expect(s.activeCustomId).toBeNull()
+    })
+
+    it('addCustomProvider mints an id, stores the entry, and returns the id', () => {
+      const id = useProviderStore.getState().addCustomProvider({
+        label: 'My proxy',
+        baseUrl: 'https://proxy/v1',
+        model: 'gpt-x',
+        key: 'sk-secret',
+      })
+      expect(id).toBe('c1')
+      const c = useProviderStore.getState().customProviders[id]
+      expect(c).toMatchObject({ id: 'c1', label: 'My proxy', baseUrl: 'https://proxy/v1', model: 'gpt-x', key: 'sk-secret' })
+      expect(c.testResult).toEqual({ status: 'idle' })
+    })
+
+    it('addCustomProvider defaults an absent key to ""', () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm' })
+      expect(useProviderStore.getState().customProviders[id].key).toBe('')
+    })
+
+    it('updateCustomProvider patches only the named fields', () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm' })
+      useProviderStore.getState().updateCustomProvider(id, { model: 'm2', baseUrl: 'u2' })
+      const c = useProviderStore.getState().customProviders[id]
+      expect(c).toMatchObject({ label: 'L', baseUrl: 'u2', model: 'm2' })
+    })
+
+    it('updateCustomProvider on an unknown id is a no-op (does not throw or create)', () => {
+      useProviderStore.getState().updateCustomProvider('ghost', { model: 'x' })
+      expect(useProviderStore.getState().customProviders).toEqual({})
+    })
+
+    it('setVendor({type:"custom",id}) sets vendor="custom" + activeCustomId when the id exists', () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm' })
+      useProviderStore.getState().setVendor({ type: 'custom', id })
+      const s = useProviderStore.getState()
+      expect(s.vendor).toBe('custom')
+      expect(s.activeCustomId).toBe(id)
+    })
+
+    it('setVendor({type:"custom",id}) for an unknown id is refused (state unchanged)', () => {
+      useProviderStore.getState().setVendor({ type: 'custom', id: 'ghost' })
+      const s = useProviderStore.getState()
+      expect(s.vendor).toBe('anthropic')
+      expect(s.activeCustomId).toBeNull()
+    })
+
+    it('setVendor to a built-in vendor clears activeCustomId', () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm' })
+      useProviderStore.getState().setVendor({ type: 'custom', id })
+      useProviderStore.getState().setVendor('anthropic')
+      expect(useProviderStore.getState().activeCustomId).toBeNull()
+    })
+
+    it('isReady for an active custom requires its baseUrl + model (key optional)', () => {
+      const empty = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: '', model: '' })
+      useProviderStore.getState().setVendor({ type: 'custom', id: empty })
+      expect(useProviderStore.getState().isReady()).toBe(false)
+      useProviderStore.getState().updateCustomProvider(empty, { baseUrl: 'https://x/v1' })
+      expect(useProviderStore.getState().isReady()).toBe(false) // no model
+      useProviderStore.getState().updateCustomProvider(empty, { model: 'm' })
+      expect(useProviderStore.getState().isReady()).toBe(true) // ready WITHOUT a key
+    })
+
+    it('isReady is false (never crashes) when vendor=custom but activeCustomId is null/dangling', () => {
+      useProviderStore.setState({ vendor: 'custom', activeCustomId: null })
+      expect(useProviderStore.getState().isReady()).toBe(false)
+      useProviderStore.setState({ vendor: 'custom', activeCustomId: 'ghost' })
+      expect(useProviderStore.getState().isReady()).toBe(false)
+    })
+
+    it('removeCustomProvider on an unknown id is a no-op (does not throw)', () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm' })
+      useProviderStore.getState().removeCustomProvider('ghost')
+      expect(Object.keys(useProviderStore.getState().customProviders)).toEqual([id])
+    })
+
+    it('a custom-targeted setter with an unknown id is a no-op (patchCustom guard)', () => {
+      useProviderStore.getState().setBaseUrl('https://x/v1', 'ghost')
+      expect(useProviderStore.getState().customProviders).toEqual({})
+    })
+
+    it('removeCustomProvider quietly deletes a NON-active custom (active target untouched)', () => {
+      const keep = useProviderStore.getState().addCustomProvider({ label: 'Keep', baseUrl: 'u', model: 'm' })
+      const drop = useProviderStore.getState().addCustomProvider({ label: 'Drop', baseUrl: 'u', model: 'm' })
+      useProviderStore.getState().setVendor({ type: 'custom', id: keep })
+      useProviderStore.getState().removeCustomProvider(drop)
+      const s = useProviderStore.getState()
+      expect(s.customProviders[drop]).toBeUndefined()
+      expect(s.activeCustomId).toBe(keep) // active untouched
+      expect(s.vendor).toBe('custom')
+    })
+
+    it('removing the ACTIVE custom falls back deterministically to the anthropic built-in', () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm' })
+      useProviderStore.getState().setVendor({ type: 'custom', id })
+      useProviderStore.getState().removeCustomProvider(id)
+      const s = useProviderStore.getState()
+      expect(s.customProviders[id]).toBeUndefined()
+      expect(s.activeCustomId).toBeNull()
+      expect(s.vendor).toBe('anthropic')
+      expect(s.model).toBe(s.models.anthropic) // mirror re-derived
+    })
+
+    describe('per-custom field setters (optional id targets the active custom)', () => {
+      it('setBaseUrl/setModel/setApiKey/setTestResult target the named custom by id', () => {
+        const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: '', model: '' })
+        useProviderStore.getState().setBaseUrl('https://x/v1', id) // setBaseUrl(baseUrl, customId)
+        useProviderStore.getState().setModel('m', undefined, id) // setModel(model, vendor, customId)
+        useProviderStore.getState().setApiKey('sk-c', undefined, id) // setApiKey(key, vendor, customId)
+        useProviderStore.getState().setTestResult('custom', { status: 'ok', latencyMs: 9 }, id)
+        const c = useProviderStore.getState().customProviders[id]
+        expect(c).toMatchObject({ baseUrl: 'https://x/v1', model: 'm', key: 'sk-c' })
+        expect(c.testResult).toEqual({ status: 'ok', latencyMs: 9 })
+      })
+
+      it('clearKey(id) empties only that custom provider key', () => {
+        const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm', key: 'sk-c' })
+        useProviderStore.getState().clearKey('custom', id)
+        expect(useProviderStore.getState().customProviders[id].key).toBe('')
+      })
+    })
+
+    describe('uniqueLabel predicate (#10 — shared by form + store)', () => {
+      it('rejects a duplicate label (trim + case-insensitive); allows a distinct one', () => {
+        useProviderStore.getState().addCustomProvider({ label: 'OpenRouter', baseUrl: 'u', model: 'm' })
+        const s = useProviderStore.getState()
+        expect(s.uniqueLabel('  openrouter  ')).toBe(false) // collision
+        expect(s.uniqueLabel('Together')).toBe(true) // distinct
+        expect(s.uniqueLabel('   ')).toBe(false) // empty after trim
+      })
+
+      it('exceptId lets an entry keep its own label while editing', () => {
+        const id = useProviderStore.getState().addCustomProvider({ label: 'OpenRouter', baseUrl: 'u', model: 'm' })
+        expect(useProviderStore.getState().uniqueLabel('OpenRouter', id)).toBe(true) // editing itself
+        expect(useProviderStore.getState().uniqueLabel('OpenRouter')).toBe(false) // a NEW one collides
+      })
+    })
+
+    it('reset clears custom providers + the active custom', () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm' })
+      useProviderStore.getState().setVendor({ type: 'custom', id })
+      useProviderStore.getState().reset()
+      const s = useProviderStore.getState()
+      expect(s.customProviders).toEqual({})
+      expect(s.activeCustomId).toBeNull()
+      expect(s.vendor).toBe('anthropic')
+    })
+  })
+
+  describe('persist — custom providers (#10 WI-1)', () => {
+    const current = () => useProviderStore.getState()
+
+    it('partializeProvider persists customProviders STRIPPED to {id,label,baseUrl,model} + activeCustomId', () => {
+      const id = useProviderStore.getState().addCustomProvider({
+        label: 'L',
+        baseUrl: 'https://x/v1',
+        model: 'm',
+        key: 'sk-secret',
+      })
+      useProviderStore.getState().setTestResult('custom', { status: 'ok', latencyMs: 7 }, id)
+      useProviderStore.getState().setVendor({ type: 'custom', id })
+      const p = partializeProvider(useProviderStore.getState())
+      expect(Object.keys(p).sort()).toEqual(['activeCustomId', 'baseUrl', 'customProviders', 'models', 'vendor'])
+      expect(p.customProviders[id]).toEqual({ id, label: 'L', baseUrl: 'https://x/v1', model: 'm' })
+      expect(p.activeCustomId).toBe(id)
+      // §5: NEITHER the key NOR the transient ok-result reaches the persisted blob
+      expect(JSON.stringify(p)).not.toContain('sk-secret')
+      expect(JSON.stringify(p)).not.toContain('"ok"')
+    })
+
+    it('merge rehydrates persisted customProviders with key="" + idle testResult (§5)', () => {
+      const blob = {
+        vendor: 'custom',
+        models: {},
+        baseUrl: '',
+        activeCustomId: 'a',
+        customProviders: { a: { id: 'a', label: 'A', baseUrl: 'https://a/v1', model: 'm' } },
+      }
+      const merged = mergeProvider(blob, current())
+      expect(merged.customProviders.a).toEqual({ id: 'a', label: 'A', baseUrl: 'https://a/v1', model: 'm', key: '', testResult: { status: 'idle' } })
+      expect(merged.activeCustomId).toBe('a')
+      expect(merged.vendor).toBe('custom')
+    })
+
+    it('merge drops a hostile blob: __proto__/constructor keys, id mismatch, non-string fields, oversize', () => {
+      const customProviders: Record<string, unknown> = {
+        good: { id: 'good', label: 'G', baseUrl: 'u', model: 'm', key: 'sk-leak', testResult: { status: 'ok' } },
+        mismatch: { id: 'other', label: 'M', baseUrl: 'u', model: 'm' },
+        badField: { id: 'badField', label: 99, baseUrl: 'u', model: 'm' },
+      }
+      for (let i = 0; i < MAX_CUSTOM_PROVIDERS + 10; i++) {
+        customProviders[`x${i}`] = { id: `x${i}`, label: 'X', baseUrl: 'u', model: 'm' }
+      }
+      const merged = mergeProvider({ vendor: 'custom', models: {}, baseUrl: '', activeCustomId: null, customProviders }, current())
+      expect(merged.customProviders.mismatch).toBeUndefined()
+      expect(merged.customProviders.badField).toBeUndefined()
+      expect(merged.customProviders.good).toMatchObject({ key: '', testResult: { status: 'idle' } })
+      expect(Object.keys(merged.customProviders).length).toBeLessThanOrEqual(MAX_CUSTOM_PROVIDERS)
+      expect(JSON.stringify(merged.customProviders)).not.toContain('sk-leak')
+    })
+
+    it('merge nulls a dangling activeCustomId (points at a removed entry)', () => {
+      const merged = mergeProvider(
+        { vendor: 'custom', models: {}, baseUrl: '', activeCustomId: 'ghost', customProviders: {} },
+        current(),
+      )
+      expect(merged.activeCustomId).toBeNull()
+    })
+
+    it('merge defaults customProviders to {} when the persisted field is not an object', () => {
+      const merged = mergeProvider({ vendor: 'anthropic', models: {}, baseUrl: '', customProviders: 'nope' }, current())
+      expect(merged.customProviders).toEqual({})
+      expect(merged.activeCustomId).toBeNull()
     })
   })
 })
