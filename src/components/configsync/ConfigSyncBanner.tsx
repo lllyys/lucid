@@ -14,6 +14,8 @@ interface BannerView {
   icon: string
   titleKey: string
   bodyKey: string
+  /** The action-button label per state (design Section E: How / Re-enter / Retry / Retry). */
+  actionKey: string
 }
 
 const VIEWS: Record<ConfigSyncErrorCode, BannerView> = {
@@ -22,24 +24,28 @@ const VIEWS: Record<ConfigSyncErrorCode, BannerView> = {
     icon: '⚠',
     titleKey: 'configSync.banner.insecureTitle',
     bodyKey: 'configSync.banner.insecureBody',
+    actionKey: 'configSync.banner.insecureAction',
   },
   wrongPassphraseOrCorrupt: {
     tone: 'danger',
     icon: '⚿',
     titleKey: 'configSync.banner.wrongPassphraseTitle',
     bodyKey: 'configSync.banner.wrongPassphraseBody',
+    actionKey: 'configSync.banner.wrongPassphraseAction',
   },
   configUnreachable: {
     tone: 'danger',
     icon: '!',
     titleKey: 'configSync.banner.unreachableTitle',
     bodyKey: 'configSync.banner.unreachableBody',
+    actionKey: 'configSync.banner.retry',
   },
   configRequestFailed: {
     tone: 'danger',
     icon: '!',
     titleKey: 'configSync.banner.requestFailedTitle',
     bodyKey: 'configSync.banner.requestFailedBody',
+    actionKey: 'configSync.banner.retry',
   },
 }
 
@@ -60,8 +66,9 @@ export function ConfigSyncBanner({ onRetry }: ConfigSyncBannerProps) {
 
   const view = VIEWS[syncError]
   const tone = TONE[view.tone]
-  // The insecure banner labels its action "How" (not a retry); every other state offers Retry.
-  const actionKey = syncError === 'insecureContext' ? 'configSync.banner.insecureAction' : 'configSync.banner.retry'
+  // Per-state action label (design Section E): insecure → "How", wrong-passphrase → "Re-enter", the
+  // transport errors → "Retry". The handler is the app-wired onRetry for all.
+  const actionKey = view.actionKey
 
   return (
     <div className="px-5 pt-3">

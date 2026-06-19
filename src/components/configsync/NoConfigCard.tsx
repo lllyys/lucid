@@ -44,6 +44,7 @@ export function NoConfigCard({
         >
           {t('configSync.noConfig.keepLocal')}
         </button>
+        <span className="font-mono text-[9.5px] text-[var(--text-tertiary)]">{t('configSync.noConfig.note')}</span>
       </div>
     </div>
   )

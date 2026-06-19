@@ -1,11 +1,18 @@
 // Purpose: the insecure-context blocking card (#15 WI-6, design Section D). crypto.subtle is unavailable
 // over plain HTTP, so encrypted sync can't run — the card blocks the passphrase and points at the
-// HTTPS path (the tailscale-serve hint). No controller action wires here (the user must reopen over
-// HTTPS); the button is a passive prompt. Tokens + t() only (rules 30/31/66 §5).
+// HTTPS path (the tailscale-serve hint). The "Open the HTTPS URL" button is a best-effort prompt: it
+// swaps the current location to https:// (the user still needs HTTPS fronting). Tokens + t() only.
 
 import { useTranslation } from 'react-i18next'
 
-export function InsecureContextCard() {
+// Best-effort: reopen the current page over https:// (the user must have HTTPS fronting, e.g. tailscale
+// serve). Injectable for tests so we don't touch the real location.
+function openHttps() {
+  const here = window.location?.href
+  if (here && here.startsWith('http:')) window.location.href = here.replace(/^http:/, 'https:')
+}
+
+export function InsecureContextCard({ onOpenHttps = openHttps }: { onOpenHttps?: () => void } = {}) {
   const { t } = useTranslation()
   return (
     <div className="w-[480px] max-w-full overflow-hidden rounded-[18px] border border-[var(--border-color)] bg-[var(--bg-color)] shadow-[var(--popup-shadow)]">
@@ -52,6 +59,13 @@ export function InsecureContextCard() {
             </span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onOpenHttps}
+          className="cursor-pointer rounded-[11px] border border-[var(--border-strong)] bg-[var(--bg-color)] py-3 font-sans text-[13px] font-semibold text-[var(--text-color)] hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
+        >
+          {t('configSync.insecure.openHttps')}
+        </button>
       </div>
     </div>
   )

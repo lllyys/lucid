@@ -398,6 +398,7 @@
   "configSync.insecure.secureTag": "secure",
   "configSync.insecure.tailscaleHint": "Quickest path: front Lucid with HTTPS via Tailscale.",
   "configSync.insecure.tailscaleCmd": "tailscale serve 7777",
+  "configSync.insecure.openHttps": "Open the HTTPS URL",
 
   "configSync.noConfig.title": "No synced config yet",
   "configSync.noConfig.body": "This device will create the first encrypted blob. Set a passphrase to turn on cross-device sync.",

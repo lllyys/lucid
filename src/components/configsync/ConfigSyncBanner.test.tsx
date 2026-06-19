@@ -36,15 +36,18 @@ describe('ConfigSyncBanner', () => {
     expect(screen.getByText(/config request failed/i)).toBeInTheDocument()
   })
 
-  it('wrongPassphraseOrCorrupt → renders the decrypt-failed banner', () => {
+  it('wrongPassphraseOrCorrupt → decrypt-failed banner with the "Re-enter" action (design Section E)', () => {
     useConfigSyncStore.getState().set({ syncError: 'wrongPassphraseOrCorrupt' })
     render(<ConfigSyncBanner onRetry={() => {}} />)
     expect(screen.getByText(/couldn't decrypt your config/i)).toBeInTheDocument()
+    // The design gives this state "Re-enter", not the transport errors' "Retry".
+    expect(screen.getByRole('button', { name: /re-enter/i })).toBeInTheDocument()
   })
 
-  it('insecureContext → renders the HTTPS-needed banner', () => {
+  it('insecureContext → HTTPS-needed banner with the "How" action', () => {
     useConfigSyncStore.getState().set({ syncError: 'insecureContext' })
     render(<ConfigSyncBanner onRetry={() => {}} />)
     expect(screen.getByText(/encrypted sync needs https/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /how/i })).toBeInTheDocument()
   })
 })
