@@ -159,6 +159,25 @@ describe('static app serving (#15 WI-4 — single-origin)', () => {
   it('serves NO static content when staticDir is omitted (API-only, backward compat)', async () => {
     expect((await app.request('/')).status).toBe(404)
   })
+
+  it('still serves the /config API (PUT) with a staticDir mounted (no mount-order regression)', async () => {
+    const res = await appWithStatic.request('/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blob: { v: 1, ciphertext: 'CC' }, baseRev: 0 }),
+    })
+    expect(res.status).toBe(200)
+  })
+
+  // Security: traversal must never escape staticDir. The defense lives in @hono/node-server's
+  // serveStatic; this pins it locally so a future dependency regression breaks the build, not prod.
+  it.each([
+    '/%2e%2e/%2e%2e/package.json',
+    '/..%2f..%2fpackage.json',
+    '/%2e%2e%2f%2e%2e%2fserver%2fpackage.json',
+  ])('rejects path traversal %s with 404 (cannot read outside staticDir)', async (p) => {
+    expect((await appWithStatic.request(p)).status).toBe(404)
+  })
 })
 
 describe('bearer auth middleware', () => {

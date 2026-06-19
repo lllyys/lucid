@@ -81,7 +81,9 @@ attempt to isolate tenants.
 
 The client talks **TLS-only** and persists the token (rule 65 §5: keys are sensitive in
 transit and at rest). Never expose the plain HTTP port to the internet — terminate TLS in
-front of the server. Two recommended options:
+front of the server. Two recommended options follow. (For `/sync` this is strongly advised;
+for the `/config` cross-device sync below it is a **hard requirement** — see "HTTPS is
+MANDATORY for `/config`".)
 
 ### Option A — Caddy reverse proxy (automatic TLS)
 
