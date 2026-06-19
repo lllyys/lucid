@@ -45,6 +45,77 @@ function op(overrides: Partial<PushOp> = {}): PushOp {
   }
 }
 
+describe('/config (E2E-encrypted config blob — no auth, optimistic-concurrency)', () => {
+  const blob = { v: 1, kdf: 'PBKDF2-SHA256', iterations: 600000, salt: 'AA', iv: 'BB', ciphertext: 'CC' }
+  // unauthenticated requests — /config must be reachable WITHOUT a bearer token
+  const put = (body: unknown) =>
+    app.request('/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    })
+  const get = () => app.request('/config')
+
+  it('returns {blob:null, rev:0} when no config is stored yet', async () => {
+    const res = await get()
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ blob: null, rev: 0 })
+  })
+
+  it('round-trips: PUT (baseRev 0) then GET returns the opaque blob at rev 1', async () => {
+    const p = await put({ blob, baseRev: 0 })
+    expect(p.status).toBe(200)
+    await expect(p.json()).resolves.toEqual({ status: 'applied', rev: 1 })
+    await expect((await get()).json()).resolves.toEqual({ blob, rev: 1 })
+  })
+
+  it('updates at the current rev (baseRev 1 → rev 2)', async () => {
+    await put({ blob, baseRev: 0 })
+    const blob2 = { ...blob, ciphertext: 'DD' }
+    await expect((await put({ blob: blob2, baseRev: 1 })).json()).resolves.toEqual({ status: 'applied', rev: 2 })
+    await expect((await get()).json()).resolves.toEqual({ blob: blob2, rev: 2 })
+  })
+
+  it('rejects a stale baseRev with 409 + the authoritative blob (no clobber)', async () => {
+    await put({ blob, baseRev: 0 }) // rev 1
+    const blob2 = { ...blob, ciphertext: 'DD' }
+    await put({ blob: blob2, baseRev: 1 }) // rev 2
+    const stale = await put({ blob: { ...blob, ciphertext: 'EVIL' }, baseRev: 1 }) // still thinks rev is 1
+    expect(stale.status).toBe(409)
+    await expect(stale.json()).resolves.toEqual({ status: 'conflict', rev: 2, blob: blob2 })
+    await expect((await get()).json()).resolves.toEqual({ blob: blob2, rev: 2 }) // stale write did NOT overwrite
+  })
+
+  it('first write applies at rev 1 regardless of baseRev (empty store ignores a stale/huge baseRev)', async () => {
+    await expect((await put({ blob, baseRev: 999_999 })).json()).resolves.toEqual({ status: 'applied', rev: 1 })
+  })
+
+  it('requires NO bearer token (GET + PUT work unauthenticated)', async () => {
+    expect((await get()).status).toBe(200)
+    expect((await put({ blob, baseRev: 0 })).status).toBe(200)
+  })
+
+  it('still protects /sync with the bearer token (regression — auth scoped, not removed)', async () => {
+    expect((await app.request('/sync/changes?since=0')).status).toBe(401)
+  })
+
+  it.each([
+    ['a non-object body', JSON.stringify('nope')],
+    ['a null blob', JSON.stringify({ blob: null, baseRev: 0 })],
+    ['a missing blob', JSON.stringify({ baseRev: 0 })],
+    ['a non-integer baseRev', JSON.stringify({ blob, baseRev: -1 })],
+    ['invalid JSON', '{not json'],
+  ])('rejects %s with 400', async (_label, raw) => {
+    expect((await put(raw)).status).toBe(400)
+  })
+
+  it('rejects an over-cap (>64KB) body with 413 (nothing stored)', async () => {
+    const res = await put({ blob: { ...blob, ciphertext: 'x'.repeat(70_000) }, baseRev: 0 })
+    expect(res.status).toBe(413)
+    await expect((await get()).json()).resolves.toEqual({ blob: null, rev: 0 })
+  })
+})
+
 describe('bearer auth middleware', () => {
   it('rejects a request with no Authorization header → 401', async () => {
     const res = await app.request('/sync/changes?since=0')
@@ -243,6 +314,12 @@ describe('error hygiene', () => {
         throw boom
       },
       close: () => {},
+      getConfig: () => {
+        throw boom
+      },
+      putConfig: () => {
+        throw boom
+      },
     }
     const brokenApp = createApp({ store: brokenStore, token: TOKEN })
     const res = await brokenApp.request('/sync/changes?since=0', {
@@ -264,6 +341,8 @@ describe('error hygiene', () => {
       changesSince: () => ({ changes: [], maxRev: 0 }),
       purge: () => {},
       close: () => {},
+      getConfig: () => null,
+      putConfig: () => ({ status: 'applied', rev: 1 }),
     }
     const brokenApp = createApp({ store: brokenStore, token: TOKEN })
     const res = await brokenApp.request('/sync/changes', {
