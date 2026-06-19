@@ -123,3 +123,14 @@ describe('createServerConfig — MAX_BODY_BYTES', () => {
     )
   })
 })
+
+describe('createServerConfig — STATIC_DIR (#15 WI-4)', () => {
+  it('passes through an explicit STATIC_DIR (single-origin app serving)', () => {
+    expect(createServerConfig({ SYNC_TOKEN: 'tok', STATIC_DIR: '/app/web' }).staticDir).toBe('/app/web')
+  })
+
+  it('leaves staticDir undefined when unset/blank (API-only, backward compat)', () => {
+    expect(createServerConfig({ SYNC_TOKEN: 'tok' }).staticDir).toBeUndefined()
+    expect(createServerConfig({ SYNC_TOKEN: 'tok', STATIC_DIR: '   ' }).staticDir).toBeUndefined()
+  })
+})

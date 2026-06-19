@@ -61,6 +61,7 @@ docker run -d --name lucid-sync \
 | `DB_PATH` | no | `sync.db` | SQLite file. Point it **inside the mounted volume** (e.g. `/data/sync.db`) so data survives restarts. Never `:memory:` (test-only — loses everything on restart). |
 | `PORT` | no | `8787` | Listen port, must be `1..65535`. |
 | `MAX_BODY_BYTES` | no | `5242880` (5 MiB) | Cap on the `POST /sync/changes` body. A normal push is a few KB; this is a resource-exhaustion guard. An over-cap body → `413`. |
+| `STATIC_DIR` | no | — | Path to the **built web app** (`dist/`) to serve at the same origin (#15 cross-device config sync). Set it to serve the app + the API from one origin (no CORS, no URL to type). Unset = API-only (the pre-#15 behavior). |
 
 ### The data volume (trust boundary)
 
@@ -120,3 +121,31 @@ Node 22.x it was experimental behind `--experimental-sqlite`. The image base is 
 rejected with HTTP `413` before the store sees it (nothing is persisted). The client maps
 `4xx` to a non-retryable `badRequest` — correct here, because a body that large is a client
 bug, not a transient fault. A normal push is a few KB, so the cap never bites real use.
+
+## Cross-device config sync (`/config`, #15)
+
+A second, independent endpoint lets the user reach the app on any device and have their
+provider config **and API key** already present — no key re-entry, no token to type. It is
+**end-to-end encrypted**: the browser encrypts the config under a passphrase (PBKDF2 →
+AES-256-GCM) and the server stores only **ciphertext**.
+
+- `GET /config` → `{ blob, rev }` (or `{ blob: null, rev: 0 }` when none stored). `PUT /config`
+  `{ blob, baseRev }` → `200 { status:'applied', rev }`, or `409 { status:'conflict', rev, blob }`
+  when `baseRev` is stale (optimistic-concurrency, so a stale device can't clobber the only copy
+  of the key). Body capped at **64 KiB** → `413`.
+- **No bearer token.** Unlike `/sync` (which holds plaintext workspace data and stays token-
+  protected), `/config` is reachable unauthenticated: the blob is useless without the
+  passphrase, and the user explicitly wants no token to type. The Tailscale network is the
+  perimeter; a malicious tailnet peer is out of scope for this single-user model.
+- **Single-origin serving.** Set `STATIC_DIR` to the built web app so the server serves the app
+  + `/config` + `/sync` from one origin (no CORS, no URL to type). In dev, `pnpm dev` proxies
+  `/config` + `/sync` to the server (see `vite.config.ts`).
+
+### HTTPS is MANDATORY for `/config` (not just advisory)
+
+The browser's Web Crypto API (`crypto.subtle`) **only exists in a secure context** — it is
+`undefined` on a plain-`http://` non-localhost origin. So E2E config sync **requires the app to
+be served over HTTPS**; there is no plain-HTTP fallback. Use the TLS options above — the
+simplest is **`tailscale serve`** (one-time, persists across reboots), which gives a cert'd
+`https://<machine>.<tailnet>.ts.net` URL with no per-device token. (Plain-HTTP local use still
+works for everything *except* `/config` E2E.)

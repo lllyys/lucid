@@ -4,6 +4,9 @@
 // the JSON shapes the lucid web client contract (src/lib/sync/backend.ts) demands, and the
 // status→error mapping (401/403 auth, other-4xx badRequest, 5xx unreachable) the client relies on.
 
+import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app.js'
 import { createSyncStore } from './db.js'
@@ -113,6 +116,48 @@ describe('/config (E2E-encrypted config blob — no auth, optimistic-concurrency
     const res = await put({ blob: { ...blob, ciphertext: 'x'.repeat(70_000) }, baseRev: 0 })
     expect(res.status).toBe(413)
     await expect((await get()).json()).resolves.toEqual({ blob: null, rev: 0 })
+  })
+})
+
+describe('static app serving (#15 WI-4 — single-origin)', () => {
+  let dir: string
+  let appWithStatic: ReturnType<typeof createApp>
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'lucid-static-'))
+    writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Lucid</title>')
+    mkdirSync(join(dir, 'assets'))
+    writeFileSync(join(dir, 'assets', 'app.js'), 'console.log("hi")')
+    appWithStatic = createApp({ store, token: TOKEN, staticDir: dir })
+  })
+
+  it('serves index.html at / without a token', async () => {
+    const res = await appWithStatic.request('/')
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('<title>Lucid</title>')
+  })
+
+  it('serves a static asset', async () => {
+    const res = await appWithStatic.request('/assets/app.js')
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('console.log')
+  })
+
+  it('does NOT shadow the /config API route', async () => {
+    const res = await appWithStatic.request('/config')
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ blob: null, rev: 0 })
+  })
+
+  it('does NOT shadow /sync (still 401 without a token)', async () => {
+    expect((await appWithStatic.request('/sync/changes?since=0')).status).toBe(401)
+  })
+
+  it('returns 404 for an unknown non-API path (single screen → no SPA history fallback)', async () => {
+    expect((await appWithStatic.request('/no/such/file.txt')).status).toBe(404)
+  })
+
+  it('serves NO static content when staticDir is omitted (API-only, backward compat)', async () => {
+    expect((await app.request('/')).status).toBe(404)
   })
 })
 

@@ -27,6 +27,8 @@ export interface ServerConfig {
   dbPath: string
   port: number
   maxBodyBytes: number
+  /** Optional path to the built web-app dist to serve at the same origin (#15 WI-4). Unset = API-only. */
+  staticDir?: string
 }
 
 /** A trimmed env value, or undefined when the var is absent / blank — so blank falls back to a default. */
@@ -66,6 +68,7 @@ function parseBoundedInt(
  *  - DB_PATH: optional, defaults to a durable file (never ':memory:').
  *  - PORT: optional, must parse to 1–65535 if set.
  *  - MAX_BODY_BYTES: optional, must be a positive integer if set.
+ *  - STATIC_DIR: optional path to the built web app to serve at the same origin (#15); unset = API-only.
  */
 export function createServerConfig(env: Record<string, string | undefined>): ServerConfig {
   const token = env.SYNC_TOKEN
@@ -83,9 +86,11 @@ export function createServerConfig(env: Record<string, string | undefined>): Ser
     DEFAULT_MAX_BODY_BYTES,
   )
 
+  const staticDir = readTrimmed(env.STATIC_DIR)
+
   // Preserve the token VERBATIM — the trim above is only a presence check; the user may intentionally
   // include surrounding characters, and the auth comparison must use exactly what they configured.
-  return { token, dbPath, port, maxBodyBytes }
+  return { token, dbPath, port, maxBodyBytes, staticDir }
 }
 
 /**
@@ -95,10 +100,16 @@ export function createServerConfig(env: Record<string, string | undefined>): Ser
 function main(): void {
   const config = createServerConfig(process.env)
   const store = createSyncStore(config.dbPath)
-  const app = createApp({ store, token: config.token, maxBodyBytes: config.maxBodyBytes })
+  const app = createApp({
+    store,
+    token: config.token,
+    maxBodyBytes: config.maxBodyBytes,
+    staticDir: config.staticDir,
+  })
   serve({ fetch: app.fetch, port: config.port })
   // One startup line — the token is deliberately omitted (never log a secret, rule 65 §5).
-  console.log(`lucid sync server listening on port ${config.port} (db: ${config.dbPath})`)
+  const serving = config.staticDir ? `, serving app from: ${config.staticDir}` : ''
+  console.log(`lucid sync server listening on port ${config.port} (db: ${config.dbPath}${serving})`)
 }
 
 // Run only when executed as the entry point, not when imported by a test. This is the ESM-safe
