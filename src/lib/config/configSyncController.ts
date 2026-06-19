@@ -123,7 +123,9 @@ export interface ConfigSyncController {
 
 /** The default providerStore-backed adapter. Hydrate uses the public setters so the mirrors stay in sync;
  *  an unknown vendor is left as the store's current (mergeProvider's guard) — keys ride only via setApiKey.
- *  Exported for unit tests (the production hydration path against the real store). */
+ *  The N custom providers (#10) are read with their keys (they ride the ciphertext) and hydrated via
+ *  setState so a returning device gets the same DeepSeek-style custom + its key. Exported for unit tests
+ *  (the production hydration path against the real store). */
 export function defaultProviderConfigAdapter(): ProviderConfigAdapter {
   const VENDORS: readonly Vendor[] = ['anthropic', 'openai', 'gemini', 'ollama', 'custom']
   const isVendor = (v: string): v is Vendor => (VENDORS as readonly string[]).includes(v)
@@ -136,7 +138,14 @@ export function defaultProviderConfigAdapter(): ProviderConfigAdapter {
         models[v] = s.models[v]
         apiKeys[v] = s.apiKeys[v]
       }
-      return { vendor: s.vendor, models, apiKeys, baseUrl: s.baseUrl }
+      return {
+        vendor: s.vendor,
+        models,
+        apiKeys,
+        baseUrl: s.baseUrl,
+        customProviders: s.customProviders,
+        activeCustomId: s.activeCustomId,
+      }
     },
     apply: (config) => {
       const store = useProviderStore.getState()
@@ -147,7 +156,16 @@ export function defaultProviderConfigAdapter(): ProviderConfigAdapter {
         if (isVendor(v)) store.setApiKey(k, v)
       }
       store.setBaseUrl(config.baseUrl)
-      if (isVendor(config.vendor)) store.setVendor(config.vendor)
+      // Hydrate the custom-provider map directly (the codec already sanitized them). The map carries each
+      // custom's key — keys arrive only via this decrypted path, never localStorage (§5).
+      useProviderStore.setState({ customProviders: config.customProviders, activeCustomId: config.activeCustomId })
+      // Select the active target. An active custom uses the {type,id} form so setVendor keeps activeCustomId
+      // (the string-'custom' path would reset it to null). A dangling id falls back to leaving the vendor.
+      if (config.vendor === 'custom' && config.activeCustomId !== null) {
+        store.setVendor({ type: 'custom', id: config.activeCustomId })
+      } else if (isVendor(config.vendor)) {
+        store.setVendor(config.vendor)
+      }
     },
     subscribe: (onChange) => useProviderStore.subscribe(onChange),
   }

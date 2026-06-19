@@ -16,12 +16,16 @@ const CONFIG_A: SyncableConfig = {
   models: { custom: 'gpt-4o-mini' },
   baseUrl: 'https://api.example.com/v1',
   apiKeys: { custom: 'sk-LOCAL-DONOTLEAK' },
+  customProviders: {},
+  activeCustomId: null,
 }
 const CONFIG_B: SyncableConfig = {
   vendor: 'anthropic',
   models: { anthropic: 'claude-fable-5' },
   baseUrl: '',
   apiKeys: { anthropic: 'sk-SERVER-SECRET' },
+  customProviders: {},
+  activeCustomId: null,
 }
 
 const ok = <T>(value: T): ConfigSyncResult<T> => ({ ok: true, value })
@@ -622,6 +626,8 @@ describe('configSyncController — default providerStore adapter', () => {
       models: { anthropic: 'claude-fable-5' },
       apiKeys: { anthropic: 'sk-ant-123' },
       baseUrl: '',
+      customProviders: {},
+      activeCustomId: null,
     })
     const s = useProviderStore.getState()
     expect(s.vendor).toBe('anthropic')
@@ -637,12 +643,59 @@ describe('configSyncController — default providerStore adapter', () => {
       models: { 'bad-key': 'x', openai: 'gpt-4o' },
       apiKeys: { 'bad-key': 'y', openai: 'sk-ok' },
       baseUrl: 'https://x',
+      customProviders: {},
+      activeCustomId: null,
     })
     const s = useProviderStore.getState()
     expect(s.vendor).toBe(before) // unknown vendor ignored
     expect(s.models.openai).toBe('gpt-4o') // known vendor applied
     expect(s.apiKeys.openai).toBe('sk-ok')
     expect(s.baseUrl).toBe('https://x')
+  })
+
+  it('read() snapshots the custom providers (incl. their keys) + activeCustomId from the real store', () => {
+    const store = useProviderStore.getState()
+    const id = store.addCustomProvider({
+      label: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat',
+      key: 'sk-DEEPSEEK-SYNC',
+    })
+    useProviderStore.getState().setVendor({ type: 'custom', id })
+    const config = defaultProviderConfigAdapter().read()
+    expect(config.activeCustomId).toBe(id)
+    expect(config.customProviders[id]).toMatchObject({
+      id,
+      label: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat',
+      key: 'sk-DEEPSEEK-SYNC', // the key rides into the (to-be-encrypted) config
+    })
+  })
+
+  it('apply() hydrates the custom providers (with keys) + activeCustomId into the real store', () => {
+    const a = defaultProviderConfigAdapter()
+    a.apply({
+      vendor: 'custom',
+      models: {},
+      apiKeys: {},
+      baseUrl: '',
+      customProviders: {
+        c1: {
+          id: 'c1',
+          label: 'DeepSeek',
+          baseUrl: 'https://api.deepseek.com/v1',
+          model: 'deepseek-chat',
+          key: 'sk-FROM-SERVER',
+          testResult: { status: 'idle' },
+        },
+      },
+      activeCustomId: 'c1',
+    })
+    const s = useProviderStore.getState()
+    expect(s.customProviders.c1).toMatchObject({ id: 'c1', label: 'DeepSeek', key: 'sk-FROM-SERVER' })
+    expect(s.activeCustomId).toBe('c1')
+    expect(s.vendor).toBe('custom')
   })
 
   it('subscribe() fires the callback on a providerStore change and unsubscribes', () => {
@@ -655,6 +708,17 @@ describe('configSyncController — default providerStore adapter', () => {
     unsub()
     useProviderStore.getState().setBaseUrl('https://again')
     expect(cb).not.toHaveBeenCalled()
+  })
+
+  it('subscribe() fires on a custom-provider edit (so adding/editing a custom re-encrypts + saves)', () => {
+    const a = defaultProviderConfigAdapter()
+    const cb = vi.fn()
+    a.subscribe(cb)
+    const id = useProviderStore.getState().addCustomProvider({ label: 'DS', baseUrl: 'u', model: 'm', key: 'sk-x' })
+    expect(cb).toHaveBeenCalled()
+    cb.mockClear()
+    useProviderStore.getState().updateCustomProvider(id, { key: 'sk-edited' })
+    expect(cb).toHaveBeenCalled()
   })
 })
 

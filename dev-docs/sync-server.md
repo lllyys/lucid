@@ -160,8 +160,10 @@ The browser side of `/config` is four headless modules, each tested in isolation
   (`InsecureContextError`), byte-accurate base64. The passphrase + derived key are
   memory-only (never persisted, never logged).
 - `providerConfigCodec.ts` — serialize/parse the syncable config `{vendor, models, baseUrl,
-  apiKeys}` to/from versioned plaintext (the one place keys are serialized — they ride only
-  inside the ciphertext).
+  apiKeys, customProviders, activeCustomId}` to/from versioned plaintext (envelope `v2`; the
+  one place keys are serialized — both the per-vendor keys AND each custom provider's key ride
+  only inside the ciphertext). A `v1` blob (no custom providers) migrates forward to an empty
+  custom map on parse (backward-compat).
 - `configSync.ts` (WI-5) — `loadAndDecrypt` / `encryptAndSave` over `/config`, plus the
   per-device `syncedRev` (`lucid.config-rev`). Maps failures to error kinds
   (`insecureContext` · `wrongPassphraseOrCorrupt` · `unreachable` · `requestFailed`).
