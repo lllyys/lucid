@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --board:#ECE8E1; --ink:#1E1C19; --on-accent:#FFFFFF;
+      --border:#E9E6E0; --border-strong:#E2DFD8; --border-dashed:#CFCAC1; --fill-muted:#F0EDE7; --dot-idle:#C9C4BB;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7; --faint:#C4BFB5;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-tint:#F3F2FE; --accent-border:#DDDCFB; --accent-dash:#B9B4F0; --accent-mid:#8A83E0;
+      --hover:#F5F3EF;
+      --ok:#2F7D5B; --ok-strong:#286B4E; --ok-soft:#E8F3EC; --ok-conn:#9FCDB4;
+      --warn:#B8801F; --warn-soft:#FBF1DC; --warn-border:#EDD6A2;
+      --danger:#B23A48; --danger-soft:#FBEAEC; --danger-border:#F0CDD2;
+      --shadow-c1:rgba(30,28,25,0.13); --shadow-c2:rgba(30,28,25,0.06); --shadow-c3:rgba(30,28,25,0.22);
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --board:#100F0C; --ink:#F2EFE9; --on-accent:#FFFFFF;
+      --border:#322E27; --border-strong:#3C3830; --border-dashed:#454037; --fill-muted:#2A2720; --dot-idle:#4A453C;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t3:#A6A199; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --t7:#726D65; --faint:#5E5A51;
+      --accent:#6E66DE; --accent-ink:#AEA7F7; --accent-soft:#2A2649; --accent-tint:#221F40; --accent-border:#3C3768; --accent-dash:#564F94; --accent-mid:#847DCB;
+      --hover:#2C2922;
+      --ok:#5FBE90; --ok-strong:#246B49; --ok-soft:#16291E; --ok-conn:#305C46;
+      --warn:#D7A648; --warn-soft:#2A2113; --warn-border:#4A3A1C;
+      --danger:#E27182; --danger-soft:#2E1A1D; --danger-border:#4A2A2F;
+      --shadow-c1:rgba(0,0,0,0.55); --shadow-c2:rgba(0,0,0,0.4); --shadow-c3:rgba(0,0,0,0.65);
+    }
+    html,body{background:var(--board);}
+    *{box-sizing:border-box;}
+    body{margin:0;}
+    @keyframes lucid-caret{0%,100%{opacity:1;}50%{opacity:0;}}
+  </style>
+</helmet>
+
+<div ref="{{ boardRef }}" data-theme="{{ themeAttr }}" style="min-height:100vh;background:var(--board);color:var(--ink);font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 48px 80px;">
+
+  <!-- ===== BOARD HEADER ===== -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;max-width:1340px;margin:0 auto 8px;flex-wrap:wrap;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="position:relative;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span></span>
+        <span style="font-size:19px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--accent-ink);text-transform:uppercase;background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 7px;border-radius:6px;">Feature&nbsp;#13 · WI-13</span>
+      </div>
+      <h1 style="margin:0;font-size:29px;font-weight:600;letter-spacing:-0.022em;line-height:1.1;max-width:26ch;">Auto-expanding editor panes — design bundle</h1>
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:var(--t2);max-width:66ch;">Editors grow to fit their content instead of scrolling internally. The committed bundle depicts <strong style="font-weight:600;color:var(--t1);">fixed flex-share + inner scroll</strong>; this changes the sizing model — editors size to content, the <strong style="font-weight:600;color:var(--t1);">panel column</strong> reflows and scrolls, and only a max-height cap restores an inner scroll for huge pastes.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">
+      <span>states: min-height · growing · cap-reached(scrolls) · column-reflow · CJK / RTL</span>
+      <span>refs #97 · min 130px · cap ~88vh · routes the design loop like #29</span>
+    </div>
+  </div>
+
+  <div style="max-width:1340px;margin:0 auto;display:flex;flex-direction:column;gap:8px;">
+
+    <!-- ============================ SECTION A ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:30px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">A</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">The sizing change</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">before: fixed height, content scrolls inside · after: card grows, no inner scroll</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <!-- BEFORE -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">before · committed (inner scroll)</div>
+        <div style="width:430px;max-width:100%;height:212px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);flex:0 0 auto;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">fixed flex-share</span></div>
+          <div style="flex:1;position:relative;min-height:0;overflow:hidden;">
+            <div style="position:absolute;inset:0;padding:12px 16px;font-family:Newsreader,serif;font-size:16px;line-height:1.7;color:var(--ink);overflow:hidden;">The rendering pipeline's latency must be optimised before the next milestone. We measured frame pacing under load and found the deferred pass dominates the budget, so the obvious lever is to fold the lighting resolve into the gbuffer fill and skip the extra round-trip entirely…</div>
+            <!-- scrollbar gutter -->
+            <div style="position:absolute;top:8px;right:5px;bottom:8px;width:6px;border-radius:6px;background:var(--fill-muted);"><div style="position:absolute;top:0;left:0;right:0;height:44%;border-radius:6px;background:var(--border-strong);"></div></div>
+            <!-- clipped fade -->
+            <div style="position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(to top,var(--surface),transparent);"></div>
+          </div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:44ch;line-height:1.6;">tall text is clipped to the box · the reader scrolls a small window — the trigger for this request</div>
+      </div>
+
+      <!-- AFTER -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">after · auto-expanded (no inner scroll)</div>
+        <div style="width:430px;max-width:100%;background:var(--surface);border:1px solid var(--accent-border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);flex:0 0 auto;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:2px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:0.05em;">fits content</span></div>
+          <div style="padding:12px 16px 16px;font-family:Newsreader,serif;font-size:16px;line-height:1.7;color:var(--ink);">The rendering pipeline's latency must be optimised before the next milestone. We measured frame pacing under load and found the deferred pass dominates the budget, so the obvious lever is to fold the lighting resolve into the gbuffer fill and skip the extra round-trip entirely.<span style="display:inline-block;width:1px;height:16px;background:var(--accent);vertical-align:-2px;margin-left:1px;animation:lucid-caret 1s step-end infinite;"></span></div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:44ch;line-height:1.6;">card height = content height · the whole draft is visible at once · column scrolls, not the box</div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION B ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">B</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Growth ladder — Translate Source</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">resting min-height → grows line by line · same component at three content lengths</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+      <!-- empty / min -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">empty · min-height 130px</div>
+        <div style="width:330px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="min-height:84px;padding:12px 16px;font-family:Newsreader,serif;font-size:18px;line-height:1.75;color:var(--t7);">Type or paste text…<span style="display:inline-block;width:1px;height:18px;background:var(--accent);vertical-align:-3px;margin-left:1px;animation:lucid-caret 1s step-end infinite;"></span></div>
+        </div>
+      </div>
+      <!-- growing -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">growing · 4 lines</div>
+        <div style="width:330px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="padding:12px 16px;font-family:Newsreader,serif;font-size:18px;line-height:1.75;color:var(--ink);">渲染管线的延迟必须在下一个里程碑之前优化，我们在负载下测量了帧的节奏。<span style="display:inline-block;width:1px;height:18px;background:var(--accent);vertical-align:-3px;margin-left:1px;animation:lucid-caret 1s step-end infinite;"></span></div>
+        </div>
+      </div>
+      <!-- larger -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">grown · 9 lines · still no scroll</div>
+        <div style="width:330px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="padding:12px 16px;font-family:Newsreader,serif;font-size:18px;line-height:1.75;color:var(--ink);">渲染管线的延迟必须在下一个里程碑之前优化。我们在负载下测量了帧的节奏，发现延迟通道主导了预算，因此显而易见的杠杆是把光照解析折叠进 gbuffer 填充，完全跳过额外的往返。<span style="display:inline-block;width:1px;height:18px;background:var(--accent);vertical-align:-3px;margin-left:1px;animation:lucid-caret 1s step-end infinite;"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION C ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">C</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Max-height cap — inner scroll returns</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">a huge paste can't push the panel offscreen · past the cap the editor scrolls again</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">cap reached · scrolls beyond</div>
+        <div style="width:430px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);flex:0 0 auto;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:500;color:var(--t5);background:var(--fill-muted);padding:2px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:0.05em;">max height · scrolling</span></div>
+          <div style="position:relative;height:320px;">
+            <!-- top fade indicating scrolled content above -->
+            <div style="position:absolute;left:0;right:0;top:0;height:26px;background:linear-gradient(to bottom,var(--surface),transparent);z-index:2;pointer-events:none;"></div>
+            <div style="position:absolute;inset:0;padding:12px 16px;font-family:Newsreader,serif;font-size:16px;line-height:1.7;color:var(--ink);overflow:hidden;">…dominates the frame budget. We profiled the deferred pass across three GPUs and the pattern held: the lighting resolve and the gbuffer fill each pay a full bandwidth round-trip. Folding them removes one. The risk is the transparency pass, which currently reads the resolved buffer — so we gate the fold behind a capability check and fall back on older hardware. Early numbers show a 19% drop in p95 frame time on the mid-tier card, larger on the laptop SKU where memory bandwidth is the binding constraint…</div>
+            <div style="position:absolute;top:8px;right:5px;bottom:8px;width:6px;border-radius:6px;background:var(--fill-muted);"><div style="position:absolute;top:30%;left:0;right:0;height:40%;border-radius:6px;background:var(--border-strong);"></div></div>
+          </div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:46ch;line-height:1.6;">cap ≈ 88vh · only here does the inner scrollbar reappear · the top fade signals content above</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;width:300px;max-width:100%;gap:9px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Growth is bounded so one editor can never eat the whole viewport. Below the cap the card hugs content; at the cap it pins and scrolls internally — the only place the old model survives.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);">
+          <span style="font-size:13px;color:var(--ok);flex:0 0 auto;margin-top:1px;">✓</span>
+          <span style="font-size:11.5px;line-height:1.6;color:var(--t2);">The textarea and its visual card share one measured height, so the caret never hides behind a fold while typing.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION D ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">D</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Polish column reflow</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">Original + Draft grow independently · Keywords stays fixed · the column scrolls, cards don't</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <!-- resting column -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">resting · both at min</div>
+        <div style="width:380px;max-width:100%;background:var(--canvas);border:1px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:13px;">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Original</span><span style="font-size:11px;color:var(--t6);">中文</span></div><div style="min-height:62px;padding:11px 14px;font-family:Newsreader,serif;font-size:16px;line-height:1.7;color:var(--ink);">渲染管线的延迟。</div></div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span><span style="font-size:11px;color:var(--t6);">EN</span></div><div style="min-height:62px;padding:11px 14px;font-family:Newsreader,serif;font-size:16px;line-height:1.7;color:var(--ink);">Rendering pipeline latency.</div></div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;"><div style="display:flex;align-items:center;gap:9px;padding:10px 14px;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Domain keywords</span></div><div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 13px;"><span style="background:var(--accent-soft);color:var(--accent-ink);border-radius:8px;padding:4px 9px;font-size:12px;font-weight:500;">rendering</span><span style="background:var(--accent-soft);color:var(--accent-ink);border-radius:8px;padding:4px 9px;font-size:12px;font-weight:500;">pipeline</span></div></div>
+        </div>
+      </div>
+
+      <!-- one grown -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">draft grew · column scrolls, keywords pinned</div>
+        <div style="width:380px;max-width:100%;height:420px;background:var(--canvas);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;position:relative;">
+          <div style="flex:1;overflow:hidden;padding:14px;display:flex;flex-direction:column;gap:13px;position:relative;">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;flex:0 0 auto;"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Original</span><span style="font-size:11px;color:var(--t6);">中文</span></div><div style="padding:11px 14px;font-family:Newsreader,serif;font-size:16px;line-height:1.7;color:var(--ink);">渲染管线的延迟必须在下一个里程碑之前优化。</div></div>
+            <div style="background:var(--surface);border:1px solid var(--accent-border);border-radius:13px;overflow:hidden;flex:0 0 auto;"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span><span style="display:inline-flex;align-items:center;gap:4px;font-family:'Geist Mono',monospace;font-size:8.5px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:2px 5px;border-radius:5px;text-transform:uppercase;">grew</span></div><div style="padding:11px 14px;font-family:Newsreader,serif;font-size:16px;line-height:1.7;color:var(--ink);">The rendering pipeline's latency must be optimised before the next milestone. We measured frame pacing under load and found the deferred pass dominates the budget.</div></div>
+          </div>
+          <!-- scroll fade -->
+          <div style="position:absolute;left:14px;right:14px;bottom:0;height:38px;background:linear-gradient(to top,var(--canvas),transparent);pointer-events:none;"></div>
+          <div style="position:absolute;top:10px;right:5px;height:120px;width:6px;border-radius:6px;background:transparent;"><div style="position:absolute;top:0;left:0;right:0;height:60%;border-radius:6px;background:var(--border-strong);"></div></div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:46ch;line-height:1.6;">sibling cards keep their content height — they don't shrink · the column owns the scroll, the Keywords card stays reachable at the bottom</div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION E ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">E</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">CJK / RTL &amp; mixed script</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">measured height respects per-script line-height · RTL grows the same way, right-anchored</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+      <!-- RTL -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">RTL · العربية</div>
+        <div style="width:360px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">rtl</span></div>
+          <div dir="rtl" style="padding:12px 16px;font-family:Newsreader,serif;font-size:18px;line-height:1.95;color:var(--ink);text-align:right;">يجب تحسين زمن انتقال خط أنابيب العرض قبل المعلم التالي، فقد قِسنا إيقاع الإطارات تحت الحِمل.<span style="display:inline-block;width:1px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:1px;animation:lucid-caret 1s step-end infinite;"></span></div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:40ch;line-height:1.6;">taller line-height for Arabic · caret and growth anchor to the right edge</div>
+      </div>
+      <!-- mixed -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">mixed · עברית + latin</div>
+        <div style="width:360px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">bidi</span></div>
+          <div dir="rtl" style="padding:12px 16px;font-family:Newsreader,serif;font-size:18px;line-height:1.95;color:var(--ink);text-align:right;">צריך לייעל את ה-latency של ה-rendering pipeline לפני ה-milestone הבא.<span style="display:inline-block;width:1px;height:18px;background:var(--accent);vertical-align:-3px;margin-right:1px;animation:lucid-caret 1s step-end infinite;"></span></div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:40ch;line-height:1.6;">latin runs stay LTR inside an RTL block · height measures the wrapped result</div>
+      </div>
+      <!-- CJK tall -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">CJK · 日本語</div>
+        <div style="width:360px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">ja</span></div>
+          <div style="padding:12px 16px;font-family:Newsreader,'Hiragino Mincho ProN',serif;font-size:18px;line-height:1.9;color:var(--ink);">次のマイルストーンの前にレンダリングパイプラインの遅延を最適化する必要があります。<span style="display:inline-block;width:1px;height:18px;background:var(--accent);vertical-align:-3px;margin-left:1px;animation:lucid-caret 1s step-end infinite;"></span></div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:40ch;line-height:1.6;">wide glyphs wrap densely · the card still grows to the exact wrapped height</div>
+      </div>
+    </div>
+
+    <!-- footer -->
+    <div style="margin-top:44px;padding-top:18px;border-top:1px solid var(--border-strong);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">
+      <span>Lucid · feature #13 · WI-13 design bundle · matches workspace tokens (light + dark)</span>
+      <span>grow-to-content · min 130px · cap ~88vh → inner scroll · column reflows · script-aware height</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1480,&quot;height&quot;:1024},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#574FD6&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  boardRef = React.createRef();
+  applyAccent() {
+    const a = this.props.accent;
+    if (a && this.boardRef.current) this.boardRef.current.style.setProperty('--accent', a);
+  }
+  componentDidMount() { this.applyAccent(); }
+  componentDidUpdate() { this.applyAccent(); }
+  renderVals() {
+    return {
+      themeAttr: this.props.theme ?? 'light',
+      boardRef: this.boardRef,
+    };
+  }
+}
+</script>
+</body>
+</html>
