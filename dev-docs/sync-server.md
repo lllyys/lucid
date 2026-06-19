@@ -170,8 +170,19 @@ The browser side of `/config` is four headless modules, each tested in isolation
 - `configSyncController.ts` (WI-7) — the orchestration layer + the `useConfigSyncStore`
   state machine (`checking → insecure | noConfig | locked | unlocked | localOnly | error`)
   that the passphrase/unlock UI (WI-6) reads via selectors and drives via `init`,
-  `setPassphrase`, `unlock`, `retry`, `workLocalOnly`. It detects the secure context, probes
-  `/config` on startup, encrypts the live `providerStore` config on first use, adopts a newer
-  server config on unlock (server-`rev` authoritative; a `dirty` guard protects a local edit
-  made during the load window), and debounce-saves on every config change — a `409` re-pulls
-  and adopts the server copy (last-writer-wins). Only the non-secret `syncedRev` is persisted.
+  `setPassphrase`, `unlock`, `retry`, `retrySync`, `workLocalOnly`. It detects the secure
+  context, probes `/config` on startup, encrypts the live `providerStore` config on first use,
+  adopts a newer server config on unlock (server-`rev` authoritative; a `dirty` guard protects
+  a local edit made during the load window), and debounce-saves on every config change — a
+  `409` re-pulls and adopts the server copy (last-writer-wins). Only the non-secret `syncedRev`
+  is persisted.
+  - **Two error channels.** `status:'error'` + `error` is the BLOCKING channel (the unlock/setup
+    card): set only on INIT and UNLOCK / SET-PASSPHRASE failures, and `retry()` re-runs the
+    startup probe. `syncError` is the NON-BLOCKING channel (the Settings·Sync banner): set on a
+    background sync-on-change SAVE failure, where the workspace stays `unlocked` and usable;
+    `retrySync()` re-attempts the SAVE (re-encrypt + PUT at a fresh `baseRev`, never a re-probe)
+    and a later edit also re-arms it. A successful save clears `syncError`.
+  - **Serialized saves.** Saves never overlap: an edit while a save is in flight only flips
+    `dirty` (the save loop picks it up next pass, re-reading `baseRev` then) rather than starting
+    a concurrent save on a stale `baseRev`. `dirty` is cleared on a successful save only when no
+    edit arrived during that save; a late edit keeps `dirty` true so the loop pushes it next.

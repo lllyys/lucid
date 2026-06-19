@@ -95,7 +95,9 @@ export function parseConfig(plaintext: string): SyncableConfig | null {
   }
   if (!isRecord(raw) || typeof raw.v !== 'number' || raw.v < MIN_VERSION || raw.v > VERSION) return null
   if (typeof raw.vendor !== 'string') return null
-  // v1 had no custom providers — migrate forward to the empty map (a stray v1 customProviders is ignored).
+  // Custom providers exist from v2 onward. The gate is `>= VERSION` only because VERSION is currently 2 and
+  // a v1 blob has no custom map; when VERSION is bumped to 3+ this MUST become `raw.v >= 2` (or the v2
+  // custom providers carried by a v2 blob would be silently dropped). v1 still migrates forward to {}.
   const customProviders = raw.v >= VERSION ? sanitizeCustomProviders(raw.customProviders) : {}
   const activeCustomId =
     typeof raw.activeCustomId === 'string' && raw.activeCustomId in customProviders ? raw.activeCustomId : null

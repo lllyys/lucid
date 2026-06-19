@@ -88,6 +88,13 @@ function make(opts: {
   })
 }
 
+/** A promise whose resolve is exposed, so a test can hold a `save()` mid-flight and emit a second edit. */
+function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
+  let resolve: (v: T) => void = () => {}
+  const promise = new Promise<T>((res) => (resolve = res))
+  return { promise, resolve }
+}
+
 beforeEach(() => {
   useConfigSyncStore.getState().reset()
 })
@@ -192,6 +199,30 @@ describe('configSyncController — setPassphrase() first use', () => {
     adapter.current = CONFIG_B // user changed config after init
     await c.setPassphrase('pw')
     expect(sync.encryptAndSave).toHaveBeenCalledWith('pw', CONFIG_B, expect.any(Number))
+  })
+
+  it('an edit DURING the establishing save is not lost — it is pushed once unlocked', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const held = deferred<ConfigSyncResult<SaveOutcome>>()
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockImplementationOnce(() => held.promise) // the establishing save — held in flight
+        .mockResolvedValue(ok({ status: 'applied', rev: 2 })), // the follow-up push of the late edit
+      readSyncedRev: vi.fn(() => 1),
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    const setting = c.setPassphrase('pw') // establishing save begins (held)
+    await Promise.resolve()
+    adapter.emit() // user edits WHILE the establishing save is in flight → dirty
+    held.resolve(ok({ status: 'applied', rev: 1 })) // establishing save applies
+    await setting
+    await vi.advanceTimersByTimeAsync(800)
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(2) // the late edit got its own save
+    expect(useConfigSyncStore.getState().dirty).toBe(false)
   })
 
   it('PUT 409 on first save → re-pull + adopt server config + unlocked', async () => {
@@ -341,6 +372,28 @@ describe('configSyncController — dirty guard (security invariant 5)', () => {
     expect(adapter.apply).not.toHaveBeenCalled()
     expect(useConfigSyncStore.getState().status).toBe('unlocked')
   })
+
+  it('the edit that blocked the adopt is then PUSHED (not stranded) once unlocked', async () => {
+    const adapter = fakeAdapter(CONFIG_A)
+    let resolvePull: (v: ConfigSyncResult<{ config: SyncableConfig; rev: number } | null>) => void = () => {}
+    const sync = stubSync({
+      loadAndDecrypt: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ config: CONFIG_B, rev: 5 })) // init → locked
+        .mockImplementationOnce(() => new Promise((res) => (resolvePull = res))),
+      encryptAndSave: vi.fn().mockResolvedValue(ok({ status: 'applied', rev: 6 })),
+      readSyncedRev: vi.fn(() => 0),
+    })
+    const c = make({ sync, adapter, debounceMs: 800 })
+    await c.init()
+    const unlocking = c.unlock('pw')
+    adapter.emit() // local edit during the pull window → dirty, adopt blocked
+    resolvePull(ok({ config: CONFIG_B, rev: 5 }))
+    await unlocking
+    await Promise.resolve() // let the kicked save loop run
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(1) // the blocked-but-kept edit was pushed
+    expect(useConfigSyncStore.getState().dirty).toBe(false)
+  })
 })
 
 describe('configSyncController — sync-on-change (after unlock)', () => {
@@ -430,6 +483,284 @@ describe('configSyncController — sync-on-change (after unlock)', () => {
     adapter.emit()
     await vi.advanceTimersByTimeAsync(2000)
     expect(sync.encryptAndSave).not.toHaveBeenCalled() // the null-passphrase guard holds
+  })
+
+  it('defensive: if status leaves unlocked between debounce-arm and fire, the save is skipped (no PUT)', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi.fn().mockResolvedValue(ok({ status: 'applied', rev: 1 })),
+    })
+    const c = make({ sync, adapter, debounceMs: 800 })
+    await c.init()
+    await c.setPassphrase('pw')
+    sync.encryptAndSave.mockClear()
+    adapter.emit() // arms the debounce while unlocked
+    await vi.advanceTimersByTimeAsync(100) // timer pending, not fired
+    useConfigSyncStore.getState().set({ status: 'localOnly' }) // status leaves unlocked before fire
+    await vi.advanceTimersByTimeAsync(800) // the timer fires → requestSave hits the unlocked guard
+    expect(sync.encryptAndSave).not.toHaveBeenCalled()
+  })
+})
+
+describe('configSyncController — H1: serialized (non-overlapping) saves', () => {
+  it('a SECOND edit while a save is in flight does NOT start a concurrent save with a stale baseRev', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    // First save (setPassphrase) applies at rev 1. The change-driven save is held mid-flight via a deferred
+    // so a SECOND edit can arrive while encryptAndSave is still pending.
+    const held = deferred<ConfigSyncResult<SaveOutcome>>()
+    let revSeq = 1
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 })) // setPassphrase
+        .mockImplementationOnce(() => held.promise) // first change-driven save — held open
+        .mockImplementation(() => Promise.resolve(ok({ status: 'applied', rev: ++revSeq }))),
+      // The synced rev advances as saves apply, so a stale read would be visible.
+      readSyncedRev: vi.fn(() => revSeq),
+    })
+    const c = make({ sync, adapter, debounceMs: 800 })
+    await c.init()
+    await c.setPassphrase('pw')
+    sync.encryptAndSave.mockClear()
+
+    // Edit #1 → debounce fires → save begins (held by `held`), reading baseRev = 1.
+    adapter.current = CONFIG_B
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800)
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(1)
+    expect(sync.encryptAndSave).toHaveBeenLastCalledWith('pw', CONFIG_B, 1)
+
+    // Edit #2 arrives WHILE save #1 is still pending. It must NOT spawn a concurrent save.
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800)
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(1) // still only the in-flight one — no overlap
+
+    // Save #1 resolves at rev 1; revSeq becomes 1 → the coalesced follow-up runs with the FRESH baseRev (1).
+    held.resolve(ok({ status: 'applied', rev: 1 }))
+    await vi.advanceTimersByTimeAsync(800)
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(2) // the coalesced re-save, not a concurrent one
+    // The follow-up save read baseRev AFTER the first settled (not the stale value).
+    expect(sync.encryptAndSave).toHaveBeenLastCalledWith('pw', CONFIG_B, 1)
+    expect(useConfigSyncStore.getState().dirty).toBe(false) // everything pushed
+  })
+
+  it('the second edit is neither lost nor pushed concurrently; dirty ends false once all is saved', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const held = deferred<ConfigSyncResult<SaveOutcome>>()
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 })) // setPassphrase
+        .mockImplementationOnce(() => held.promise) // change save, held
+        .mockResolvedValue(ok({ status: 'applied', rev: 2 })),
+      readSyncedRev: vi.fn(() => 1),
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.setPassphrase('pw')
+    sync.encryptAndSave.mockClear()
+
+    adapter.emit() // edit #1
+    await vi.advanceTimersByTimeAsync(800) // save #1 begins, held
+    adapter.emit() // edit #2 during the in-flight save
+    expect(useConfigSyncStore.getState().dirty).toBe(true) // still dirty — edit #2 not yet pushed
+    held.resolve(ok({ status: 'applied', rev: 1 })) // save #1 done
+    await vi.advanceTimersByTimeAsync(800) // coalesced save #2 runs
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(2)
+    expect(useConfigSyncStore.getState().dirty).toBe(false)
+  })
+})
+
+describe('configSyncController — H2: dirty cleared only when no edit arrived during the save', () => {
+  it('an edit that arrives DURING the save keeps dirty true and triggers a follow-up save', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const held = deferred<ConfigSyncResult<SaveOutcome>>()
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 })) // setPassphrase
+        .mockImplementationOnce(() => held.promise) // change save, held
+        .mockResolvedValue(ok({ status: 'applied', rev: 2 })),
+      readSyncedRev: vi.fn(() => 1),
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.setPassphrase('pw')
+    sync.encryptAndSave.mockClear()
+
+    adapter.emit() // edit captured into save #1's snapshot
+    await vi.advanceTimersByTimeAsync(800) // save #1 begins (held)
+    adapter.emit() // edit NOT in save #1's PUT body
+    held.resolve(ok({ status: 'applied', rev: 1 })) // save #1 succeeds
+    // dirty must NOT be masked: an edit arrived during the await → keep dirty + run a follow-up save.
+    await Promise.resolve()
+    expect(useConfigSyncStore.getState().dirty).toBe(true)
+    await vi.advanceTimersByTimeAsync(800)
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(2) // the follow-up save ran
+    expect(useConfigSyncStore.getState().dirty).toBe(false) // now everything is pushed
+  })
+
+  it('no edit during the save → dirty is cleared on success (the happy path is unchanged)', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 }))
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 2 })),
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.setPassphrase('pw')
+    sync.encryptAndSave.mockClear()
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800)
+    expect(useConfigSyncStore.getState().dirty).toBe(false)
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('configSyncController — M3: save-time errors are non-blocking (Section-E banner)', () => {
+  it('a save failure keeps status unlocked, sets syncError, and does NOT block the workspace', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 })) // setPassphrase
+        .mockResolvedValueOnce(err('unreachable')), // change-driven save fails
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.setPassphrase('pw')
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800)
+    const s = useConfigSyncStore.getState()
+    expect(s.status).toBe('unlocked') // NOT thrown out of the unlocked workspace
+    expect(s.error).toBeNull() // the blocking card stays clear
+    expect(s.syncError).toBe('configUnreachable') // the non-blocking banner source is set
+  })
+
+  it('retrySync() re-attempts the SAVE (not a re-probe) and clears syncError on success', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 })) // setPassphrase
+        .mockResolvedValueOnce(err('unreachable')) // first change save fails
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 2 })), // retrySync succeeds
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.setPassphrase('pw')
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800)
+    expect(useConfigSyncStore.getState().syncError).toBe('configUnreachable')
+    sync.loadAndDecrypt.mockClear()
+    await c.retrySync()
+    expect(sync.loadAndDecrypt).not.toHaveBeenCalled() // a SAVE retry, never a re-probe
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(3)
+    expect(useConfigSyncStore.getState().status).toBe('unlocked')
+    expect(useConfigSyncStore.getState().syncError).toBeNull() // cleared on a successful save
+  })
+
+  it('a subsequent edit while syncError is set re-attempts the save and clears syncError on success', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 }))
+        .mockResolvedValueOnce(err('requestFailed')) // first change save fails
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 2 })), // next edit re-saves OK
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.setPassphrase('pw')
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800)
+    expect(useConfigSyncStore.getState().syncError).toBe('configRequestFailed')
+    adapter.current = CONFIG_B
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800)
+    expect(useConfigSyncStore.getState().syncError).toBeNull()
+    expect(useConfigSyncStore.getState().status).toBe('unlocked')
+  })
+
+  it('retrySync() while a save is in flight awaits it (coalesces) and does not start a concurrent save', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const held = deferred<ConfigSyncResult<SaveOutcome>>()
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 })) // setPassphrase
+        .mockImplementationOnce(() => held.promise), // change save — held in flight
+      readSyncedRev: vi.fn(() => 1),
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.setPassphrase('pw')
+    sync.encryptAndSave.mockClear()
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800) // save begins, held
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(1)
+    const retrying = c.retrySync() // called WHILE the save is in flight → awaits it, no concurrent save
+    held.resolve(ok({ status: 'applied', rev: 2 }))
+    await retrying
+    expect(sync.encryptAndSave).toHaveBeenCalledTimes(1) // never spawned a second concurrent save
+    expect(useConfigSyncStore.getState().dirty).toBe(false)
+  })
+
+  it('retrySync() is a no-op when not unlocked (e.g. still locked)', async () => {
+    const sync = stubSync({ loadAndDecrypt: vi.fn().mockResolvedValue(err('wrongPassphraseOrCorrupt')) })
+    const c = make({ sync })
+    await c.init() // locked
+    sync.encryptAndSave.mockClear()
+    await c.retrySync()
+    expect(sync.encryptAndSave).not.toHaveBeenCalled()
+  })
+
+  it('an init/unlock failure still uses the BLOCKING status:error channel (not syncError)', async () => {
+    const sync = stubSync({ loadAndDecrypt: vi.fn().mockResolvedValue(err('unreachable')) })
+    const c = make({ sync })
+    await c.init()
+    const s = useConfigSyncStore.getState()
+    expect(s.status).toBe('error') // blocking card
+    expect(s.error).toBe('configUnreachable')
+    expect(s.syncError).toBeNull() // the non-blocking channel is untouched by init failures
+  })
+
+  it('a save failure in an insecure context flips to the blocking insecure status (encrypt can never recover)', async () => {
+    vi.useFakeTimers()
+    const adapter = fakeAdapter(CONFIG_A)
+    const sync = stubSync({
+      loadAndDecrypt: vi.fn().mockResolvedValue(ok(null)),
+      encryptAndSave: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ status: 'applied', rev: 1 }))
+        .mockResolvedValueOnce(err('insecureContext')),
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.setPassphrase('pw')
+    adapter.emit()
+    await vi.advanceTimersByTimeAsync(800)
+    expect(useConfigSyncStore.getState().status).toBe('insecure') // a lost secure context is blocking
   })
 })
 
@@ -729,6 +1060,7 @@ describe('configSyncController — construction with no injected deps', () => {
     expect(typeof c.setPassphrase).toBe('function')
     expect(typeof c.unlock).toBe('function')
     expect(typeof c.retry).toBe('function')
+    expect(typeof c.retrySync).toBe('function')
     expect(typeof c.workLocalOnly).toBe('function')
     expect(typeof c.dispose).toBe('function')
     c.dispose() // tear down cleanly (no subscription attached yet → no throw)

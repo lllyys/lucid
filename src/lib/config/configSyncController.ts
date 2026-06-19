@@ -15,6 +15,21 @@
 // adopt-hydrate is guarded so the controller's own write never re-arms a save (no loop). A `dirty` flag
 // blocks a server adopt from clobbering a local edit made during the load window.
 //
+// TWO ERROR CHANNELS (the WI-6 design splits the blocking unlock card from the non-blocking sync banner):
+//   * `status:'error'` + `error` — the BLOCKING channel (the design's Section C unlock/setup card). Used
+//     ONLY for INIT and UNLOCK/SET-PASSPHRASE failures, where the user is not yet in an unlocked session.
+//     `retry()` re-runs the startup PROBE. `insecure` is the blocking variant for a lost secure context.
+//   * `syncError` — the NON-BLOCKING channel (the design's Section E Settings·Sync banner). Used for a
+//     background sync-on-change SAVE failure once `unlocked`: the workspace stays `unlocked` and usable.
+//     `retrySync()` re-attempts the SAVE (re-encrypt + PUT at a fresh baseRev), never a re-probe; a later
+//     edit also re-arms the save. A successful save clears `syncError`.
+//
+// SAVE SERIALIZATION (H1/H2): saves never overlap. An edit while a save is in flight does not start a
+// concurrent save (which would read a stale baseRev); it sets `dirty` + records a follow-up that runs
+// once the in-flight save settles — and re-reads `baseRev` only THEN. `dirty` is cleared on a successful
+// save ONLY if no edit arrived during that save (tracked by an edit-sequence counter); otherwise it stays
+// true and a coalesced follow-up save runs, so an edit made during the await is never masked/lost.
+//
 // The providerStore coupling is isolated in a default adapter (read/apply/subscribe) so the logic is
 // unit-testable with an injected fake; configSync, the secure-context probe, and the debounce window are
 // likewise injectable (rule 65 §8 — mock the boundary, never the logic under test).
@@ -64,17 +79,27 @@ function toErrorCode(kind: ConfigSyncErrorKind): ConfigSyncErrorCode {
 /** The reactive state the UI reads via selectors (never destructured — AGENTS.md). */
 export interface ConfigSyncStoreState {
   status: ConfigSyncStatus
+  /** BLOCKING error (the unlock/setup card — Section C). Set only on INIT / UNLOCK / SET-PASSPHRASE failure. */
   error: ConfigSyncErrorCode | null
+  /** NON-BLOCKING error (the Settings·Sync banner — Section E). Set on a background sync-on-change SAVE
+   *  failure; the workspace stays `unlocked`. Cleared on the next successful save. */
+  syncError: ConfigSyncErrorCode | null
   dirty: boolean
   /** Mirror of the last server rev this device incorporated (UI-readable; configSync persists the truth). */
   syncedRev: number
-  set: (patch: Partial<Pick<ConfigSyncStoreState, 'status' | 'error' | 'dirty' | 'syncedRev'>>) => void
+  set: (
+    patch: Partial<Pick<ConfigSyncStoreState, 'status' | 'error' | 'syncError' | 'dirty' | 'syncedRev'>>,
+  ) => void
   reset: () => void
 }
 
-const initialStoreState = (): Pick<ConfigSyncStoreState, 'status' | 'error' | 'dirty' | 'syncedRev'> => ({
+const initialStoreState = (): Pick<
+  ConfigSyncStoreState,
+  'status' | 'error' | 'syncError' | 'dirty' | 'syncedRev'
+> => ({
   status: 'checking',
   error: null,
+  syncError: null,
   dirty: false,
   syncedRev: 0,
 })
@@ -113,8 +138,12 @@ export interface ConfigSyncController {
   setPassphrase: (passphrase: string) => Promise<void>
   /** Returning device: pull + decrypt; adopt the server config IFF newer and not locally dirty. */
   unlock: (passphrase: string) => Promise<void>
-  /** Re-attempt the startup probe after a reachable failure. */
+  /** Re-attempt the startup probe after a BLOCKING (init) failure. Re-runs init() → re-probes the server. */
   retry: () => Promise<void>
+  /** Re-attempt a failed background SAVE after a NON-BLOCKING `syncError` (the Settings·Sync banner's
+   *  retry). Re-encrypts + PUTs the current config at a fresh baseRev — never a re-probe. No-op unless
+   *  `unlocked`. Clears `syncError` on success. */
+  retrySync: () => Promise<void>
   /** Opt out of sync (the design's "Work local-only"); stops sync-on-change. */
   workLocalOnly: () => void
   /** Tear down the change subscription + any pending debounce (no secrets persist regardless). */
@@ -185,7 +214,22 @@ export function createConfigSyncController(deps: ConfigSyncControllerDeps = {}):
 
   let unsubscribe: (() => void) | undefined
   let editTimer: ReturnType<typeof setTimeout> | undefined
-  let applying = false // re-entrancy guard: the adopt-hydrate must not re-arm a save (invariant 6)
+  let applying = false // re-entrancy guard: the adopt-hydrate must not re-arm a save (invariant 6).
+  // NOTE: `applying`/`saveInFlight` re-entrancy is correct only because subscribers dispatch SYNCHRONOUSLY
+  // (zustand's `subscribe` calls listeners inline on set) — an async dispatch would let our own write slip
+  // past the guard. The fake adapter in the test mirrors this synchronous dispatch.
+
+  // SAVE SERIALIZATION (H1/H2): one save at a time. `saveInFlight` is the in-flight save loop; while it is
+  // set, a fresh edit only flips `dirty` (the loop picks it up) — it never starts a concurrent save on a
+  // stale baseRev. The loop re-runs while `dirty` is still set after a save, re-reading baseRev each pass.
+  // `editSeq` increments on every user edit; a save captures it at start so it can tell whether an edit
+  // arrived DURING the await (H2 — clear dirty only if `editSeq` is unchanged; otherwise the late edit,
+  // absent from the just-sent PUT body, keeps dirty true and the loop saves it next pass).
+  let saveInFlight: Promise<void> | null = null
+  let editSeq = 0
+  // Set when a background save fails; breaks the save loop so it does not spin while the server is down.
+  // Cleared when a save next succeeds, when a fresh edit arrives, or by `retrySync` (the explicit retry).
+  let saveFailed = false
 
   /** Record a server rev as incorporated: persist via configSync + mirror into the UI store. */
   function recordSyncedRev(rev: number): void {
@@ -205,15 +249,26 @@ export function createConfigSyncController(deps: ConfigSyncControllerDeps = {}):
     store().set({ dirty: false })
   }
 
-  /** Map a configSync failure to a status + error. Insecure → `insecure`; everything else → `error`. */
+  /** Map an INIT / UNLOCK / SET-PASSPHRASE failure to the BLOCKING channel (Section C). Insecure →
+   *  `insecure`; a reachable-but-failed unlock stays on the locked surface; everything else → `error`. */
   function fail(kind: ConfigSyncErrorKind, lockedFallback = false): void {
     const code = toErrorCode(kind)
     if (kind === 'insecureContext') {
       store().set({ status: 'insecure', error: 'insecureContext' })
       return
     }
-    // A reachable-but-failed unlock keeps the user on the locked surface; an init/save failure → error.
     store().set({ status: lockedFallback ? 'locked' : 'error', error: code })
+  }
+
+  /** Map a background sync-on-change SAVE failure to the NON-BLOCKING channel (Section E). The workspace
+   *  stays `unlocked`; only `syncError` is set so the Settings·Sync banner can offer a save retry. A lost
+   *  secure context is the one exception — encryption can never recover, so it is the blocking `insecure`. */
+  function failSave(kind: ConfigSyncErrorKind): void {
+    if (kind === 'insecureContext') {
+      store().set({ status: 'insecure', error: 'insecureContext' })
+      return
+    }
+    store().set({ syncError: toErrorCode(kind) })
   }
 
   /** Watch the providerStore for edits (idempotent; attaches once). A user edit ALWAYS marks `dirty` — even
@@ -223,38 +278,80 @@ export function createConfigSyncController(deps: ConfigSyncControllerDeps = {}):
     if (unsubscribe) return
     unsubscribe = providerConfig.subscribe(() => {
       if (applying) return // our own adopt-hydrate, not a user edit
+      editSeq++ // record THIS edit so an in-flight save can tell an edit arrived during its await (H2)
+      saveFailed = false // a fresh edit re-arms the loop after a prior sync failure (M3: edit-driven retry)
       store().set({ dirty: true })
       const pass = passphrase
       if (store().status !== 'unlocked' || pass === null) return // track dirty, but don't push yet
       if (editTimer) clearTimeout(editTimer)
       editTimer = setTimeout(() => {
         editTimer = undefined
-        void save(pass)
+        requestSave() // funnels into the in-flight save loop; never starts a concurrent one (H1)
       }, debounceMs)
     })
   }
 
-  /** Encrypt + PUT the current config at `baseRev = syncedRev`; handle applied / 409-adopt / failure. */
-  async function save(pass: string): Promise<void> {
+  /** The serialized entrypoint for a background save. If a save loop is already running, do nothing — it
+   *  re-reads `dirty` after each pass and will push this edit on its next iteration (H1: no concurrent save
+   *  on a stale baseRev). Otherwise start the loop. No-op without a passphrase / outside `unlocked`. */
+  function requestSave(): void {
+    if (passphrase === null || store().status !== 'unlocked') return
+    if (saveInFlight) return
+    saveInFlight = runSaveLoop()
+  }
+
+  /** Run saves back-to-back while `dirty` is still set after each pass, so saves never overlap and every
+   *  pass reads a FRESH baseRev. Stops when a save leaves the config clean (H2: no edit arrived during the
+   *  save), a 409 adopt resets to server state, or a save fails (the failure is surfaced; the next edit /
+   *  `retrySync` re-arms the loop). Clears `saveInFlight` only when the loop ends. */
+  async function runSaveLoop(): Promise<void> {
+    try {
+      // Keep saving while there is unpushed local work AND the failed-save flag is clear (a failure breaks
+      // out so the loop does not spin retrying a downed server).
+      while (store().dirty && !saveFailed && passphrase !== null && store().status === 'unlocked') {
+        await save(passphrase)
+      }
+    } finally {
+      saveInFlight = null
+    }
+  }
+
+  /** Encrypt + PUT the current config at a FRESH `baseRev = readSyncedRev()`; handle applied / 409-adopt /
+   *  failure. Always reads baseRev + the live config at call time (never a stale snapshot). On a successful
+   *  save, `dirty` is cleared ONLY if no edit arrived during the await (H2 — `editSeq` unchanged); a late
+   *  edit keeps `dirty` true so the loop pushes it next pass. The `establishing` flag routes failures to
+   *  the BLOCKING channel (init/set-passphrase) vs the NON-BLOCKING `syncError` banner (sync-on-change). */
+  async function save(pass: string, establishing = false): Promise<void> {
     const baseRev = sync.readSyncedRev()
+    const seqAtStart = editSeq
     const res = await sync.encryptAndSave(pass, providerConfig.read(), baseRev)
     if (!res.ok) {
-      fail(res.error)
+      if (establishing) fail(res.error)
+      else {
+        saveFailed = true // break the loop; the next edit / retrySync clears this and re-arms
+        failSave(res.error)
+      }
       return
     }
+    saveFailed = false // a success clears any prior failure latch
     if (res.value.status === 'applied') {
       recordSyncedRev(res.value.rev)
-      store().set({ dirty: false, status: 'unlocked', error: null })
+      // H2: clear dirty ONLY if no edit landed DURING this save — otherwise the edit is absent from this
+      // PUT body, so keep dirty true and the loop saves it next pass.
+      const clean = editSeq === seqAtStart
+      store().set({ status: 'unlocked', error: null, syncError: null, ...(clean ? { dirty: false } : {}) })
       return
     }
     // 409 conflict: the server advanced. Adopt its authoritative config (last-writer-wins) + reset rev.
-    // This terminates — the adopt is guarded, so it does not re-arm another save.
+    // `adopt` clears dirty, so the loop terminates — and the guarded adopt does not re-arm a save.
     adopt(res.value.config, res.value.rev)
-    store().set({ status: 'unlocked', error: null })
+    store().set({ status: 'unlocked', error: null, syncError: null })
   }
 
   async function init(): Promise<void> {
-    store().set({ status: 'checking', error: null })
+    // A re-probe starts a clean slate: clear BOTH error channels (a stale non-blocking syncError from a
+    // prior unlocked session has no meaning while re-checking).
+    store().set({ status: 'checking', error: null, syncError: null })
     if (!hasSecureContext()) {
       store().set({ status: 'insecure', error: 'insecureContext' })
       return
@@ -286,10 +383,27 @@ export function createConfigSyncController(deps: ConfigSyncControllerDeps = {}):
 
   async function setPassphrase(pass: string): Promise<void> {
     passphrase = pass
-    await save(pass)
+    // The establishing save uses the BLOCKING channel: until the first PUT applies the user is not yet in
+    // an unlocked session, so a failure belongs on the setup card (status:'error'/'insecure'), not the
+    // non-blocking banner. Run it through the serialized loop so a sync-on-change edit can't race it.
+    await (saveInFlight = runEstablishingSave(pass))
     // `save` set `unlocked` on success (or `error`/`insecure` on failure). watchEdits is already attached
     // by init(); it begins pushing now that status is `unlocked`.
-    if (store().status === 'unlocked') watchEdits()
+    if (store().status === 'unlocked') {
+      watchEdits()
+      // An edit during the establishing save's await left `dirty` true (H2) — kick the loop so that late
+      // edit is pushed without waiting for the next user edit's debounce.
+      if (store().dirty) requestSave()
+    }
+  }
+
+  /** The first-device establishing save, serialized through `saveInFlight` like the background loop. */
+  async function runEstablishingSave(pass: string): Promise<void> {
+    try {
+      await save(pass, true)
+    } finally {
+      saveInFlight = null
+    }
   }
 
   async function unlock(pass: string): Promise<void> {
@@ -307,10 +421,29 @@ export function createConfigSyncController(deps: ConfigSyncControllerDeps = {}):
     }
     store().set({ status: 'unlocked', error: null })
     watchEdits()
+    // An edit made during the pull window blocked the adopt and left `dirty` true — now that we are
+    // unlocked, push that local edit instead of leaving it stranded until the next edit's debounce.
+    if (store().dirty) requestSave()
   }
 
   async function retry(): Promise<void> {
     await init()
+  }
+
+  /** The Settings·Sync banner's retry: re-attempt the failed background SAVE (re-encrypt + PUT at a fresh
+   *  baseRev), NOT a re-probe. Routed through the same serialized loop, so it coalesces with / waits on any
+   *  in-flight save. A no-op unless `unlocked` with a passphrase. `syncError` is cleared by `save` on a
+   *  successful push. */
+  async function retrySync(): Promise<void> {
+    if (passphrase === null || store().status !== 'unlocked') return
+    saveFailed = false // explicit retry: clear the failure latch so the loop runs again
+    if (saveInFlight) {
+      await saveInFlight
+      return
+    }
+    // A retry re-attempts even a "clean" dirty flag: a save failure leaves `dirty` true, so the loop has
+    // work; if somehow not dirty, the loop is a cheap no-op.
+    await (saveInFlight = runSaveLoop())
   }
 
   function workLocalOnly(): void {
@@ -325,8 +458,8 @@ export function createConfigSyncController(deps: ConfigSyncControllerDeps = {}):
     }
     unsubscribe?.()
     unsubscribe = undefined
-    passphrase = null // drop the secret from memory
+    passphrase = null // drop the secret from memory — the save loop's `passphrase !== null` guard then stops
   }
 
-  return { init, setPassphrase, unlock, retry, workLocalOnly, dispose }
+  return { init, setPassphrase, unlock, retry, retrySync, workLocalOnly, dispose }
 }
