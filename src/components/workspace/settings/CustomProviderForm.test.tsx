@@ -74,16 +74,31 @@ describe('CustomProviderForm (add)', () => {
     })
   })
 
-  it('allows Test once the URL is valid, even before Add is enabled', async () => {
+  it('gates add-mode Test on FULL validity (it materializes the custom — a valid URL alone is not enough)', async () => {
     const user = userEvent.setup()
     const onTest = vi.fn()
     renderAdd({ onTest })
     const testBtn = screen.getByRole('button', { name: /test connection/i })
-    expect(testBtn).toBeDisabled() // no URL yet
+    expect(testBtn).toBeDisabled() // nothing entered
     await user.type(screen.getByRole('textbox', { name: /base url/i }), 'https://h/v1')
-    expect(testBtn).toBeEnabled() // URL valid → Test allowed even with empty label/model
+    expect(testBtn).toBeDisabled() // URL valid but no label/model → still disabled (Test would create a real row)
+    await user.type(screen.getByRole('textbox', { name: /label/i }), 'Together')
+    await user.type(screen.getByRole('textbox', { name: /^model$/i }), 'm')
+    expect(testBtn).toBeEnabled() // full form valid → Test allowed
     await user.click(testBtn)
-    expect(onTest).toHaveBeenCalled()
+    expect(onTest).toHaveBeenCalledOnce()
+  })
+
+  it('keeps add-mode Test disabled on a duplicate label (no second custom can be minted) — Gate-4 #10 WI-3', async () => {
+    const user = userEvent.setup()
+    const onTest = vi.fn()
+    renderAdd({ uniqueLabel: uniqOf(['Together AI']), onTest })
+    await user.type(screen.getByRole('textbox', { name: /label/i }), 'Together AI') // duplicate
+    await user.type(screen.getByRole('textbox', { name: /base url/i }), 'https://h/v1')
+    await user.type(screen.getByRole('textbox', { name: /^model$/i }), 'm')
+    // Test materializes the custom, so a non-unique label must keep it disabled → no row minted.
+    expect(screen.getByRole('button', { name: /test connection/i })).toBeDisabled()
+    expect(onTest).not.toHaveBeenCalled()
   })
 
   it('Cancel invokes onCancel', async () => {

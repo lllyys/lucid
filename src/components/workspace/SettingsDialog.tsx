@@ -12,6 +12,7 @@ import {
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { presentationFor } from '@/lib/providers/providerPresentation'
+import { customFormValid } from '@/lib/providers/customProviderForm'
 import { applyKeyChange } from '@/lib/providers/keyChange'
 import type { Vendor } from '@/providers/types'
 import { useTestConnection } from '@/hooks/useTestConnection'
@@ -97,9 +98,12 @@ export function SettingsDialog() {
     setAddKey('')
     setSelection({ kind: 'custom', id })
   }
-  // Add-mode Test (design: allowed once the URL is valid, even before saving) materializes the custom
-  // so the per-custom probe records on a real record, then switches to its edit view (the test card).
+  // Add-mode Test materializes the custom (the per-custom probe is keyed by id), then views it. Because
+  // it creates a real persisted record, it must pass the SAME validity as Add (label-unique + URL +
+  // model) — the form's Test button is gated on `valid`; this guard is defense-in-depth so a non-unique
+  // / incomplete draft can never mint a row that violates the uniqueness invariant.
   const onAddTest = (values: CustomFormValues) => {
+    if (!customFormValid(values, (l) => useProviderStore.getState().uniqueLabel(l))) return
     const id = useProviderStore.getState().addCustomProvider({ ...values, key: addKey })
     setAddKey('')
     setSelection({ kind: 'custom', id })

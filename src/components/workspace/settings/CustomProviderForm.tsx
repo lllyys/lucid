@@ -2,8 +2,9 @@
 // Section B). Label / Base URL / Model / optional API key (Show toggle + the in-memory-only note).
 // Validation is the pure `customProviderForm` logic: a duplicate label (via the store's `uniqueLabel`
 // predicate, injected) or a scheme-less URL is flagged; Add/Save stays disabled until the form is
-// valid; Test is allowed once the URL parses (even before saving). On submit the parent calls
-// addCustomProvider / updateCustomProvider. The key is held in memory only, never logged (rule 65 §5).
+// valid. Add-mode Test MATERIALIZES the custom (the per-custom probe is keyed by id), so it requires
+// the SAME full validity as Add (label-unique + URL + model) — not just a valid URL. On submit the
+// parent calls addCustomProvider / updateCustomProvider. The key is held in memory only (rule 65 §5).
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -185,7 +186,7 @@ export function CustomProviderForm({
           <button
             type="button"
             onClick={() => onTest(draft())}
-            disabled={!urlOk}
+            disabled={!valid}
             className="flex-1 rounded-[10px] border border-[var(--border-strong)] bg-[var(--bg-color)] px-3 py-2.5 text-[13px] font-semibold text-[var(--accent-ink)] hover:bg-[var(--accent-subtle)] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
           >
             {t('settings.testConnection')}
