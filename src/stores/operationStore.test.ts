@@ -5,7 +5,7 @@ import { makeProviderError } from '@/providers/errors'
 
 const req: LLMRequest = { kind: 'translate', text: 'Hi', targetLang: 'es' }
 const tick = () => new Promise<void>((r) => setTimeout(r, 0))
-const idle = () => ({ status: 'idle' as const, startedAt: null, elapsedMs: null, runId: 0 })
+const idle = () => ({ status: 'idle' as const, startedAt: null, elapsedMs: null, runId: 0, isAuto: false })
 const clockSeq = (...vals: number[]) => {
   let i = 0
   return () => vals[Math.min(i++, vals.length - 1)]
@@ -101,7 +101,14 @@ describe('operationStore — run lifecycle', () => {
       startedAt: 1000,
       elapsedMs: 500,
       runId: 1,
+      isAuto: false,
     })
+  })
+
+  it('threads isAuto=true through to the terminal op when a run is auto-triggered', async () => {
+    setOperationClock(clockSeq(1000, 1500))
+    await useOperationStore.getState().run('translate', req, simpleProvider(['x'], { status: 'done', text: 'x' }), true)
+    expect(useOperationStore.getState().translate.isAuto).toBe(true)
   })
 
   it('sets error keeping the partial text from the normalized outcome', async () => {
@@ -136,11 +143,23 @@ describe('operationStore — abort / reset / fail (synchronous transitions)', ()
       startedAt: 1000,
       elapsedMs: 500,
       runId: 2,
+      isAuto: false,
     })
 
     release()
     await p
     expect(useOperationStore.getState().translate.status).toBe('cancelled') // not overwritten by the late chunk/finish
+  })
+
+  it('abort preserves isAuto on an auto-triggered run (the AUTO tag survives cancellation)', async () => {
+    setOperationClock(clockSeq(1000, 1500))
+    const { provider, release } = gatedProvider()
+    const p = useOperationStore.getState().run('translate', req, provider, true)
+    await tick()
+    useOperationStore.getState().abort('translate')
+    expect(useOperationStore.getState().translate.isAuto).toBe(true)
+    release()
+    await p
   })
 
   it('abort() on an idle panel yields cancelled with empty text + null elapsed', () => {
@@ -152,7 +171,7 @@ describe('operationStore — abort / reset / fail (synchronous transitions)', ()
     await useOperationStore.getState().run('polish', req, simpleProvider(['x'], { status: 'done', text: 'x' }))
     const before = useOperationStore.getState().polish.runId
     useOperationStore.getState().reset('polish')
-    expect(useOperationStore.getState().polish).toEqual({ status: 'idle', startedAt: null, elapsedMs: null, runId: before + 1 })
+    expect(useOperationStore.getState().polish).toEqual({ status: 'idle', startedAt: null, elapsedMs: null, runId: before + 1, isAuto: false })
     useOperationStore.getState().reset('polish') // idle → idle, no controller
     expect(useOperationStore.getState().polish.status).toBe('idle')
   })

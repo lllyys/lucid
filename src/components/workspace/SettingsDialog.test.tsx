@@ -83,7 +83,7 @@ describe('SettingsDialog', () => {
 
   it('saving a new key while a panel streams aborts that panel (no stale-credential stream)', async () => {
     useOperationStore.setState({
-      translate: { status: 'streaming', text: 'partial', startedAt: 0, elapsedMs: null, runId: 1 },
+      translate: { status: 'streaming', text: 'partial', startedAt: 0, elapsedMs: null, runId: 1, isAuto: false },
     })
     const user = await setup()
     await user.type(screen.getByLabelText(/api key/i), 'sk-ant-api03-zzzz9999')
@@ -110,6 +110,7 @@ describe('SettingsDialog', () => {
         startedAt: null,
         elapsedMs: null,
         runId: 1,
+        isAuto: false,
       },
     })
     const user = await setup()
@@ -186,6 +187,7 @@ describe('SettingsDialog', () => {
         startedAt: null,
         elapsedMs: null,
         runId: 1,
+        isAuto: false,
       },
     })
     const user = await setup()

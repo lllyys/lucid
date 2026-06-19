@@ -9,7 +9,7 @@ import { useOperationStore } from '@/stores/operationStore'
 // draft "the cat sat" vs result "the dog sat" → exactly one change hunk (cat → dog).
 const DRAFT = 'the cat sat'
 const setDone = (text: string) =>
-  useOperationStore.setState({ polish: { status: 'done', text, startedAt: 0, elapsedMs: 1, runId: 1 } })
+  useOperationStore.setState({ polish: { status: 'done', text, startedAt: 0, elapsedMs: 1, runId: 1, isAuto: false } })
 
 beforeEach(() => {
   useOperationStore.getState().reset('polish')
@@ -68,7 +68,7 @@ describe('PolishResult per-hunk accept/reject (WI-7)', () => {
   })
 
   it('a new result (new runId) resets prior per-hunk rejections', async () => {
-    useOperationStore.setState({ polish: { status: 'done', text: 'the dog sat', startedAt: 0, elapsedMs: 1, runId: 1 } })
+    useOperationStore.setState({ polish: { status: 'done', text: 'the dog sat', startedAt: 0, elapsedMs: 1, runId: 1, isAuto: false } })
     const { onAccept } = renderResult()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /compare/i }))
@@ -76,7 +76,7 @@ describe('PolishResult per-hunk accept/reject (WI-7)', () => {
     expect(screen.getByText('0 of 1 kept')).toBeInTheDocument()
     // a fresh polish result arrives (runId bumps) — the rejection must clear
     await act(async () => {
-      useOperationStore.setState({ polish: { status: 'done', text: 'the dog sat', startedAt: 0, elapsedMs: 1, runId: 2 } })
+      useOperationStore.setState({ polish: { status: 'done', text: 'the dog sat', startedAt: 0, elapsedMs: 1, runId: 2, isAuto: false } })
     })
     await user.click(screen.getByRole('button', { name: /compare/i }))
     expect(screen.getByText('1 of 1 kept')).toBeInTheDocument()
