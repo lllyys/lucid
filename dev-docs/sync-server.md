@@ -151,3 +151,25 @@ be served over HTTPS**; there is no plain-HTTP fallback. Use the TLS options abo
 simplest is **`tailscale serve`** (one-time, persists across reboots), which gives a cert'd
 `https://<machine>.<tailnet>.ts.net` URL with no per-device token. (Plain-HTTP local use still
 works for everything *except* `/config` E2E.)
+
+### Client layering (`src/lib/config/`, `src/lib/crypto/`)
+
+The browser side of `/config` is four headless modules, each tested in isolation:
+
+- `configCrypto.ts` — PBKDF2 → AES-256-GCM encrypt/decrypt, the secure-context guard
+  (`InsecureContextError`), byte-accurate base64. The passphrase + derived key are
+  memory-only (never persisted, never logged).
+- `providerConfigCodec.ts` — serialize/parse the syncable config `{vendor, models, baseUrl,
+  apiKeys}` to/from versioned plaintext (the one place keys are serialized — they ride only
+  inside the ciphertext).
+- `configSync.ts` (WI-5) — `loadAndDecrypt` / `encryptAndSave` over `/config`, plus the
+  per-device `syncedRev` (`lucid.config-rev`). Maps failures to error kinds
+  (`insecureContext` · `wrongPassphraseOrCorrupt` · `unreachable` · `requestFailed`).
+- `configSyncController.ts` (WI-7) — the orchestration layer + the `useConfigSyncStore`
+  state machine (`checking → insecure | noConfig | locked | unlocked | localOnly | error`)
+  that the passphrase/unlock UI (WI-6) reads via selectors and drives via `init`,
+  `setPassphrase`, `unlock`, `retry`, `workLocalOnly`. It detects the secure context, probes
+  `/config` on startup, encrypts the live `providerStore` config on first use, adopts a newer
+  server config on unlock (server-`rev` authoritative; a `dirty` guard protects a local edit
+  made during the load window), and debounce-saves on every config change — a `409` re-pulls
+  and adopts the server copy (last-writer-wins). Only the non-secret `syncedRev` is persisted.
