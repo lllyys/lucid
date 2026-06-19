@@ -151,3 +151,38 @@ be served over HTTPS**; there is no plain-HTTP fallback. Use the TLS options abo
 simplest is **`tailscale serve`** (one-time, persists across reboots), which gives a cert'd
 `https://<machine>.<tailnet>.ts.net` URL with no per-device token. (Plain-HTTP local use still
 works for everything *except* `/config` E2E.)
+
+### Client layering (`src/lib/config/`, `src/lib/crypto/`)
+
+The browser side of `/config` is four headless modules, each tested in isolation:
+
+- `configCrypto.ts` — PBKDF2 → AES-256-GCM encrypt/decrypt, the secure-context guard
+  (`InsecureContextError`), byte-accurate base64. The passphrase + derived key are
+  memory-only (never persisted, never logged).
+- `providerConfigCodec.ts` — serialize/parse the syncable config `{vendor, models, baseUrl,
+  apiKeys, customProviders, activeCustomId}` to/from versioned plaintext (envelope `v2`; the
+  one place keys are serialized — both the per-vendor keys AND each custom provider's key ride
+  only inside the ciphertext). A `v1` blob (no custom providers) migrates forward to an empty
+  custom map on parse (backward-compat).
+- `configSync.ts` (WI-5) — `loadAndDecrypt` / `encryptAndSave` over `/config`, plus the
+  per-device `syncedRev` (`lucid.config-rev`). Maps failures to error kinds
+  (`insecureContext` · `wrongPassphraseOrCorrupt` · `unreachable` · `requestFailed`).
+- `configSyncController.ts` (WI-7) — the orchestration layer + the `useConfigSyncStore`
+  state machine (`checking → insecure | noConfig | locked | unlocked | localOnly | error`)
+  that the passphrase/unlock UI (WI-6) reads via selectors and drives via `init`,
+  `setPassphrase`, `unlock`, `retry`, `retrySync`, `workLocalOnly`. It detects the secure
+  context, probes `/config` on startup, encrypts the live `providerStore` config on first use,
+  adopts a newer server config on unlock (server-`rev` authoritative; a `dirty` guard protects
+  a local edit made during the load window), and debounce-saves on every config change — a
+  `409` re-pulls and adopts the server copy (last-writer-wins). Only the non-secret `syncedRev`
+  is persisted.
+  - **Two error channels.** `status:'error'` + `error` is the BLOCKING channel (the unlock/setup
+    card): set only on INIT and UNLOCK / SET-PASSPHRASE failures, and `retry()` re-runs the
+    startup probe. `syncError` is the NON-BLOCKING channel (the Settings·Sync banner): set on a
+    background sync-on-change SAVE failure, where the workspace stays `unlocked` and usable;
+    `retrySync()` re-attempts the SAVE (re-encrypt + PUT at a fresh `baseRev`, never a re-probe)
+    and a later edit also re-arms it. A successful save clears `syncError`.
+  - **Serialized saves.** Saves never overlap: an edit while a save is in flight only flips
+    `dirty` (the save loop picks it up next pass, re-reading `baseRev` then) rather than starting
+    a concurrent save on a stale `baseRev`. `dirty` is cleared on a successful save only when no
+    edit arrived during that save; a late edit keeps `dirty` true so the loop pushes it next.

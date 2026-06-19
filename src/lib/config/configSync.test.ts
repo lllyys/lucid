@@ -10,6 +10,17 @@ const CONFIG: SyncableConfig = {
   models: { custom: 'gpt-4o-mini' },
   baseUrl: 'https://api.example.com/v1',
   apiKeys: { custom: 'sk-secret-DONOTLEAK' },
+  customProviders: {
+    c1: {
+      id: 'c1',
+      label: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat',
+      key: 'sk-DEEPSEEK-DONOTLEAK',
+      testResult: { status: 'idle' },
+    },
+  },
+  activeCustomId: 'c1',
 }
 
 const okJson = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
@@ -119,7 +130,10 @@ describe('configSync — encryptAndSave', () => {
     const sent = JSON.parse(init.body as string)
     expect(sent.baseRev).toBe(4)
     expect(sent.blob).toMatchObject({ v: 1, kdf: 'PBKDF2-SHA256' })
+    // Neither the per-vendor key NOR the custom-provider key may appear plaintext on the wire (rule 65
+    // §5/§6) — they ride only inside the AES-GCM ciphertext.
     expect(init.body).not.toContain('sk-secret-DONOTLEAK')
+    expect(init.body).not.toContain('sk-DEEPSEEK-DONOTLEAK')
   })
 
   it('409 → re-pull + decrypt the authoritative blob → conflict {config, rev}', async () => {
