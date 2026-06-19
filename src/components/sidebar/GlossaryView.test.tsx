@@ -55,7 +55,7 @@ describe('GlossaryView (WI-6)', () => {
     })
     const user = userEvent.setup()
     render(<GlossaryView />)
-    await user.click(screen.getByRole('button', { name: /extract from current text/i }))
+    await user.click(screen.getByRole('button', { name: /extract from this session/i }))
     const suggestion = screen.getByRole('button', { name: /Quantum Computing ＋/i })
     await user.click(suggestion)
     expect(useGlossaryStore.getState().terms.map((t) => t.label)).toContain('Quantum Computing')
