@@ -14,6 +14,9 @@ export function DraftCard({
   onTranslateOriginal,
   onStopTranslate,
   translating,
+  onCompositionStart,
+  onCompositionEnd,
+  onKeyDown,
 }: {
   value: string
   onChange: (v: string) => void
@@ -22,6 +25,10 @@ export function DraftCard({
   onTranslateOriginal: () => void
   onStopTranslate: () => void
   translating: boolean
+  // Optional IME / ⌘↵ handlers for auto-run (feature #11); absent → unchanged behavior.
+  onCompositionStart?: () => void
+  onCompositionEnd?: (value: string) => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -61,6 +68,9 @@ export function DraftCard({
         aria-label={t('polish.draft')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={(e) => onCompositionEnd?.(e.currentTarget.value)}
+        onKeyDown={onKeyDown}
         placeholder={t('polish.draftPlaceholder')}
         spellCheck={false}
         dir="auto"

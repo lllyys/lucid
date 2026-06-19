@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -16,6 +16,7 @@ import { applyKeyChange } from '@/lib/providers/keyChange'
 import { resolveModel } from '@/providers/modelRegistry'
 import type { Vendor } from '@/providers/types'
 import { useTestConnection } from '@/hooks/useTestConnection'
+import { onOpenSettings } from '@/lib/workspace/openSettings'
 import { ModelControl } from './settings/ModelControl'
 import { CredentialFields } from './settings/CredentialFields'
 import { ConnectionPanel, StatTiles } from './settings/ConnectionPanel'
@@ -52,6 +53,17 @@ export function SettingsDialog() {
 
   const [open, setOpen] = useState(false)
   const [viewVendor, setViewVendor] = useState<Vendor>(activeVendor)
+
+  // Other surfaces (the auto-run disabled / paused notices, feature #11) can request Settings via the
+  // openSettings() event bridge — open on the active provider, matching the trigger button's behavior.
+  useEffect(
+    () =>
+      onOpenSettings(() => {
+        setViewVendor(useProviderStore.getState().vendor)
+        setOpen(true)
+      }),
+    [],
+  )
 
   // A runtime 401 on the active provider (any panel op left in invalidKey) is the authoritative
   // "key rejected" signal — surfaced only on the active vendor's credential panel.

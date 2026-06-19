@@ -11,7 +11,8 @@ describe('Workspace shell', () => {
     expect(screen.getByText('Lucid')).toBeInTheDocument()
     expect(screen.getByText(/translate & polish/i)).toBeInTheDocument()
     expect(screen.getByText(/to run/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /settings/i })).toBeInTheDocument()
+    // Exact name — "Open Settings" (the auto-run disabled-reason link) also matches /settings/i.
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
   })
 
   it('renders the toolbar subtitle', () => {
