@@ -11,6 +11,11 @@
 import { DatabaseSync } from 'node:sqlite'
 import type { EntityType, PullResult, PushOp, PushResult, SyncEntity } from './types.js'
 
+/** Outcome of a PUT /config (feature #15) — same optimistic-concurrency shape as a sync push. */
+export type ConfigResult =
+  | { status: 'applied'; rev: number }
+  | { status: 'conflict'; rev: number; blob: string }
+
 export interface SyncStore {
   /** Apply a whole push batch atomically; one result per op, by id, in order. */
   applyOps(ops: PushOp[]): PushResult[]
@@ -20,6 +25,19 @@ export interface SyncStore {
   purge(): void
   /** Close the underlying DB handle. */
   close(): void
+  /**
+   * The single-user E2E-encrypted config blob (#15), or null if none stored. The `blob` is an OPAQUE
+   * string the server never interprets (it is ciphertext envelope JSON the client encrypts/decrypts);
+   * `rev` is the monotonic optimistic-concurrency version.
+   */
+  getConfig(): { blob: string; rev: number } | null
+  /**
+   * Store the config blob iff `baseRev` still matches the current rev (or no config exists yet) —
+   * otherwise return a conflict with the authoritative blob + rev, leaving the stored blob unchanged.
+   * Mirrors the entity `baseRev` contract so a stale device can never silently clobber the only copy
+   * of the user's key.
+   */
+  putConfig(blob: string, baseRev: number): ConfigResult
 }
 
 /** The raw column shape a SELECT * returns; payload is the JSON string, deletedAt is null|number. */
@@ -42,6 +60,11 @@ const SCHEMA = `
     rev INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_entities_rev ON entities (rev);
+  CREATE TABLE IF NOT EXISTS config (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    blob TEXT NOT NULL,
+    rev INTEGER NOT NULL
+  );
 `
 
 const VALID_TYPES: ReadonlySet<string> = new Set<EntityType>(['session', 'task', 'term', 'keyword'])
@@ -213,5 +236,40 @@ export function createSyncStore(path = ':memory:'): SyncStore {
     db.close()
   }
 
-  return { applyOps, changesSince, purge, close }
+  const selectConfig = db.prepare('SELECT blob, rev FROM config WHERE id = 1')
+  const upsertConfig = db.prepare(
+    `INSERT INTO config (id, blob, rev) VALUES (1, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET blob = excluded.blob, rev = excluded.rev`,
+  )
+
+  function getConfig(): { blob: string; rev: number } | null {
+    const raw = selectConfig.get() as Record<string, unknown> | undefined
+    if (raw === undefined) return null
+    if (typeof raw.blob !== 'string') throw new Error('corrupt config row: blob must be a string')
+    return { blob: raw.blob, rev: toNumber(raw.rev) }
+  }
+
+  function putConfig(blob: string, baseRev: number): ConfigResult {
+    // Read-then-write under one write-locked transaction so the rev check + bump are atomic (no
+    // two-device interleave can both think they hold the current rev).
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      const current = getConfig()
+      let result: ConfigResult
+      if (current === null || current.rev === baseRev) {
+        const rev = current === null ? 1 : current.rev + 1
+        upsertConfig.run(blob, rev)
+        result = { status: 'applied', rev }
+      } else {
+        result = { status: 'conflict', rev: current.rev, blob: current.blob }
+      }
+      db.exec('COMMIT')
+      return result
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
+    }
+  }
+
+  return { applyOps, changesSince, purge, close, getConfig, putConfig }
 }

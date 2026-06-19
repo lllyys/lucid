@@ -38,6 +38,9 @@ const BEARER_PREFIX = 'Bearer '
 /** Default request-body cap: 5 MiB. Tiny next to a normal push, large enough to never bite real use. */
 const DEFAULT_MAX_BODY_BYTES = 5 * 1024 * 1024
 
+/** PUT /config body cap: 64 KiB. An encrypted config blob is a few KB; this is a resource guard (#15). */
+const CONFIG_MAX_BODY_BYTES = 64 * 1024
+
 /** Fixed-length SHA-256 digest of a string — lets timingSafeEqual run on equal-length buffers. */
 function digest(value: string): Buffer {
   return createHash('sha256').update(value, 'utf8').digest()
@@ -68,6 +71,16 @@ function isArray(value: unknown): value is unknown[] {
   return Array.isArray(value)
 }
 
+/** A plain (non-array) JSON object. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Non-negative safe integer (the parsed-JSON form of the wire guard); narrows to `number`. */
+function isNonNegInt(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+
 export function createApp(deps: AppDeps): Hono {
   // Defense-in-depth: an empty/whitespace token would let a bare `Bearer ` header authenticate
   // (digest('') === digest('')). The WI-8d entry must supply a real token; reject the footgun here too.
@@ -75,9 +88,13 @@ export function createApp(deps: AppDeps): Hono {
   const maxBodyBytes = deps.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES
   const app = new Hono()
 
-  // 1. Bearer-auth on ALL routes. Missing header / wrong scheme / wrong token → 401. The body never
-  //    reveals whether the token was the right length or value.
+  // 1. Bearer-auth on the /sync routes. Missing header / wrong scheme / wrong token → 401. The body
+  //    never reveals whether the token was the right length or value. `/config` (#15) is EXEMPT: it
+  //    stores only E2E ciphertext that is useless without the user's passphrase, the Tailscale network
+  //    is the transport perimeter, and the user explicitly wants no token to type — so it is reachable
+  //    unauthenticated. (Its own optimistic-concurrency guards against an accidental stale overwrite.)
   app.use('*', async (c, next) => {
+    if (c.req.path === '/config') return next()
     const header = c.req.header('Authorization')
     if (header === undefined || !header.startsWith(BEARER_PREFIX)) {
       return c.json({ error: 'unauthorized' }, 401)
@@ -131,7 +148,39 @@ export function createApp(deps: AppDeps): Hono {
     return c.body(null, 204)
   })
 
-  // 5. Catch-all: any unexpected error → 500 with a generic body. Never echo a stack trace or token.
+  // 5. GET /config → 200 { blob: <opaque ciphertext envelope> | null, rev }. rev 0 + blob null means
+  //    "no config yet" (the client's first PUT uses baseRev 0). No auth (see middleware note).
+  app.get('/config', (c) => {
+    const cfg = deps.store.getConfig()
+    if (cfg === null) return c.json({ blob: null, rev: 0 })
+    return c.json({ blob: JSON.parse(cfg.blob), rev: cfg.rev })
+  })
+
+  // 6. PUT /config { blob: object, baseRev: int } → 200 { status:'applied', rev } on success, 409
+  //    { status:'conflict', rev, blob } on a stale baseRev (the client re-pulls + retries). The blob is
+  //    stored OPAQUELY (JSON.stringify'd; never inspected). Body capped at 64 KiB (over-cap → 413).
+  app.put(
+    '/config',
+    bodyLimit({ maxSize: CONFIG_MAX_BODY_BYTES, onError: (c) => c.json({ error: 'payload too large' }, 413) }),
+    async (c) => {
+      let body: unknown
+      try {
+        body = await c.req.json()
+      } catch {
+        return c.json({ error: 'bad request' }, 400) // invalid / empty JSON
+      }
+      if (!isRecord(body) || !isRecord(body.blob) || !isNonNegInt(body.baseRev)) {
+        return c.json({ error: 'bad request' }, 400)
+      }
+      const result = deps.store.putConfig(JSON.stringify(body.blob), body.baseRev)
+      if (result.status === 'conflict') {
+        return c.json({ status: 'conflict', rev: result.rev, blob: JSON.parse(result.blob) }, 409)
+      }
+      return c.json({ status: 'applied', rev: result.rev })
+    },
+  )
+
+  // 7. Catch-all: any unexpected error → 500 with a generic body. Never echo a stack trace or token.
   app.onError((_err, c) => c.json({ error: 'internal error' }, 500))
 
   return app
