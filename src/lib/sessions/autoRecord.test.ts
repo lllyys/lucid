@@ -3,7 +3,7 @@ import { recordRunIfNew, __resetAutoRecord } from './autoRecord'
 import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
 import type { PanelOp } from '@/stores/operationStore'
 
-const done = (text: string, runId = 1): PanelOp => ({ status: 'done', text, startedAt: 0, elapsedMs: 1, runId })
+const done = (text: string, runId = 1): PanelOp => ({ status: 'done', text, startedAt: 0, elapsedMs: 1, runId, isAuto: false })
 const tasks = () => useSessionStore.getState().sessions.flatMap((s) => s.tasks)
 
 beforeEach(() => {
@@ -21,7 +21,7 @@ describe('recordRunIfNew (feature #14 — auto-save completed runs)', () => {
   })
 
   it.each(['idle', 'streaming', 'error', 'cancelled'] as const)('does NOT record on status=%s', (status) => {
-    const op = { status, text: 'x', startedAt: 0, elapsedMs: null, runId: 1 } as unknown as PanelOp
+    const op = { status, text: 'x', startedAt: 0, elapsedMs: null, runId: 1, isAuto: false } as unknown as PanelOp
     expect(recordRunIfNew('translate', op, 'translate', 'hello')).toBe(false)
     expect(tasks()).toHaveLength(0)
   })

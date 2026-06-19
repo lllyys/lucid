@@ -38,7 +38,7 @@ beforeEach(() => {
   mockCreate.mockReset()
   useProviderStore.getState().reset()
   useOperationStore.getState().reset('translate')
-  useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0 } })
+  useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0, isAuto: false } })
 })
 
 describe('usePanelRun', () => {
@@ -104,7 +104,7 @@ describe('usePanelRun', () => {
   })
 
   it('abort delegates to the operation store', () => {
-    useOperationStore.setState({ translate: { status: 'streaming', text: 'x', startedAt: 1, elapsedMs: null, runId: 1 } })
+    useOperationStore.setState({ translate: { status: 'streaming', text: 'x', startedAt: 1, elapsedMs: null, runId: 1, isAuto: false } })
     const { result } = renderHook(() => usePanelRun())
     act(() => result.current.abort('translate'))
     expect(useOperationStore.getState().translate.status).toBe('cancelled')

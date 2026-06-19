@@ -4,9 +4,9 @@ import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore, type PanelId, type PanelOp } from '@/stores/operationStore'
 import { makeProviderError } from '@/providers/errors'
 
-const streaming = (text = 'partial'): PanelOp => ({ status: 'streaming', text, startedAt: 0, elapsedMs: null, runId: 1 })
-const invalid = (): PanelOp => ({ status: 'error', text: '', error: makeProviderError('invalidKey'), startedAt: null, elapsedMs: null, runId: 1 })
-const done = (): PanelOp => ({ status: 'done', text: 'x', startedAt: 0, elapsedMs: 1, runId: 1 })
+const streaming = (text = 'partial'): PanelOp => ({ status: 'streaming', text, startedAt: 0, elapsedMs: null, runId: 1, isAuto: false })
+const invalid = (): PanelOp => ({ status: 'error', text: '', error: makeProviderError('invalidKey'), startedAt: null, elapsedMs: null, runId: 1, isAuto: false })
+const done = (): PanelOp => ({ status: 'done', text: 'x', startedAt: 0, elapsedMs: 1, runId: 1, isAuto: false })
 
 beforeEach(() => {
   useProviderStore.getState().reset()

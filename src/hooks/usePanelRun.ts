@@ -13,10 +13,10 @@ import { useOperationStore, type PanelId } from '@/stores/operationStore'
  * `getState()` is read inside the callbacks (no stale closure — AGENTS.md store convention).
  */
 export function usePanelRun(): {
-  run: (panel: PanelId, request: LLMRequest) => void
+  run: (panel: PanelId, request: LLMRequest, isAuto?: boolean) => void
   abort: (panel: PanelId) => void
 } {
-  const run = useCallback((panel: PanelId, request: LLMRequest) => {
+  const run = useCallback((panel: PanelId, request: LLMRequest, isAuto = false) => {
     const cfg = useProviderStore.getState()
     const ops = useOperationStore.getState()
     if (!cfg.isReady()) {
@@ -32,7 +32,7 @@ export function usePanelRun(): {
       ops.fail(panel, err instanceof ProviderException ? err.providerError : makeProviderError('unknown'))
       return
     }
-    void ops.run(panel, request, provider)
+    void ops.run(panel, request, provider, isAuto)
   }, [])
 
   const abort = useCallback((panel: PanelId) => {

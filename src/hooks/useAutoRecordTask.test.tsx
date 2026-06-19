@@ -7,13 +7,13 @@ import { __resetAutoRecord } from '@/lib/sessions/autoRecord'
 
 const tasks = () => useSessionStore.getState().sessions.flatMap((s) => s.tasks)
 const setDone = (text: string, runId: number) =>
-  useOperationStore.setState({ translate: { status: 'done', text, startedAt: 0, elapsedMs: 1, runId } })
+  useOperationStore.setState({ translate: { status: 'done', text, startedAt: 0, elapsedMs: 1, runId, isAuto: false } })
 
 beforeEach(() => {
   __resetSessionIds()
   useSessionStore.getState().reset()
   __resetAutoRecord()
-  useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0 } })
+  useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0, isAuto: false } })
 })
 
 describe('useAutoRecordTask', () => {

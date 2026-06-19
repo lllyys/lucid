@@ -13,10 +13,17 @@ import type { LLMProvider, LLMRequest, OperationState, ProviderError } from '@/p
 
 export type PanelId = 'translate' | 'polish' | 'draftTranslate'
 
-/** A panel's run state: the shipped OperationState union + timer/runId fields. */
-export type PanelOp = OperationState & { startedAt: number | null; elapsedMs: number | null; runId: number }
+/** A panel's run state: the shipped OperationState union + timer/runId fields. `isAuto` records whether
+ *  the run was triggered by auto-run (feature #11) vs a manual button — read by the AUTO tag. Captured
+ *  once at run start and re-spread in every streaming patch so the tag never flickers mid-stream. */
+export type PanelOp = OperationState & {
+  startedAt: number | null
+  elapsedMs: number | null
+  runId: number
+  isAuto: boolean
+}
 
-const IDLE: PanelOp = { status: 'idle', startedAt: null, elapsedMs: null, runId: 0 }
+const IDLE: PanelOp = { status: 'idle', startedAt: null, elapsedMs: null, runId: 0, isAuto: false }
 
 // Injectable clock (test seam) for deterministic startedAt / elapsedMs.
 let clock: () => number = Date.now
@@ -42,7 +49,7 @@ interface OperationStore {
   translate: PanelOp
   polish: PanelOp
   draftTranslate: PanelOp
-  run(panel: PanelId, request: LLMRequest, provider: LLMProvider): Promise<void>
+  run(panel: PanelId, request: LLMRequest, provider: LLMProvider, isAuto?: boolean): Promise<void>
   abort(panel: PanelId): void
   reset(panel: PanelId): void
   fail(panel: PanelId, error: ProviderError): void
@@ -65,22 +72,23 @@ export const useOperationStore = create<OperationStore>((set, get) => {
         startedAt: cur.startedAt,
         elapsedMs: cur.startedAt === null ? null : clock() - cur.startedAt,
         runId: cur.runId + 1,
+        isAuto: cur.isAuto,
       })
     },
 
     reset(panel) {
       const cur = get()[panel]
       dropController(panel)
-      patch(panel, { status: 'idle', startedAt: null, elapsedMs: null, runId: cur.runId + 1 })
+      patch(panel, { status: 'idle', startedAt: null, elapsedMs: null, runId: cur.runId + 1, isAuto: false })
     },
 
     fail(panel, error) {
       const cur = get()[panel]
       dropController(panel)
-      patch(panel, { status: 'error', text: '', error, startedAt: null, elapsedMs: null, runId: cur.runId + 1 })
+      patch(panel, { status: 'error', text: '', error, startedAt: null, elapsedMs: null, runId: cur.runId + 1, isAuto: cur.isAuto })
     },
 
-    async run(panel, request, provider) {
+    async run(panel, request, provider, isAuto = false) {
       // Re-entrancy: a streaming panel's run button aborts; it never starts a second stream.
       if (get()[panel].status === 'streaming') {
         get().abort(panel)
@@ -91,7 +99,7 @@ export const useOperationStore = create<OperationStore>((set, get) => {
       const controller = new AbortController()
       controllers.set(panel, controller)
       const startedAt = clock()
-      patch(panel, { status: 'streaming', text: '', startedAt, elapsedMs: null, runId })
+      patch(panel, { status: 'streaming', text: '', startedAt, elapsedMs: null, runId, isAuto })
 
       const isStale = () => get()[panel].runId !== runId
       const gen = provider.streamOp(request, { signal: controller.signal })
@@ -100,12 +108,12 @@ export const useOperationStore = create<OperationStore>((set, get) => {
       while (!res.done) {
         if (isStale()) return
         text += res.value.text
-        patch(panel, { status: 'streaming', text, startedAt, elapsedMs: null, runId })
+        patch(panel, { status: 'streaming', text, startedAt, elapsedMs: null, runId, isAuto })
         res = await gen.next()
       }
       if (isStale()) return
       controllers.delete(panel)
-      patch(panel, { ...res.value, startedAt, elapsedMs: clock() - startedAt, runId })
+      patch(panel, { ...res.value, startedAt, elapsedMs: clock() - startedAt, runId, isAuto })
     },
   }
 })

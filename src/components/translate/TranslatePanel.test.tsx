@@ -41,7 +41,7 @@ beforeEach(() => {
   useSessionStore.getState().reset()
   __resetAutoRecord() // feature #14 — clear the per-panel auto-record dedup map between tests
   useOperationStore.getState().reset('translate')
-  useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0 } })
+  useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0, isAuto: false } })
 })
 
 describe('TranslatePanel', () => {
