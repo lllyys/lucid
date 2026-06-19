@@ -17,7 +17,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { Vendor } from '@/providers/types'
+import type { ProviderConfig, Vendor } from '@/providers/types'
 import { isVendorImplemented, resolveModel } from '@/providers/modelRegistry'
 import { createSafeJSONStorage } from '@/lib/storage/safeJSONStorage'
 import { notifyStorageFull } from '@/lib/storage/quotaNotice'
@@ -160,6 +160,22 @@ export function mergeProvider(persisted: unknown, current: ProviderState): Provi
 }
 
 /**
+ * The single source of truth for the EFFECTIVE provider config of the active target (#10 WI-2). For a
+ * built-in vendor it is the denormalized mirror `{apiKey, model, baseUrl}`; for an active custom it is
+ * THAT custom's own `{key, model, baseUrl}` (read from `customProviders[activeCustomId]`), NOT the
+ * legacy top-level slot. A dangling/absent active custom falls back to the mirror (never crashes —
+ * `isReady` already gates the run). Call sites (`usePanelRun`, `useTestConnection`) build the
+ * `ProviderConfig` passed to the PURE `createProvider` from this, so RUN + readiness read one model.
+ */
+export function activeTarget(s: ProviderState): ProviderConfig {
+  if (s.vendor === 'custom') {
+    const c = s.activeCustomId ? s.customProviders[s.activeCustomId] : undefined
+    if (c !== undefined) return { apiKey: c.key, model: c.model, baseUrl: c.baseUrl }
+  }
+  return { apiKey: s.apiKey, model: s.model, baseUrl: s.baseUrl }
+}
+
+/**
  * Immutably patch ONE custom provider's editable fields and/or its testResult, returning the partial
  * `{customProviders}` state slice. An unknown id yields no change. Shared by every custom-targeted
  * setter (#10) so the spread + guard live in one place.
@@ -235,15 +251,21 @@ export const useProviderStore = create<ProviderState>()(
           if (!(id in s.customProviders)) return {}
           const customProviders = { ...s.customProviders }
           delete customProviders[id]
-          // Removing the ACTIVE custom falls back deterministically to the anthropic built-in (#10).
-          if (s.vendor === 'custom' && s.activeCustomId === id) {
-            return {
-              customProviders,
-              activeCustomId: null,
-              vendor: 'anthropic',
-              model: s.models.anthropic,
-              apiKey: s.apiKeys.anthropic,
+          // Clearing the removed custom's id is unconditional: a dangling activeCustomId must never
+          // survive a remove, even if a built-in is already the active vendor (Gate-4 Medium). When
+          // that custom was also the ACTIVE provider (vendor==='custom'), additionally fall back
+          // deterministically to the anthropic built-in (#10).
+          if (s.activeCustomId === id) {
+            if (s.vendor === 'custom') {
+              return {
+                customProviders,
+                activeCustomId: null,
+                vendor: 'anthropic',
+                model: s.models.anthropic,
+                apiKey: s.apiKeys.anthropic,
+              }
             }
+            return { customProviders, activeCustomId: null }
           }
           return { customProviders }
         }),

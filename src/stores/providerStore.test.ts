@@ -4,6 +4,7 @@ import {
   partializeProvider,
   migrateProvider,
   mergeProvider,
+  activeTarget,
   PERSIST_VERSION,
 } from './providerStore'
 import { __resetCustomIds, __useRandomCustomIds, MAX_CUSTOM_PROVIDERS } from './providerStoreMigrate'
@@ -434,6 +435,18 @@ describe('providerStore', () => {
       expect(s.model).toBe(s.models.anthropic) // mirror re-derived
     })
 
+    it('removing the custom named by activeCustomId clears it even when vendor is a built-in (Gate-4 Medium)', () => {
+      // Defensive: if activeCustomId still points at a custom while a built-in is active, removing that
+      // custom must NOT leave a dangling activeCustomId. The fallback only fires when vendor==='custom'.
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'u', model: 'm' })
+      useProviderStore.setState({ vendor: 'openai', activeCustomId: id }) // built-in active + dangling-to-be
+      useProviderStore.getState().removeCustomProvider(id)
+      const s = useProviderStore.getState()
+      expect(s.customProviders[id]).toBeUndefined()
+      expect(s.activeCustomId).toBeNull() // cleared regardless of vendor
+      expect(s.vendor).toBe('openai') // a built-in is already active → no anthropic fallback
+    })
+
     describe('per-custom field setters (optional id targets the active custom)', () => {
       it('setBaseUrl/setModel/setApiKey/setTestResult target the named custom by id', () => {
         const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: '', model: '' })
@@ -466,6 +479,42 @@ describe('providerStore', () => {
         const id = useProviderStore.getState().addCustomProvider({ label: 'OpenRouter', baseUrl: 'u', model: 'm' })
         expect(useProviderStore.getState().uniqueLabel('OpenRouter', id)).toBe(true) // editing itself
         expect(useProviderStore.getState().uniqueLabel('OpenRouter')).toBe(false) // a NEW one collides
+      })
+    })
+
+    describe('activeTarget selector (#10 WI-2 — effective config for the active target)', () => {
+      it('resolves a built-in vendor to its mirror config {apiKey, model, baseUrl}', () => {
+        useProviderStore.getState().setApiKey('sk-ant')
+        useProviderStore.getState().setModel('claude-opus-4-8')
+        expect(activeTarget(useProviderStore.getState())).toEqual({
+          apiKey: 'sk-ant',
+          model: 'claude-opus-4-8',
+          baseUrl: '',
+        })
+      })
+
+      it('resolves an active custom to ITS OWN key/model/baseUrl (not the legacy top-level mirror)', () => {
+        const id = useProviderStore
+          .getState()
+          .addCustomProvider({ label: 'L', baseUrl: 'https://c/v1', model: 'cm', key: 'sk-c' })
+        useProviderStore.getState().setVendor({ type: 'custom', id })
+        // a stray legacy top-level baseUrl must NOT leak into the resolved custom config
+        useProviderStore.getState().setBaseUrl('https://stale-legacy/v1')
+        expect(activeTarget(useProviderStore.getState())).toEqual({
+          apiKey: 'sk-c',
+          model: 'cm',
+          baseUrl: 'https://c/v1',
+        })
+      })
+
+      it('falls back to the built-in mirror config when vendor=custom but activeCustomId is dangling', () => {
+        useProviderStore.setState({ vendor: 'custom', activeCustomId: 'ghost', apiKey: 'sk-x', model: 'mx', baseUrl: 'u' })
+        expect(activeTarget(useProviderStore.getState())).toEqual({ apiKey: 'sk-x', model: 'mx', baseUrl: 'u' })
+      })
+
+      it('falls back to the mirror config when vendor=custom but activeCustomId is null', () => {
+        useProviderStore.setState({ vendor: 'custom', activeCustomId: null, apiKey: 'sk-y', model: 'my', baseUrl: 'u2' })
+        expect(activeTarget(useProviderStore.getState())).toEqual({ apiKey: 'sk-y', model: 'my', baseUrl: 'u2' })
       })
     })
 

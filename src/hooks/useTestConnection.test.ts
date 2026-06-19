@@ -103,4 +103,82 @@ describe('useTestConnection', () => {
     })
     expect(useProviderStore.getState().testResults.anthropic).toEqual({ status: 'fail', msgKey: 'error.unknown' })
   })
+
+  describe('custom-id-aware path (#10 WI-2)', () => {
+    it('probes a specific custom by its resolved key/model/baseUrl and records the result ON that custom', async () => {
+      const id = useProviderStore
+        .getState()
+        .addCustomProvider({ label: 'L', baseUrl: 'https://c/v1', model: 'cm', key: 'sk-c' })
+      mockCreate.mockReturnValue(streamingProvider())
+      const { result } = renderHook(() => useTestConnection())
+      await act(async () => {
+        await result.current.test('custom', id)
+      })
+      expect(mockCreate).toHaveBeenCalledWith('custom', { apiKey: 'sk-c', model: 'cm', baseUrl: 'https://c/v1' })
+      expect(useProviderStore.getState().customProviders[id].testResult.status).toBe('ok')
+      // the per-Vendor testResults map is NOT touched for a custom-id probe
+      expect(useProviderStore.getState().testResults.custom.status).toBe('idle')
+    })
+
+    it('probes a keyless custom (key optional — keyless self-hosted)', async () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'https://c/v1', model: 'cm' })
+      mockCreate.mockReturnValue(streamingProvider())
+      const { result } = renderHook(() => useTestConnection())
+      await act(async () => {
+        await result.current.test('custom', id)
+      })
+      expect(mockCreate).toHaveBeenCalledWith('custom', { apiKey: '', model: 'cm', baseUrl: 'https://c/v1' })
+      expect(useProviderStore.getState().customProviders[id].testResult.status).toBe('ok')
+    })
+
+    it('a custom with no base URL fails (needUrl) on its own record without building a provider', async () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: '', model: 'cm' })
+      const { result } = renderHook(() => useTestConnection())
+      await act(async () => {
+        await result.current.test('custom', id)
+      })
+      expect(useProviderStore.getState().customProviders[id].testResult).toEqual({
+        status: 'fail',
+        msgKey: 'settings.testNeedUrl',
+      })
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    it('an unknown/dangling custom id is a no-op (no crash, no provider built)', async () => {
+      const { result } = renderHook(() => useTestConnection())
+      await act(async () => {
+        await result.current.test('custom', 'ghost')
+      })
+      expect(mockCreate).not.toHaveBeenCalled()
+      expect(useProviderStore.getState().customProviders).toEqual({})
+    })
+
+    it('records a mapped fail on the custom record when the probe errors', async () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'https://c/v1', model: 'cm' })
+      mockCreate.mockReturnValue(rejectingProvider(new ProviderException(makeProviderError('invalidKey'))))
+      const { result } = renderHook(() => useTestConnection())
+      await act(async () => {
+        await result.current.test('custom', id)
+      })
+      expect(useProviderStore.getState().customProviders[id].testResult).toEqual({
+        status: 'fail',
+        msgKey: 'error.invalidKey',
+      })
+    })
+
+    it('maps a createProvider throw to the custom record', async () => {
+      const id = useProviderStore.getState().addCustomProvider({ label: 'L', baseUrl: 'https://c/v1', model: 'cm' })
+      mockCreate.mockImplementation(() => {
+        throw new ProviderException(makeProviderError('requestFailed'))
+      })
+      const { result } = renderHook(() => useTestConnection())
+      await act(async () => {
+        await result.current.test('custom', id)
+      })
+      expect(useProviderStore.getState().customProviders[id].testResult).toEqual({
+        status: 'fail',
+        msgKey: 'error.requestFailed',
+      })
+    })
+  })
 })

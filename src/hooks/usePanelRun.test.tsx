@@ -85,14 +85,15 @@ describe('usePanelRun', () => {
     expect(mockCreate).toHaveBeenCalledWith('anthropic', expect.objectContaining({ apiKey: 'sk-test' }))
   })
 
-  it('threads the custom base URL into createProvider so an active custom provider can run (#5 WI-6a)', async () => {
+  it('resolves the ACTIVE custom\'s own key/model/baseUrl into createProvider (#10 WI-2)', async () => {
     const s = useProviderStore.getState()
-    // #10: readiness now follows the ACTIVE custom provider. The call-site config resolution (the
-    // legacy baseUrl/model mirror) is rewired in WI-2; here we set both so this WI-1 slice stays green.
-    const id = s.addCustomProvider({ label: 'My host', baseUrl: 'https://my-host.example.com/v1', model: 'm' })
+    const id = s.addCustomProvider({
+      label: 'My host',
+      baseUrl: 'https://my-host.example.com/v1',
+      model: 'cm',
+      key: 'sk-custom',
+    })
     s.setVendor({ type: 'custom', id })
-    s.setBaseUrl('https://my-host.example.com/v1')
-    s.setModel('m', 'custom') // keyless, but ready (active custom has baseUrl + model)
     expect(useProviderStore.getState().isReady()).toBe(true)
     mockCreate.mockReturnValue(okProvider())
     const { result } = renderHook(() => usePanelRun())
@@ -100,10 +101,29 @@ describe('usePanelRun', () => {
       result.current.run('translate', req)
       await tick()
     })
-    expect(mockCreate).toHaveBeenCalledWith(
-      'custom',
-      expect.objectContaining({ baseUrl: 'https://my-host.example.com/v1', model: 'm' }),
-    )
+    expect(mockCreate).toHaveBeenCalledWith('custom', {
+      apiKey: 'sk-custom',
+      model: 'cm',
+      baseUrl: 'https://my-host.example.com/v1',
+    })
+  })
+
+  it('does NOT leak the legacy top-level baseUrl/model into an active custom run (#10 WI-2)', async () => {
+    const s = useProviderStore.getState()
+    const id = s.addCustomProvider({ label: 'Host', baseUrl: 'https://right/v1', model: 'right-model' })
+    s.setVendor({ type: 'custom', id })
+    s.setBaseUrl('https://stale-legacy/v1') // legacy top-level slot — must be ignored for the run
+    mockCreate.mockReturnValue(okProvider())
+    const { result } = renderHook(() => usePanelRun())
+    await act(async () => {
+      result.current.run('translate', req)
+      await tick()
+    })
+    expect(mockCreate).toHaveBeenCalledWith('custom', {
+      apiKey: '',
+      model: 'right-model',
+      baseUrl: 'https://right/v1',
+    })
   })
 
   it('abort delegates to the operation store', () => {
