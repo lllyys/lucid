@@ -65,6 +65,15 @@ describe('probeProvider', () => {
     expect(res).toEqual({ ok: false, kind })
   })
 
+  it('treats an incomplete (length-capped) response as a SUCCESSFUL connection — bug #126', async () => {
+    // The probe sends a tiny maxOutputTokens cap; an OpenAI-compatible endpoint then finishes with
+    // finish_reason 'length' → mapped to `incomplete`. A reasoning model (e.g. deepseek-v4-flash) hits
+    // the cap before any visible byte. The endpoint IS reachable and the key valid (a real run works),
+    // so the probe must report connected — connectivity is what it verifies, not completion.
+    const res = await probeProvider(rejectingProvider(makeProviderError('incomplete')), { now: () => 7 })
+    expect(res).toEqual({ ok: true, latencyMs: 0 }) // constant clock → 0 elapsed; the point is ok:true
+  })
+
   it('maps a timeout (deadline exceeded) to { ok:false, kind:"timeout" }', async () => {
     const fetchMock = vi.fn(() => Promise.reject(new DOMException('timeout', 'TimeoutError')))
     const res = await probeProvider(provider(fetchMock), { now: () => 0, timeoutMs: 50 })
@@ -127,11 +136,13 @@ describe('probeProvider', () => {
     expect(await probeProvider(provider(fetchMock), { now: () => 0 })).toEqual({ ok: false, kind: 'invalidKey' })
   })
 
-  it('maps a truncated stream (HTTP 200, no message_stop, no text) to { ok:false, kind:"incomplete" }', async () => {
+  it('treats a truncated stream (HTTP 200, no message_stop, no text) as connected — bug #126', async () => {
+    // The endpoint replied with HTTP 200; the stream ending without a message_stop maps to `incomplete`,
+    // which proves connectivity (the probe caps output, so truncation is expected) — connected, not failed.
     const fetchMock = vi.fn(() =>
       Promise.resolve(streamResponse([`data: ${JSON.stringify({ type: 'ping' })}\n\n`])),
     )
-    expect(await probeProvider(provider(fetchMock), { now: () => 0 })).toEqual({ ok: false, kind: 'incomplete' })
+    expect(await probeProvider(provider(fetchMock), { now: () => 0 })).toEqual({ ok: true, latencyMs: 0 })
   })
 
   it('clamps a backwards-moving clock so latency is never negative', async () => {
