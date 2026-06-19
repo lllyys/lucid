@@ -65,7 +65,7 @@ export function TranslatePanel() {
     setSource(value)
     setAcceptedText(null)
     useOperationStore.getState().reset('translate')
-    if (auto.enabled) debounce.scheduleRun(buildRequest(value))
+    if (auto.armed) debounce.scheduleRun(buildRequest(value))
   }
   const onSourceKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (isRunNowShortcut(e.nativeEvent, isMacPlatform())) {
@@ -74,10 +74,11 @@ export function TranslatePanel() {
     }
   }
   // Composition commit must ALWAYS clear the hook's composing flag (else future schedules stay
-  // blocked); onCompositionEnd does that + re-arms. When auto is off, cancel the just-armed timer.
+  // blocked); onCompositionEnd does that + re-arms. When auto isn't armed (off, or a hosted vendor
+  // whose cost wasn't acked), cancel the just-armed timer so the re-arm can't fire.
   const onSourceCompositionEnd = (value: string) => {
     debounce.onCompositionEnd(buildRequest(value))
-    if (!auto.enabled) debounce.cancel()
+    if (!auto.armed) debounce.cancel()
   }
   const swap = () => {
     if (op.status === 'done') {

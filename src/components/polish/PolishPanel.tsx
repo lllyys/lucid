@@ -78,13 +78,13 @@ export function PolishPanel() {
   // Arm auto-polish on a user edit — but NEVER while "Translate original" is streaming (it
   // machine-writes the draft via the mirror; arming on that would fire on text the user didn't type).
   const armPolish = (req: LLMRequest) => {
-    if (auto.enabled && !translating) debounce.scheduleRun(req)
+    if (auto.armed && !translating) debounce.scheduleRun(req)
   }
   // Composition commit must ALWAYS clear the hook's composing flag (else future schedules stay blocked);
-  // onCompositionEnd does that + re-arms. If we mustn't arm (translating), cancel the just-armed timer.
+  // onCompositionEnd does that + re-arms. If we mustn't arm (not armed, or translating), cancel it.
   const onSourceCompositionEnd = (req: LLMRequest) => {
     debounce.onCompositionEnd(req)
-    if (!auto.enabled || translating) debounce.cancel()
+    if (!auto.armed || translating) debounce.cancel()
   }
 
   // Mirror the draftTranslate stream into the editable draft (then local edits own it).
