@@ -7,18 +7,10 @@
 
 import { useTranslation } from 'react-i18next'
 import type { Vendor } from '@/providers/types'
-import { implementedPresentations } from '@/lib/providers/providerPresentation'
+import { implementedPresentations, customDotToken } from '@/lib/providers/providerPresentation'
 import { customRailStatusKey } from '@/lib/providers/customProviderForm'
 import { resolveModel } from '@/providers/modelRegistry'
 import type { CustomProvider } from '@/stores/providerStore'
-
-/** The dot color token per custom test status (matches the WI-2 presentation tokens). */
-const CUSTOM_DOT: Record<CustomProvider['testResult']['status'], string> = {
-  ok: '--success',
-  fail: '--warning',
-  testing: '--accent-primary',
-  idle: '--text-tertiary',
-}
 
 export type RailSelection =
   | { kind: 'builtin'; vendor: Vendor }
@@ -133,7 +125,7 @@ export function ProviderRail({
                 : undefined
             }
           >
-            <span className="size-2 shrink-0 rounded-full" style={{ background: `var(${CUSTOM_DOT[c.testResult.status]})` }} />
+            <span className="size-2 shrink-0 rounded-full" style={{ background: `var(${customDotToken(c.testResult.status)})` }} />
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="truncate text-[13px] font-semibold text-[var(--text-color)]">{c.label}</span>
               <span className="truncate font-mono text-[9.5px] text-[var(--text-tertiary)]">

@@ -86,7 +86,7 @@ describe('providerPresentation', () => {
       for (const c of customs) expect(c.vendor).toBe('custom')
     })
 
-    it('derives the custom dot token from its testResult status (ok→success, fail→error, testing→warning, idle→neutral)', () => {
+    it('derives the custom dot token from its testResult status (ok→success, fail→warn/needs-key, testing→accent, idle→neutral)', () => {
       const state = makeState({
         customProviders: {
           c1: customEntry({ id: 'c1', testResult: { status: 'ok', latencyMs: 5 } }),
@@ -97,8 +97,8 @@ describe('providerPresentation', () => {
       })
       const byId = new Map(configurablePresentations(state).filter((p) => p.customId).map((p) => [p.customId, p.dotToken]))
       expect(byId.get('c1')).toBe('--success')
-      expect(byId.get('c2')).toBe('--error-color') // the app token is --error-color (index.css), not --error
-      expect(byId.get('c3')).toBe('--warning')
+      expect(byId.get('c2')).toBe('--warning') // fail → "needs key"/401 → the design's --warn dot
+      expect(byId.get('c3')).toBe('--accent-primary') // testing → the design's accent
       expect(byId.get('c4')).toBe('--text-tertiary')
     })
 

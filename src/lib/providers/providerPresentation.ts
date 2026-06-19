@@ -29,7 +29,7 @@ export interface ProviderPresentation {
 }
 
 /** The connection-test status of one custom provider (#10) — mirrors providerStore's TestResult. */
-type CustomTestStatus = 'idle' | 'testing' | 'ok' | 'fail'
+export type CustomTestStatus = 'idle' | 'testing' | 'ok' | 'fail'
 
 /**
  * The minimal state slice the presentation resolvers read (#10 WI-2). A structural shape, not an
@@ -54,9 +54,15 @@ export interface PresentationState {
 /** A custom provider's connection-test status → the dot CSS-var token (rule 30 — no hex). */
 const CUSTOM_DOT_TOKEN: Record<CustomTestStatus, string> = {
   ok: '--success',
-  fail: '--error-color',
-  testing: '--warning',
+  fail: '--warning', // the design's needs-key/401 dot — `fail` resolves to the "needs key" label (warn-colored)
+  testing: '--accent-primary',
   idle: '--text-tertiary',
+}
+
+/** The dot CSS-var token for a custom provider's connection-test status — the SINGLE source the switcher
+ *  (via the presentation's `dotToken`) and the Settings rail both consume, so they can't drift apart. */
+export function customDotToken(status: CustomTestStatus): string {
+  return CUSTOM_DOT_TOKEN[status]
 }
 
 /** Build the presentation for ONE custom provider from its store entry (#10). */

@@ -60,7 +60,7 @@ export function ProviderSwitcher() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-2 rounded-[9px] border bg-[var(--bg-color)] px-[11px] py-[7px] text-[13px] font-medium hover:bg-[var(--hover-bg)]"
+          className="flex items-center gap-2 rounded-[9px] border bg-[var(--bg-color)] px-[11px] py-[7px] text-[13px] font-medium hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
         >
           <span className="h-2 w-2 rounded-full" style={{ background: `var(${active.dotToken})` }} />
           <span className="max-w-[160px] truncate">{triggerLabel}</span>
