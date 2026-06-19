@@ -63,7 +63,7 @@ export function TranslatePanel() {
   }
 
   return (
-    <section className="flex min-h-[296px] flex-col border-b">
+    <section className="flex min-h-[296px] shrink-0 flex-col border-b">
       <div className="flex items-center justify-between px-[22px] pb-1 pt-2.5">
         <div className="flex items-center gap-2.5">
           <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-ink)]">
@@ -100,7 +100,7 @@ export function TranslatePanel() {
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex items-start">
         <section className="flex flex-1 flex-col border-r bg-[var(--bg-color)]">
           <div className="flex items-center justify-between px-[22px] pb-2 pt-3">
             <span className="font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
@@ -123,7 +123,7 @@ export function TranslatePanel() {
             spellCheck={false}
             dir={srcBidi.dir}
             style={{ ...srcBidi.style, textAlign: 'start' }}
-            className="min-h-0 flex-1 resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75]"
+            className="field-sizing-content min-h-[88px] max-h-[88vh] resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75]"
           />
         </section>
         <section className="flex flex-1 flex-col bg-[var(--bg-canvas)] px-6 py-4">
