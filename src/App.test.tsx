@@ -23,7 +23,8 @@ describe('App', () => {
   it('renders the Lucid Workspace shell', () => {
     render(<App />)
     expect(screen.getByText('Lucid')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /settings/i })).toBeInTheDocument()
+    // Exact name — "Open Settings" (the auto-run disabled-reason link) also matches /settings/i.
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
   })
 
   it('round-trips an error.* key through t() (rule 66 §5)', () => {

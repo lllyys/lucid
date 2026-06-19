@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@/providers', () => ({ createProvider: vi.fn() }))
@@ -10,6 +10,7 @@ import '@/i18n'
 import { TranslatePanel } from './TranslatePanel'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
+import { useAutoRunStore } from '@/stores/autoRunStore'
 import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
 import { __resetAutoRecord } from '@/lib/sessions/autoRecord'
 import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
@@ -40,6 +41,7 @@ beforeEach(() => {
   __resetSessionIds()
   useSessionStore.getState().reset()
   __resetAutoRecord() // feature #14 — clear the per-panel auto-record dedup map between tests
+  useAutoRunStore.getState().reset()
   useOperationStore.getState().reset('translate')
   useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0, isAuto: false } })
 })
@@ -158,5 +160,85 @@ describe('TranslatePanel', () => {
     await user.type(ta, 'text')
     await user.click(screen.getByRole('button', { name: /clear/i }))
     expect(ta).toHaveValue('')
+  })
+})
+
+// WI-2 (feature #11): the auto-run toggle, "Run now" label, pending ring, AUTO tag, ⌘↵ run-now.
+describe('TranslatePanel — auto-run', () => {
+  it('disables the toggle (with a reason) until a provider key is set, then enables it', () => {
+    render(<TranslatePanel />)
+    const sw = screen.getByRole('switch')
+    expect(sw).toBeDisabled()
+    expect(screen.getByText(/add a key for/i)).toBeInTheDocument()
+
+    act(() => {
+      useProviderStore.getState().setApiKey('sk-test')
+    })
+    expect(screen.getByRole('switch')).not.toBeDisabled()
+  })
+
+  it('switches the primary button to "Run now" once auto-run is on (local provider, no cost gate)', async () => {
+    act(() => {
+      useProviderStore.getState().setVendor('ollama') // local → no cost gate
+    })
+    const user = userEvent.setup()
+    render(<TranslatePanel />)
+    await user.click(screen.getByRole('switch'))
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('button', { name: /run now/i })).toBeInTheDocument()
+  })
+
+  it('shows the hosted cost gate on first enable; accepting it enables auto-run', async () => {
+    act(() => useProviderStore.getState().setApiKey('sk-test')) // anthropic, hosted
+    const user = userEvent.setup()
+    render(<TranslatePanel />)
+    await user.click(screen.getByRole('switch'))
+    expect(screen.getByText(/auto-run uses a paid provider/i)).toBeInTheDocument()
+    expect(useAutoRunStore.getState().enabled.translate).toBe(false) // not yet enabled
+    await user.click(screen.getByRole('button', { name: /enable auto-run/i }))
+    expect(useAutoRunStore.getState().enabled.translate).toBe(true)
+    expect(useAutoRunStore.getState().costAck.anthropic).toBe(true)
+  })
+
+  it('debounced typing fires an auto run that carries the AUTO tag', async () => {
+    vi.useFakeTimers()
+    try {
+      useProviderStore.getState().setVendor('ollama')
+      useAutoRunStore.getState().setEnabled('translate', true)
+      mockCreate.mockReturnValue(okProvider('Hola'))
+      render(<TranslatePanel />)
+      // fireEvent (synchronous) avoids userEvent's fake-timer coordination overhead.
+      fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'Hello' } })
+      expect(screen.getByText(/auto-run in 1\.5s/i)).toBeInTheDocument() // pending ring shown
+      await act(async () => {
+        vi.advanceTimersByTime(1500)
+        await Promise.resolve()
+      })
+      expect(useOperationStore.getState().translate.isAuto).toBe(true)
+      expect(screen.getByRole('status', { name: /auto-run triggered/i })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a manual Run now while auto-run is on fires without the AUTO tag and clears the pending timer', async () => {
+    vi.useFakeTimers()
+    try {
+      useProviderStore.getState().setVendor('ollama')
+      useAutoRunStore.getState().setEnabled('translate', true)
+      mockCreate.mockReturnValue(okProvider('Hola'))
+      render(<TranslatePanel />)
+      fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'Hello' } })
+      expect(screen.getByText(/auto-run in 1\.5s/i)).toBeInTheDocument()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /run now/i }))
+        await Promise.resolve()
+      })
+      expect(useOperationStore.getState().translate.isAuto).toBe(false)
+      expect(screen.queryByText(/auto-run in 1\.5s/i)).toBeNull() // pending cleared
+      expect(screen.queryByRole('status', { name: /auto-run triggered/i })).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

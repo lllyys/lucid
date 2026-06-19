@@ -292,5 +292,27 @@
   "sync.banner.conflictBody": "A newer change from another device won. Details saved.",
   "sync.banner.details": "Details",
   "sync.dialog.title": "Sync",
-  "sync.dialog.description": "Connect a self-hosted sync server, or manage your existing connection."
+  "sync.dialog.description": "Connect a self-hosted sync server, or manage your existing connection.",
+
+  "autorun.toggle": "Auto-run",
+  "autorun.toggleOn": "Turn auto-run off",
+  "autorun.toggleOff": "Turn auto-run on",
+  "autorun.runNow": "Run now",
+  "autorun.disabled": "disabled",
+  "autorun.disabledReason": "Add a key for {{provider}} in Settings to enable auto-run.",
+  "autorun.openSettings": "Open Settings",
+  "autorun.pending": "Auto-run in {{seconds}}s",
+  "autorun.pendingShort": "auto-run in {{seconds}}s",
+  "autorun.cancel": "cancel",
+  "autorun.cancelPending": "Cancel pending auto-run",
+  "autorun.tag": "auto",
+  "autorun.tagAria": "Auto-run triggered this result",
+  "autorun.composing": "composing… auto-run paused",
+  "autorun.cost.title": "Auto-run uses a paid provider",
+  "autorun.cost.body": "You're on {{provider}}. Auto-run will spend tokens each time your text settles. A local model has no per-run cost.",
+  "autorun.cost.cancel": "Not now",
+  "autorun.cost.confirm": "Enable auto-run",
+  "autorun.paused.title": "Auto-run paused",
+  "autorun.paused.body": "The provider lost its key, so nothing is running on its own. Your text and toggle are kept — fix the key and auto-run resumes.",
+  "autorun.paused.fix": "Fix"
 }

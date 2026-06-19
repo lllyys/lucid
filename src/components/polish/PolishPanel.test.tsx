@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@/providers', () => ({ createProvider: vi.fn() }))
@@ -11,6 +11,7 @@ import { PolishPanel } from './PolishPanel'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
+import { useAutoRunStore } from '@/stores/autoRunStore'
 import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
 import { __resetAutoRecord } from '@/lib/sessions/autoRecord'
 import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
@@ -70,6 +71,7 @@ beforeEach(() => {
   useProviderStore.getState().reset()
   useProviderStore.getState().setApiKey('sk-test')
   usePolishKeywordsStore.getState().reset()
+  useAutoRunStore.getState().reset()
   __resetSessionIds()
   useSessionStore.getState().reset()
   __resetAutoRecord() // feature #14 — clear the per-panel auto-record dedup map between tests
@@ -260,5 +262,60 @@ describe('PolishPanel', () => {
     const tasks = useSessionStore.getState().sessions.flatMap((s) => s.tasks)
     expect(tasks).toHaveLength(1)
     expect(tasks[0].resultText).toBe('polished result')
+  })
+})
+
+// WI-2 (feature #11): auto-run toggle / "Run now" / pending / AUTO tag / draftTranslate-mirror guard.
+describe('PolishPanel — auto-run', () => {
+  it('switches the primary button to "Run now" once auto-run is on (local, no cost gate)', async () => {
+    act(() => useProviderStore.getState().setVendor('ollama'))
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.click(screen.getByRole('switch'))
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('button', { name: /run now/i })).toBeInTheDocument()
+  })
+
+  it('debounced draft edits fire an auto polish that carries the AUTO tag', async () => {
+    vi.useFakeTimers()
+    try {
+      act(() => useProviderStore.getState().setVendor('ollama'))
+      useAutoRunStore.getState().setEnabled('polish', true)
+      mockCreate.mockReturnValue(smartProvider())
+      render(<PolishPanel />)
+      fireEvent.change(screen.getByRole('textbox', { name: 'Draft to polish' }), {
+        target: { value: 'rough draft' },
+      })
+      expect(screen.getByText(/auto-run in 1\.5s/i)).toBeInTheDocument()
+      await act(async () => {
+        vi.advanceTimersByTime(1500)
+        await Promise.resolve()
+      })
+      expect(useOperationStore.getState().polish.isAuto).toBe(true)
+      expect(screen.getByRole('status', { name: /auto-run triggered/i })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does NOT arm auto-polish from the draftTranslate mirror writing the draft (M1 guard)', async () => {
+    vi.useFakeTimers()
+    try {
+      act(() => useProviderStore.getState().setVendor('ollama'))
+      useAutoRunStore.getState().setEnabled('polish', true)
+      const { provider } = gatedTranslateProvider()
+      mockCreate.mockReturnValue(provider)
+      render(<PolishPanel />)
+      fireEvent.change(screen.getByRole('textbox', { name: 'Original' }), { target: { value: '原文' } })
+      // start "Translate original" — its stream mirrors into the draft while streaming
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /translate original/i }))
+        await Promise.resolve()
+      })
+      // the draft was machine-written by the mirror; no auto-polish pending must be armed by it
+      expect(screen.queryByText(/auto-run in 1\.5s/i)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

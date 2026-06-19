@@ -266,3 +266,12 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+/*
+ * Auto-run debounce countdown ring (feature #11). The ring's stroke depletes as the timer counts
+ * down — pure CSS, no per-frame JS. The chip is keyed off the hook's `pendingKey` so each reschedule
+ * remounts it and the animation restarts from full. dasharray 37.7 = circumference of r=6.
+ */
+@keyframes lucid-ring {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 37.7; }
+}

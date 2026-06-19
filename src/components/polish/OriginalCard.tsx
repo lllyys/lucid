@@ -1,17 +1,27 @@
 import { useTranslation } from 'react-i18next'
 import { LanguagePicker } from './LanguagePicker'
 
-/** Original (meaning reference) card — its text is sent to the model to preserve meaning. */
+/**
+ * Original (meaning reference) card — its text is sent to the model to preserve meaning. The optional
+ * composition / keydown handlers (feature #11) carry IME and ⌘↵ events up to the panel's auto-run
+ * wiring; when absent the textarea behaves exactly as before.
+ */
 export function OriginalCard({
   value,
   onChange,
   lang,
   onLang,
+  onCompositionStart,
+  onCompositionEnd,
+  onKeyDown,
 }: {
   value: string
   onChange: (v: string) => void
   lang: string
   onLang: (code: string) => void
+  onCompositionStart?: () => void
+  onCompositionEnd?: (value: string) => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -29,6 +39,9 @@ export function OriginalCard({
         aria-label={t('polish.original')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={(e) => onCompositionEnd?.(e.currentTarget.value)}
+        onKeyDown={onKeyDown}
         placeholder={t('polish.originalPlaceholder')}
         spellCheck={false}
         dir="auto"
