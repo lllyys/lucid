@@ -1,8 +1,33 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import App from '@/App'
 import i18n from '@/i18n'
 import type { ErrorKind } from '@/providers/types'
+import { useConfigSyncStore } from '@/lib/config/configSyncController'
+
+// The config-sync gate (#15 WI-6) wraps the workspace and probes the server on mount. In these shell
+// tests we don't exercise the gate's cards — we mock its controller so init() lands the store on
+// `localOnly` (the workspace renders normally), keeping these tests focused on the shell + i18n.
+// The gate's own behavior is covered in src/components/configsync/ConfigSyncGate.test.tsx.
+vi.mock('@/lib/config/configSyncController', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/config/configSyncController')>()
+  return {
+    ...actual,
+    createConfigSyncController: () => ({
+      init: async () => actual.useConfigSyncStore.getState().set({ status: 'localOnly' }),
+      setPassphrase: async () => {},
+      unlock: async () => {},
+      retry: async () => {},
+      retrySync: async () => {},
+      workLocalOnly: () => {},
+      dispose: () => {},
+    }),
+  }
+})
+
+beforeEach(() => {
+  useConfigSyncStore.getState().reset()
+})
 
 // Exhaustive by construction: adding an ErrorKind to the union without an entry here is a
 // compile error, forcing its i18n key to be covered below.
@@ -20,9 +45,10 @@ const ALL_ERROR_KINDS: Record<ErrorKind, true> = {
 }
 
 describe('App', () => {
-  it('renders the Lucid Workspace shell', () => {
+  it('renders the Lucid Workspace shell', async () => {
     render(<App />)
-    expect(screen.getByText('Lucid')).toBeInTheDocument()
+    // The gate resolves init() to `localOnly` (mocked), then the workspace mounts.
+    expect(await screen.findByText('Lucid')).toBeInTheDocument()
     // Exact name — "Open Settings" (the auto-run disabled-reason link) also matches /settings/i.
     expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
   })
