@@ -1,8 +1,8 @@
-// Purpose: the Settings credential variants for the VIEWED provider (feature #5 WI-6a — #29 design).
-// Three shapes: local Ollama → a "no key needed" card; custom → a base-URL field + an OPTIONAL key
-// (user decision #5/#7/#29 — keyless self-hosted OR a keyed proxy); a named remote vendor → a required
-// API-key panel. The key is held in memory only, never logged (rule 65 §5); the copy says exactly
-// that. Validation is a SHAPE typo-guard (apiKey.ts), not auth.
+// Purpose: the Settings credential variants for a BUILT-IN provider (feature #5 WI-6a — #29 design).
+// Two shapes: local Ollama → a "no key needed" card; a named remote vendor → a required API-key panel.
+// (The user-defined CUSTOM providers moved to CustomProviderForm in #10 WI-3 — they own their own
+// label/baseUrl/model/optional-key form.) The key is held in memory only, never logged (rule 65 §5);
+// the copy says exactly that. Validation is a SHAPE typo-guard (apiKey.ts), not auth.
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -13,12 +13,10 @@ import type { Vendor } from '@/providers/types'
 interface CredentialFieldsProps {
   vendor: Vendor
   savedKey: string
-  baseUrl: string
   /** The active provider's live key was rejected at request time (a 401 op) — shows a "rejected" hint. */
   rejected: boolean
   /** Persist a key for the viewed vendor ('' clears). The parent routes active-vendor changes through applyKeyChange. */
   onSaveKey: (key: string) => void
-  onSaveUrl: (url: string) => void
 }
 
 function KeyPanel({
@@ -122,10 +120,9 @@ function KeyPanel({
   )
 }
 
-export function CredentialFields({ vendor, savedKey, baseUrl, rejected, onSaveKey, onSaveUrl }: CredentialFieldsProps) {
+export function CredentialFields({ vendor, savedKey, rejected, onSaveKey }: CredentialFieldsProps) {
   const { t } = useTranslation()
   const isLocal = presentationFor(vendor).isLocal // ollama
-  const isCustom = vendor === 'custom'
 
   if (isLocal) {
     // The "no key needed" card. The privacy note is rendered separately (after the stat tiles) to
@@ -143,43 +140,7 @@ export function CredentialFields({ vendor, savedKey, baseUrl, rejected, onSaveKe
 
   return (
     <div className="flex flex-col gap-3.5">
-      {isCustom && <CustomBaseUrl baseUrl={baseUrl} onSaveUrl={onSaveUrl} />}
-      <KeyPanel vendor={vendor} savedKey={savedKey} optional={isCustom} rejected={rejected} onSaveKey={onSaveKey} />
-    </div>
-  )
-}
-
-function CustomBaseUrl({ baseUrl, onSaveUrl }: { baseUrl: string; onSaveUrl: (url: string) => void }) {
-  const { t } = useTranslation()
-  const [draft, setDraft] = useState(baseUrl)
-  const saved = baseUrl.trim() !== ''
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-        {t('settings.baseUrlLabel')} <span className="text-[var(--text-disabled)]">· {t('settings.baseUrlCompat')}</span>
-      </span>
-      <div className="flex items-center gap-2 rounded-[11px] border bg-[var(--bg-color)] py-1 pl-3 pr-1 focus-within:border-[var(--accent-primary)]">
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={t('settings.baseUrlPlaceholder')}
-          aria-label={t('settings.baseUrlLabel')}
-          spellCheck={false}
-          className="flex-1 border-none bg-transparent py-1.5 font-mono text-[13px] text-[var(--text-color)] outline-none"
-        />
-        <button
-          type="button"
-          onClick={() => onSaveUrl(draft.trim())}
-          aria-label={t('settings.save') + ' ' + t('settings.baseUrlLabel')}
-          className="rounded-lg bg-[var(--accent-primary)] px-3.5 py-[7px] text-[12.5px] font-semibold text-[var(--on-accent)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
-        >
-          {t('settings.save')}
-        </button>
-      </div>
-      {saved && (
-        <span className="font-mono text-[10.5px] text-[var(--success)]">{t('settings.baseUrlSaved', { url: baseUrl })}</span>
-      )}
+      <KeyPanel vendor={vendor} savedKey={savedKey} optional={false} rejected={rejected} onSaveKey={onSaveKey} />
     </div>
   )
 }

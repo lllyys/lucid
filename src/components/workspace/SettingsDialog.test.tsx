@@ -44,13 +44,16 @@ describe('SettingsDialog', () => {
     expect(dialog.className).not.toContain('sm:max-w-lg')
   })
 
-  it('lists every configurable provider as a rail row — incl. Custom (#5/#7/#29)', async () => {
+  it('lists every BUILT-IN provider as a rail row + a Custom group CTA (#10 WI-3)', async () => {
     await setup()
-    // OpenAI/Google/Local/Custom appear only as rail rows on open (Anthropic is viewed) → unique buttons.
-    for (const label of ['OpenAI', 'Google', 'Local', 'Custom']) {
+    // Built-ins appear as rail rows (Anthropic is viewed → also a header). The legacy static "Custom"
+    // row is gone — the Custom group now offers an "Add custom provider" CTA instead.
+    for (const label of ['OpenAI', 'Google', 'Local']) {
       expect(screen.getByRole('button', { name: new RegExp(label, 'i') })).toBeInTheDocument()
     }
-    expect(screen.getAllByText('Anthropic').length).toBeGreaterThanOrEqual(1) // rail row + viewed header
+    expect(screen.getAllByText('Anthropic').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText(/custom providers/i)).toBeInTheDocument() // group header (empty state)
+    expect(screen.getByRole('button', { name: /add custom provider/i })).toBeInTheDocument()
   })
 
   // ---- active-vendor (Anthropic) credential behaviors (feature #4, preserved) ----
@@ -154,15 +157,6 @@ describe('SettingsDialog', () => {
     expect(screen.queryByLabelText(/api key/i)).toBeNull()
   })
 
-  it('Custom shows a base-URL field (saving stores it) plus an OPTIONAL key field', async () => {
-    const user = await setup()
-    await user.click(screen.getByRole('button', { name: /custom/i }))
-    await user.type(screen.getByRole('textbox', { name: /base url/i }), 'https://my-host.example.com/v1')
-    await user.click(screen.getByRole('button', { name: /save base url/i }))
-    expect(useProviderStore.getState().baseUrl).toBe('https://my-host.example.com/v1')
-    expect(screen.getByLabelText(/api key/i)).toBeInTheDocument() // optional key field present
-  })
-
   it('model picker selects a model for the viewed vendor (dropdown — named vendor)', async () => {
     const user = await setup()
     await user.click(screen.getByRole('button', { name: 'Model' }))
@@ -170,11 +164,108 @@ describe('SettingsDialog', () => {
     expect(useProviderStore.getState().models.anthropic).toBe('claude-opus-4-8')
   })
 
-  it('custom uses a free-text model input (no fixed catalog)', async () => {
+  // ---- custom providers, the new one→many model (#10 WI-3) ----
+  it('Add custom provider opens the add form; a valid endpoint creates a custom (addCustomProvider)', async () => {
     const user = await setup()
-    await user.click(screen.getByRole('button', { name: /custom/i }))
-    await user.type(screen.getByRole('textbox', { name: 'Model' }), 'my-model')
-    expect(useProviderStore.getState().models.custom).toBe('my-model')
+    await user.click(screen.getByRole('button', { name: /add custom provider/i }))
+    await user.type(screen.getByRole('textbox', { name: /label/i }), 'Together AI')
+    await user.type(screen.getByRole('textbox', { name: /base url/i }), 'https://api.together.xyz/v1')
+    await user.type(screen.getByRole('textbox', { name: /^model$/i }), 'Qwen2.5-72B')
+    await user.click(screen.getByRole('button', { name: /add provider/i }))
+    const customs = Object.values(useProviderStore.getState().customProviders)
+    expect(customs).toHaveLength(1)
+    expect(customs[0]).toMatchObject({ label: 'Together AI', baseUrl: 'https://api.together.xyz/v1', model: 'Qwen2.5-72B' })
+  })
+
+  it('the populated rail shows Custom · N and a row per custom provider', async () => {
+    useProviderStore.getState().addCustomProvider({ label: 'Together AI', baseUrl: 'https://h/v1', model: 'q' })
+    useProviderStore.getState().addCustomProvider({ label: 'Office gateway', baseUrl: 'https://gw/v1', model: 'm' })
+    await setup()
+    expect(screen.getByText(/custom · 2/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /together ai/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /office gateway/i })).toBeInTheDocument()
+  })
+
+  it('"Use for this workspace" on a custom activates it via setVendor({type:custom,id}) and shows its label', async () => {
+    const id = useProviderStore.getState().addCustomProvider({ label: 'Together AI', baseUrl: 'https://h/v1', model: 'q' })
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /together ai/i }))
+    await user.click(screen.getByRole('button', { name: /use for this workspace/i }))
+    expect(useProviderStore.getState().vendor).toBe('custom')
+    expect(useProviderStore.getState().activeCustomId).toBe(id)
+    // The viewed header reflects the custom's own label (activePresentation), not the static "Custom".
+    expect(screen.getAllByText('Together AI').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('editing a custom row patches it via updateCustomProvider', async () => {
+    const id = useProviderStore.getState().addCustomProvider({ label: 'Together AI', baseUrl: 'https://h/v1', model: 'q' })
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /together ai/i }))
+    const labelInput = screen.getByRole('textbox', { name: /label/i })
+    await user.clear(labelInput)
+    await user.type(labelInput, 'Together v2')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    expect(useProviderStore.getState().customProviders[id].label).toBe('Together v2')
+  })
+
+  it('the add form blocks a duplicate label (Add disabled, error shown)', async () => {
+    useProviderStore.getState().addCustomProvider({ label: 'Together AI', baseUrl: 'https://h/v1', model: 'q' })
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /add custom provider/i }))
+    await user.type(screen.getByRole('textbox', { name: /label/i }), 'together ai') // case-insensitive dupe
+    await user.type(screen.getByRole('textbox', { name: /base url/i }), 'https://h2/v1')
+    await user.type(screen.getByRole('textbox', { name: /^model$/i }), 'm')
+    expect(screen.getByText(/already exists/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add provider/i })).toBeDisabled()
+  })
+
+  it('a per-custom Test connection records the outcome on THAT custom (custom-id-aware)', async () => {
+    const id = useProviderStore.getState().addCustomProvider({ label: 'Together AI', baseUrl: 'https://h/v1', model: 'q', key: 'sk-x' })
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        streamResponse([
+          `data: ${JSON.stringify({ choices: [{ delta: { content: 'pong' } }] })}\n\n`,
+          'data: [DONE]\n\n',
+        ]),
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /together ai/i }))
+    await user.click(screen.getByRole('button', { name: /test connection/i }))
+    // The connection card shows "Connected"; the rail status line also flips to "Connected" → ≥2.
+    expect((await screen.findAllByText(/connected/i)).length).toBeGreaterThanOrEqual(1)
+    expect(useProviderStore.getState().customProviders[id].testResult.status).toBe('ok')
+  })
+
+  it('removing a non-active custom is a quiet one-step delete after confirm', async () => {
+    const id = useProviderStore.getState().addCustomProvider({ label: 'Office gateway', baseUrl: 'https://gw/v1', model: 'm' })
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /office gateway/i }))
+    await user.click(screen.getByRole('button', { name: /^remove$/i })) // open the confirm
+    await user.click(screen.getByRole('button', { name: /remove provider/i })) // confirm
+    expect(useProviderStore.getState().customProviders[id]).toBeUndefined()
+  })
+
+  it('removing the ACTIVE custom shows the fallback notice and falls back to a built-in', async () => {
+    const id = useProviderStore.getState().addCustomProvider({ label: 'Office gateway', baseUrl: 'https://gw/v1', model: 'm' })
+    useProviderStore.getState().setVendor({ type: 'custom', id })
+    const user = await setup()
+    await user.click(screen.getByRole('button', { name: /office gateway/i }))
+    await user.click(screen.getByRole('button', { name: /^remove$/i }))
+    expect(screen.getByText(/active provider/i)).toBeInTheDocument() // fallback notice
+    await user.click(screen.getByRole('button', { name: /remove provider/i }))
+    expect(useProviderStore.getState().vendor).toBe('anthropic') // fell back
+    expect(useProviderStore.getState().activeCustomId).toBeNull()
+  })
+
+  it('a previously-keyed custom shows needs-key after reload (key was not persisted — §5)', async () => {
+    // Simulate a rehydrated custom: baseUrl + model present, key stripped (the persist path strips it).
+    const id = useProviderStore.getState().addCustomProvider({ label: 'Office gateway', baseUrl: 'https://gw/v1', model: 'gpt-4o-mini' })
+    useProviderStore.getState().clearKey(undefined, id) // key === '' (the post-reload state)
+    await setup()
+    // The rail row's status line shows the needs-key state for a keyed-but-now-keyless custom.
+    expect(screen.getByText(/needs key/i)).toBeInTheDocument()
   })
 
   it('does NOT show the "rejected" hint on a NON-active viewed vendor', async () => {

@@ -11,55 +11,58 @@ import {
 } from '@/components/ui/dialog'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
-import { configurablePresentations, presentationFor } from '@/lib/providers/providerPresentation'
+import { presentationFor } from '@/lib/providers/providerPresentation'
 import { applyKeyChange } from '@/lib/providers/keyChange'
-import { resolveModel } from '@/providers/modelRegistry'
 import type { Vendor } from '@/providers/types'
 import { useTestConnection } from '@/hooks/useTestConnection'
 import { onOpenSettings } from '@/lib/workspace/openSettings'
-import { ModelControl } from './settings/ModelControl'
-import { CredentialFields } from './settings/CredentialFields'
-import { ConnectionPanel, StatTiles } from './settings/ConnectionPanel'
+import { ProviderRail, type RailSelection } from './settings/ProviderRail'
+import { BuiltinDetail } from './settings/BuiltinDetail'
+import { CustomDetail } from './settings/CustomDetail'
+import { CustomProviderForm, type CustomFormValues } from './settings/CustomProviderForm'
 
 /**
- * Provider Settings — the redesigned 880px provider surface (feature #5 WI-6a — design #29). A left
- * rail lists every CONFIGURABLE provider (incl. custom); the right pane configures the VIEWED one
- * (separate from the active workspace vendor — switch with "Use for this workspace"). Per-vendor keys
- * are held in memory only, never persisted/logged (rule 65 §5). Changing the ACTIVE vendor's key
- * routes through `applyKeyChange` (aborts in-flight runs, clears a stale `invalidKey`). The
- * test-connection panel + stat tiles land in WI-6b.
+ * Provider Settings — the 880px provider surface. A left rail (ProviderRail) lists the built-in vendors
+ * and a Custom-providers group; the right pane configures the VIEWED selection — a built-in vendor
+ * (BuiltinDetail), one of the N user-defined custom providers (CustomDetail), or the add form
+ * (CustomProviderForm). The active workspace provider is separate from the viewed one (switch with
+ * "Use for this workspace"; a custom activates via setVendor({type:'custom',id}) — #10 WI-3). Keys are
+ * in memory only, never persisted/logged (rule 65 §5); an active-vendor key change routes through
+ * applyKeyChange (aborts in-flight runs, clears a stale invalidKey).
  */
-
-// Display-only endpoint host per vendor (cosmetic header label — not the factory URL).
-const HOST: Record<Vendor, string> = {
-  anthropic: 'api.anthropic.com',
-  openai: 'api.openai.com',
-  gemini: 'generativelanguage.googleapis.com',
-  ollama: 'localhost:11434',
-  custom: '',
-}
 
 export function SettingsDialog() {
   const { t } = useTranslation()
   const activeVendor = useProviderStore((s) => s.vendor)
+  const activeCustomId = useProviderStore((s) => s.activeCustomId)
   const apiKeys = useProviderStore((s) => s.apiKeys)
   const models = useProviderStore((s) => s.models)
-  const baseUrl = useProviderStore((s) => s.baseUrl)
   const testResults = useProviderStore((s) => s.testResults)
+  const customProviders = useProviderStore((s) => s.customProviders)
   const { test } = useTestConnection()
   const translate = useOperationStore((s) => s.translate)
   const polish = useOperationStore((s) => s.polish)
   const draftTranslate = useOperationStore((s) => s.draftTranslate)
 
   const [open, setOpen] = useState(false)
-  const [viewVendor, setViewVendor] = useState<Vendor>(activeVendor)
+  const [selection, setSelection] = useState<RailSelection>({ kind: 'builtin', vendor: activeVendor })
+  // The add form's staged optional key — there is no custom id until the provider is created, so the
+  // draft key lives here and is passed to addCustomProvider on submit (kept in memory only — §5).
+  const [addKey, setAddKey] = useState('')
+
+  // Reset to the active provider's selection when (re)opening.
+  const openOnActive = () => {
+    const s = useProviderStore.getState()
+    setSelection(s.vendor === 'custom' && s.activeCustomId ? { kind: 'custom', id: s.activeCustomId } : { kind: 'builtin', vendor: s.vendor })
+    setAddKey('')
+  }
 
   // Other surfaces (the auto-run disabled / paused notices, feature #11) can request Settings via the
   // openSettings() event bridge — open on the active provider, matching the trigger button's behavior.
   useEffect(
     () =>
       onOpenSettings(() => {
-        setViewVendor(useProviderStore.getState().vendor)
+        openOnActive()
         setOpen(true)
       }),
     [],
@@ -73,29 +76,39 @@ export function SettingsDialog() {
 
   const onOpenChange = (next: boolean) => {
     setOpen(next)
-    if (next) setViewVendor(useProviderStore.getState().vendor) // open on the active provider
+    if (next) openOnActive() // open on the active provider
   }
 
-  const rows = configurablePresentations()
-  const viewPres = presentationFor(viewVendor)
-  const viewLabel = t(viewPres.labelKey)
-  const isActive = viewVendor === activeVendor
-  const endpoint = viewVendor === 'custom' ? baseUrl.trim() || '—' : HOST[viewVendor]
-
-  const statusFor = (v: Vendor): string => {
+  // Built-in rail status line (key-set / ready / no-key).
+  const builtinStatus = (v: Vendor): string => {
     if (presentationFor(v).isLocal) return t('settings.statusReady')
-    if (v === 'custom') return baseUrl.trim() !== '' ? t('settings.statusEndpointSet') : t('settings.statusNoEndpoint')
     return apiKeys[v].trim() !== '' ? t('settings.statusKeySet') : t('settings.statusNoKey')
   }
-  // Design colors the rail status: local providers read "Ready" in green; remote/custom are
-  // idle grey until the test-connection card (WI-6b) lights them up.
-  const statusColor = (v: Vendor): string => (presentationFor(v).isLocal ? 'var(--success)' : 'var(--text-tertiary)')
 
-  const onSaveKey = (key: string) => {
-    if (viewVendor === useProviderStore.getState().vendor) applyKeyChange(key) // active: abort/reset + set/clear
-    else if (key === '') useProviderStore.getState().clearKey(viewVendor)
-    else useProviderStore.getState().setApiKey(key, viewVendor)
+  const onSaveBuiltinKey = (vendor: Vendor) => (key: string) => {
+    if (vendor === useProviderStore.getState().vendor) applyKeyChange(key) // active: abort/reset + set/clear
+    else if (key === '') useProviderStore.getState().clearKey(vendor)
+    else useProviderStore.getState().setApiKey(key, vendor)
   }
+
+  // Add-mode submit: mint the custom (with the staged key), then view it for editing/testing.
+  const onAddSubmit = (values: CustomFormValues) => {
+    const id = useProviderStore.getState().addCustomProvider({ ...values, key: addKey })
+    setAddKey('')
+    setSelection({ kind: 'custom', id })
+  }
+  // Add-mode Test (design: allowed once the URL is valid, even before saving) materializes the custom
+  // so the per-custom probe records on a real record, then switches to its edit view (the test card).
+  const onAddTest = (values: CustomFormValues) => {
+    const id = useProviderStore.getState().addCustomProvider({ ...values, key: addKey })
+    setAddKey('')
+    setSelection({ kind: 'custom', id })
+    void test('custom', id)
+  }
+
+  const activeFallbackLabel = t(presentationFor('anthropic').labelKey)
+  // The viewed custom (if any) — re-read from the live store map so edits/tests reflect immediately.
+  const viewedCustom = selection.kind === 'custom' ? customProviders[selection.id] : undefined
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,104 +143,53 @@ export function SettingsDialog() {
         </DialogHeader>
 
         <div className="flex min-h-[440px]">
-          {/* LEFT RAIL */}
-          <div className="flex w-[252px] shrink-0 flex-col gap-1 overflow-auto border-r border-[var(--border-color)] bg-[var(--bg-canvas)] p-3">
-            <span className="px-2 pb-1.5 font-mono text-[9.5px] uppercase tracking-[0.07em] text-[var(--text-tertiary)]">
-              {t('settings.providersHeading')}
-            </span>
-            {rows.map((p) => {
-              const selected = p.vendor === viewVendor
-              return (
-                <button
-                  key={p.vendor}
-                  type="button"
-                  aria-current={selected ? 'true' : undefined}
-                  onClick={() => setViewVendor(p.vendor)}
-                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
-                  style={
-                    selected
-                      ? { background: 'var(--accent-subtle)', boxShadow: 'inset 0 0 0 1px var(--accent-border)' }
-                      : undefined
-                  }
-                >
-                  <span className="size-2 shrink-0 rounded-full" style={{ background: `var(${p.dotToken})` }} />
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="truncate text-[13px] font-semibold text-[var(--text-color)]">{t(p.labelKey)}</span>
-                    <span className="truncate font-mono text-[9.5px]" style={{ color: statusColor(p.vendor) }}>
-                      {statusFor(p.vendor)} · {models[p.vendor] || resolveModel(p.vendor) || '—'}
-                    </span>
-                  </span>
-                  {p.vendor === activeVendor && (
-                    <span className="rounded-[5px] bg-[var(--accent-bg)] px-1.5 py-[3px] font-mono text-[8px] font-semibold uppercase tracking-[0.05em] text-[var(--accent-ink)]">
-                      {t('settings.inUse')}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-            <span className="mt-auto px-2 pt-3 font-mono text-[11px] leading-[1.5] text-[var(--text-tertiary)]">
-              {t('settings.keysMemoryFooter')}
-            </span>
-          </div>
+          <ProviderRail
+            activeVendor={activeVendor}
+            activeCustomId={activeCustomId}
+            selection={selection}
+            models={models}
+            builtinStatus={builtinStatus}
+            customProviders={customProviders}
+            onSelect={setSelection}
+          />
 
           {/* RIGHT DETAIL */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="text-[20px] font-semibold tracking-[-0.015em] text-[var(--text-color)]">
-                  {viewLabel}
-                </span>
-                <span className="truncate font-mono text-[11px] text-[var(--text-tertiary)]">{endpoint}</span>
-              </div>
-              {isActive ? (
-                <span className="inline-flex shrink-0 items-center gap-[7px] rounded-[9px] border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-[7px]">
-                  <span className="size-[7px] rounded-full bg-[var(--accent-primary)]" />
-                  <span className="text-[12px] font-semibold text-[var(--accent-ink)]">{t('settings.workspaceDefault')}</span>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => useProviderStore.getState().setVendor(viewVendor)}
-                  className="shrink-0 rounded-[9px] border border-[var(--accent-border)] bg-[var(--bg-color)] px-3 py-[7px] text-[12.5px] font-semibold text-[var(--accent-ink)] hover:bg-[var(--accent-subtle)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
-                >
-                  {t('settings.useForWorkspace')}
-                </button>
-              )}
-            </div>
+            {selection.kind === 'builtin' && (
+              <BuiltinDetail
+                vendor={selection.vendor}
+                isActive={selection.vendor === activeVendor && activeCustomId === null}
+                apiKey={apiKeys[selection.vendor]}
+                model={models[selection.vendor]}
+                testResult={testResults[selection.vendor]}
+                rejected={selection.vendor === activeVendor && activeCustomId === null && runtimeInvalid}
+                onTest={() => void test(selection.vendor)}
+                onActivate={() => useProviderStore.getState().setVendor(selection.vendor)}
+                onSaveKey={onSaveBuiltinKey(selection.vendor)}
+              />
+            )}
 
-            <ConnectionPanel result={testResults[viewVendor]} onTest={() => void test(viewVendor)} />
+            {selection.kind === 'custom' && viewedCustom !== undefined && (
+              <CustomDetail
+                custom={viewedCustom}
+                isActive={activeVendor === 'custom' && activeCustomId === viewedCustom.id}
+                fallbackLabel={activeFallbackLabel}
+                onRemoved={() => setSelection({ kind: 'builtin', vendor: useProviderStore.getState().vendor })}
+              />
+            )}
 
-            <ModelControl
-              key={`model-${viewVendor}`}
-              vendor={viewVendor}
-              model={models[viewVendor]}
-              onPick={(m) => useProviderStore.getState().setModel(m, viewVendor)}
-            />
-
-            <CredentialFields
-              key={`cred-${viewVendor}`}
-              vendor={viewVendor}
-              savedKey={apiKeys[viewVendor]}
-              baseUrl={baseUrl}
-              rejected={isActive && runtimeInvalid}
-              onSaveKey={onSaveKey}
-              onSaveUrl={(u) => useProviderStore.getState().setBaseUrl(u)}
-            />
-
-            <StatTiles result={testResults[viewVendor]} />
-
-            {/* Privacy posture (design order: last) — local stays on device; remote text is sent out. */}
-            <div className="flex items-start gap-2.5 rounded-[11px] border border-[var(--border-color)] bg-[var(--bg-canvas)] px-3 py-2.5">
-              <span
-                className="text-[13px]"
-                style={{ color: viewPres.isLocal ? 'var(--success)' : 'var(--text-tertiary)' }}
-              >
-                🔒
-              </span>
-              <span className="text-[11.5px] leading-[1.6] text-[var(--text-secondary)]">
-                {viewPres.isLocal ? t('settings.privacyLocal') : t('settings.memoryNote', { provider: viewLabel })}
-              </span>
-            </div>
+            {selection.kind === 'add' && (
+              <CustomProviderForm
+                mode="add"
+                uniqueLabel={(label, exceptId) => useProviderStore.getState().uniqueLabel(label, exceptId)}
+                onSubmit={onAddSubmit}
+                onCancel={() => setSelection({ kind: 'builtin', vendor: useProviderStore.getState().vendor })}
+                onTest={onAddTest}
+                testResult={{ status: 'idle' }}
+                keyValue={addKey}
+                onSetKey={setAddKey}
+              />
+            )}
           </div>
         </div>
       </DialogContent>
