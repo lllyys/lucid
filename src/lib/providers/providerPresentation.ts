@@ -54,7 +54,7 @@ export interface PresentationState {
 /** A custom provider's connection-test status → the dot CSS-var token (rule 30 — no hex). */
 const CUSTOM_DOT_TOKEN: Record<CustomTestStatus, string> = {
   ok: '--success',
-  fail: '--error',
+  fail: '--error-color',
   testing: '--warning',
   idle: '--text-tertiary',
 }

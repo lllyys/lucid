@@ -97,7 +97,7 @@ describe('providerPresentation', () => {
       })
       const byId = new Map(configurablePresentations(state).filter((p) => p.customId).map((p) => [p.customId, p.dotToken]))
       expect(byId.get('c1')).toBe('--success')
-      expect(byId.get('c2')).toBe('--error')
+      expect(byId.get('c2')).toBe('--error-color') // the app token is --error-color (index.css), not --error
       expect(byId.get('c3')).toBe('--warning')
       expect(byId.get('c4')).toBe('--text-tertiary')
     })
