@@ -1,9 +1,26 @@
-// Purpose: the Hono HTTP layer for the self-hosted sync server (#9, WI-8c/WI-8d). `createApp` builds the
-// app from injected deps (the SQLite store + the expected bearer token + an optional body-size cap) — it
-// reads NO env (that is the WI-8d entry's job). It exposes the three routes the lucid web client
-// (src/lib/sync/backend.ts) calls, behind a constant-time bearer-auth guard, and maps every failure to
-// the status the client's status→error mapping expects: 401/403 → 'auth', other 4xx → 'badRequest',
-// 5xx → 'unreachable'. The POST route additionally caps the request body (WI-8d): an over-cap body → 413.
+// Purpose: the Hono HTTP layer for the self-hosted sync server (#9, WI-8c/WI-8d; #19 WI-1). `createApp`
+// builds the app from injected deps (the SQLite store + the expected bearer token + an optional body-size
+// cap + an optional staticDir) — it reads NO env (that is the WI-8d entry's job). It exposes the three
+// routes the lucid web client (src/lib/sync/backend.ts) calls, and maps every failure to the status the
+// client's status→error mapping expects: 401/403 → 'auth', other 4xx → 'badRequest', 5xx → 'unreachable'.
+// The POST route additionally caps the request body (WI-8d): an over-cap body → 413.
+//
+// /sync auth — the FOUR quadrants of (staticDir, token), decided by ONE shared `tokenFree` boolean
+// (#19 WI-1) so the startup-throw skip and the middleware choice can never drift:
+//   const tokenFree = staticDir set AND token.trim() === '' (whitespace-only collapses to empty)
+//   | staticDir | token | /sync behavior                                                |
+//   |-----------|-------|--------------------------------------------------------------|
+//   | set       | empty | TOKEN-FREE: pass-through guard; origin + Tailscale ACL is the |
+//   |           |       | boundary. Any Authorization header (e.g. a stale Bearer x)   |
+//   |           |       | is IGNORED, never rejected.                                  |
+//   | set       | set   | bearer-authed (a single-origin server that ALSO wants a      |
+//   |           |       | token MUST stay protected — quadrant-2 regression).          |
+//   | unset     | empty | THROW at startup (an API-only server with no auth is a       |
+//   |           |       | footgun — preserved).                                        |
+//   | unset     | set   | bearer-authed (unchanged).                                   |
+// Token-free /sync carries PLAINTEXT workspace data reachable by anyone on the tailnet — strictly weaker
+// than the typed token, the user's "like #15 /config" single-tenant choice. The body-size cap stays on
+// the route in every quadrant (it is route-level, not part of the auth middleware).
 //
 // Pipeline: SyncStore (WI-8b) → these routes → JSON the client's WI-2 guards (isPullResult /
 // isPushResult) accept. The store is the untrusted-input validator: it THROWS on a malformed op, and
@@ -35,7 +52,9 @@ export interface AppDeps {
   /**
    * Absolute (or cwd-relative) path to the built web-app `dist/` to serve at the same origin (#15 WI-4),
    * so any device loads the app AND calls `/config` + `/sync` from one origin — no CORS, no URL to type.
-   * Omit for an API-only server (the pre-#15 behavior).
+   * Omit for an API-only server (the pre-#15 behavior). When set together with an EMPTY token it also
+   * AUTHORIZES the token-free /sync mode (#19 WI-1): origin + the Tailscale ACL is the boundary. The
+   * entry (index.ts) `stat`-validates this dir is a real readable directory before allowing that mode.
    */
   staticDir?: string
 }
@@ -89,29 +108,48 @@ function isNonNegInt(value: unknown): value is number {
 }
 
 export function createApp(deps: AppDeps): Hono {
+  // The SINGLE shared token-free predicate (#19 WI-1): a staticDir is set AND the token is empty (or
+  // whitespace-only). Computed ONCE and used for BOTH the startup-throw skip AND the /sync middleware
+  // choice below, so the two can never drift into an inconsistent state. See the four-quadrant table
+  // in the file header.
+  const tokenFree = deps.staticDir !== undefined && deps.token.trim().length === 0
+
   // Defense-in-depth: an empty/whitespace token would let a bare `Bearer ` header authenticate
-  // (digest('') === digest('')). The WI-8d entry must supply a real token; reject the footgun here too.
-  if (deps.token.trim().length === 0) throw new Error('createApp: a non-empty bearer token is required')
+  // (digest('') === digest('')). API-only with no auth is a footgun — reject it. The ONLY exemption is
+  // the token-free single-origin quadrant (staticDir set + empty token), where origin + the Tailscale
+  // ACL is the boundary instead of a typed token.
+  if (!tokenFree && deps.token.trim().length === 0) {
+    throw new Error('createApp: a non-empty bearer token is required')
+  }
   const maxBodyBytes = deps.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES
   const app = new Hono()
 
-  // 1. Bearer-auth scoped to the /sync routes ONLY (the plaintext workspace data). Missing header /
-  //    wrong scheme / wrong token → 401; the body never reveals the token's length or value. `/config`
-  //    (#15) and the served web app (WI-4) are intentionally OUTSIDE this scope: `/config` stores only
-  //    E2E ciphertext that is useless without the user's passphrase (its own optimistic-concurrency
-  //    guards against an accidental stale overwrite), the static app must load before any token could
-  //    be entered, the Tailscale network is the transport perimeter, and the user wants no token to type.
-  app.use('/sync/*', async (c, next) => {
-    const header = c.req.header('Authorization')
-    if (header === undefined || !header.startsWith(BEARER_PREFIX)) {
-      return c.json({ error: 'unauthorized' }, 401)
-    }
-    const presented = header.slice(BEARER_PREFIX.length)
-    if (!tokenMatches(presented, deps.token)) {
-      return c.json({ error: 'unauthorized' }, 401)
-    }
-    await next()
-  })
+  // 1. Auth scoped to the /sync routes ONLY (the plaintext workspace data). `/config` (#15) and the
+  //    served web app (WI-4) are intentionally OUTSIDE this scope: `/config` stores only E2E ciphertext
+  //    that is useless without the user's passphrase, the static app must load before any token could be
+  //    entered, and the Tailscale network is the transport perimeter.
+  //    - tokenFree → a PASS-THROUGH guard: every /sync request runs, and ANY Authorization header (e.g.
+  //      a stale `Bearer x` from a prior token-mode session) is IGNORED, never rejected. (We must NOT
+  //      use tokenMatches against the empty token — digest('') would reject every real bearer.)
+  //    - else → the constant-time bearer guard: missing header / wrong scheme / wrong token → 401; the
+  //      body never reveals the token's length or value.
+  if (tokenFree) {
+    app.use('/sync/*', async (_c, next) => {
+      await next()
+    })
+  } else {
+    app.use('/sync/*', async (c, next) => {
+      const header = c.req.header('Authorization')
+      if (header === undefined || !header.startsWith(BEARER_PREFIX)) {
+        return c.json({ error: 'unauthorized' }, 401)
+      }
+      const presented = header.slice(BEARER_PREFIX.length)
+      if (!tokenMatches(presented, deps.token)) {
+        return c.json({ error: 'unauthorized' }, 401)
+      }
+      await next()
+    })
+  }
 
   // 2. GET /sync/changes?since=<int> → 200 PullResult, or 400 on a bad/absent cursor.
   app.get('/sync/changes', (c) => {

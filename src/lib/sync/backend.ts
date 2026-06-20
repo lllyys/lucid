@@ -1,10 +1,12 @@
 // Purpose: the sync transport (#9). `SyncBackend` is the single interface the orchestrator (WI-7)
 // and queue (WI-6) depend on — never a vendor or raw fetch — mirroring the LLM provider layer's
-// injectable-fetch pattern. `createRestSyncBackend` talks to the user's self-hosted server over a
-// bearer-authenticated REST API, bounds every request with a timeout, validates the response through
-// the WI-2 guards, and maps failures to a localized-mappable SyncError. It NEVER throws across the
-// boundary: every method returns a discriminated BackendResult. Retry/backoff + offline queueing are
-// layered on top by the queue (WI-6); the backend is a single bounded request.
+// injectable-fetch pattern. `createRestSyncBackend` talks to the user's self-hosted server over a REST
+// API, bounds every request with a timeout, validates the response through the WI-2 guards, and maps
+// failures to a localized-mappable SyncError. Auth is a bearer header when a token is configured; an
+// EMPTY token (#19 WI-2 token-free single-origin) OMITS the Authorization header entirely (conditional
+// spread) — the server's token-free pass-through needs none. It NEVER throws across the boundary: every
+// method returns a discriminated BackendResult. Retry/backoff + offline queueing are layered on top by
+// the queue (WI-6); the backend is a single bounded request.
 
 import { isPullResult, isPushResult } from './guards'
 import type { PullResult, PushOp, PushResult, SyncError } from './types'
@@ -66,12 +68,18 @@ export function createRestSyncBackend(config: RestBackendConfig): SyncBackend {
       }
       let res: Response
       try {
-        // Only WE set headers — no caller-supplied headers can shadow the bearer auth.
+        // Only WE set headers — no caller-supplied headers can shadow the bearer auth. An EMPTY token
+        // (#19 WI-2 token-free single-origin) OMITS the Authorization key entirely via a conditional
+        // spread — never sends a useless `Bearer ` (the server's token-free pass-through ignores any
+        // header, and a real token server would 401 it anyway).
         res = await doFetch(`${base}${path}`, {
           method,
           body: payload,
           signal: controller.signal,
-          headers: { Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(config.token ? { Authorization: `Bearer ${config.token}` } : {}),
+          },
         })
       } catch {
         return { ok: false, error: { kind: 'unreachable' } } // network failure OR timeout-abort

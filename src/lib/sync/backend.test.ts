@@ -89,6 +89,28 @@ describe('createRestSyncBackend — error mapping', () => {
     vi.unstubAllGlobals()
   })
 
+  // #19 WI-2: token-free single-origin. An empty token must OMIT the Authorization header entirely
+  // (conditional spread) — never send a useless `Bearer ` that the server would ignore anyway, and
+  // never an empty-string header value. The server's token-free pass-through ignores any header, so
+  // the client simply sends none.
+  it('OMITS the Authorization header entirely when the token is empty (token-free single-origin)', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ changes: [], maxRev: 0 }))) as unknown as typeof fetch
+    const backend = createRestSyncBackend({ baseUrl: 'https://lucid.example', token: '', fetch: fetchMock })
+    await backend.pull(0)
+    const [, init] = (fetchMock as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]
+    const headers = init.headers as Record<string, string>
+    expect(headers.Authorization).toBeUndefined() // NOT '' — the key is absent, not an empty bearer
+    expect(headers['Content-Type']).toBe('application/json') // Content-Type is still set
+  })
+
+  it('still sends `Bearer <token>` for a real (non-empty) token (token-authed path unchanged)', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ changes: [], maxRev: 0 }))) as unknown as typeof fetch
+    const backend = createRestSyncBackend({ baseUrl: 'https://lucid.example', token: 'real-tok', fetch: fetchMock })
+    await backend.pull(0)
+    const [, init] = (fetchMock as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer real-tok')
+  })
+
   it('maps a push body that is not a PushResult[] to badRequest', async () => {
     const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ not: 'an array' }))) as unknown as typeof fetch
     expect(await make(fetchMock).push([op])).toMatchObject({ ok: false, error: { kind: 'badRequest' } })

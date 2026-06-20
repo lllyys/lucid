@@ -6,6 +6,9 @@
 //     current local data into the queue (the edit tracker only sees CHANGES after start, so pre-existing
 //     entities must be uploaded here), then start the orchestrator. The seed is idempotent — every op is
 //     expect-new (baseRev 0) on a stable id, so a re-connect/re-seed upserts rather than duplicates.
+//   • connectSingleOrigin(): connect token-free to the served origin (#19 WI-2) — same flow as
+//     connect() but the config is window.location.origin + an empty token (no typed token/URL); the
+//     empty token makes the REST backend omit the Authorization header for the server's token-free /sync.
 //   • resume(): re-attach an already-connected session after a reload — start the orchestrator WITHOUT
 //     re-seeding (the persisted `seeded` flag is still true) and WITHOUT clearing the queue (its
 //     un-pushed edits are still bound for the same server). No-op when local-only (no config).
@@ -45,6 +48,13 @@ export interface SyncControllerDeps extends OrchestratorTuning {
 
 export interface SyncController {
   connect: (config: SyncConfig) => void
+  /**
+   * Token-free single-origin connect (#19 WI-2): connect to the served origin
+   * (`window.location.origin`) with an empty token — no typed token/URL. Same flow as `connect()`
+   * (clear the stale queue, re-seed the current local data, start the orchestrator); the empty token
+   * makes the REST backend omit the Authorization header for the server's token-free `/sync`.
+   */
+  connectSingleOrigin: () => void
   resume: () => void
   /** Force an immediate sync cycle (the UI's "Sync now" / "Retry now"). No-op when local-only/stopped. */
   syncNow: () => void
@@ -95,6 +105,13 @@ export function createSyncController(deps: SyncControllerDeps = {}): SyncControl
       useSyncStore.getState().connect(config) // sets config, resets cursor/seeded/revs → a fresh seed
       useSyncQueueStore.getState().reset() // drop stale ops from a prior server/session before re-seeding
       launch(config)
+    },
+    connectSingleOrigin() {
+      useSyncStore.getState().connectSingleOrigin() // origin config + empty token, resets cursor/seeded/revs
+      useSyncQueueStore.getState().reset() // drop stale ops from a prior server/session before re-seeding
+      // connectSingleOrigin always set a non-null config; read it back so the backend targets the exact
+      // origin + empty token the store chose (token-free → the REST backend omits the Authorization header).
+      launch(useSyncStore.getState().config as SyncConfig)
     },
     resume() {
       const config = useSyncStore.getState().config

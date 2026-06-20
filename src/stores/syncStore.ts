@@ -69,6 +69,13 @@ export interface SyncState {
   setRevs: (updates: Record<string, number>) => void
   markSeeded: () => void
   reset: () => void
+  /**
+   * Token-free single-origin connect (#19 WI-2): target the served origin
+   * (`window.location.origin`) with an empty token and route through `connect()`, so the same
+   * fresh-server re-seed semantics apply (cursor 0 / seeded false / revs {}). The empty token makes the
+   * REST backend omit the Authorization header; the server's token-free `/sync` needs none.
+   */
+  connectSingleOrigin: () => void
 }
 
 const PERSIST_VERSION = 2
@@ -119,6 +126,10 @@ export const useSyncStore = create<SyncState>()(
       // reconnecting to the same server is safe. A reload rehydrates config/cursor/seeded and does NOT
       // call connect(), so an established cursor survives restarts.
       connect: (config) => set({ config, status: 'connecting', cursor: 0, seeded: false, revs: {} }),
+      // #19 WI-2: token-free single-origin. Reuse connect()'s exact re-seed semantics with a config
+      // that targets the served origin and an empty token (→ backend omits the Authorization header).
+      connectSingleOrigin: () =>
+        set({ config: { serverUrl: window.location.origin, token: '' }, status: 'connecting', cursor: 0, seeded: false, revs: {} }),
       disconnect: () => set({ ...INITIAL }),
       setStatus: (status) => set({ status }),
       setLastSynced: (lastSyncedAt) => set({ lastSyncedAt }),

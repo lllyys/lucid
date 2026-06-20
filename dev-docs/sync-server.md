@@ -12,17 +12,20 @@ its data volume implies.
 
 - A [Hono](https://hono.dev) app (`server/src/app.ts`) over a `node:sqlite` store
   (`server/src/db.ts`). The serve entry is `server/src/index.ts`.
-- Three routes, all behind a constant-time bearer-auth guard:
+- Three routes, behind a constant-time bearer-auth guard (or a pass-through guard in the
+  token-free single-origin mode — see "Token-free single-origin mode"):
   - `GET /sync/changes?since=<rev>` — pull entities changed since a cursor.
   - `POST /sync/changes` — push a batch of changes (body capped, see below).
   - `DELETE /sync/data` — erase everything (the client's disconnect-and-erase).
-- The client half is `src/lib/sync/backend.ts`; it talks to this server over a
-  bearer-authenticated REST API and bounds every request with a 15 s timeout.
+- The client half is `src/lib/sync/backend.ts`; it talks to this server over a REST API
+  (bearer header when a token is configured, none in token-free mode) and bounds every
+  request with a 15 s timeout.
 
 ## 1. Generate a token
 
-The server **refuses to start without `SYNC_TOKEN`** — a tokenless server is an open
-auth hole, so there is no default. Generate a high-entropy token once and keep it secret:
+The server **refuses to start without `SYNC_TOKEN`** when it runs **API-only** (no
+`STATIC_DIR`) — a tokenless API-only server is an open auth hole, so there is no default.
+Generate a high-entropy token once and keep it secret:
 
 ```bash
 openssl rand -base64 32
@@ -32,6 +35,27 @@ The client stores this token via the browser's secure mechanisms and presents it
 request (`Authorization: Bearer <token>`). Treat it like a password: never commit it,
 never bake it into the Docker image, never paste it into a bug report. The server never
 logs it (the single startup line prints only the port and DB path).
+
+### Token-free single-origin mode (#19)
+
+When you serve the app from the server itself (`STATIC_DIR` set) you may **omit
+`SYNC_TOKEN`** to run `/sync` **token-free**: the served origin plus the Tailscale ACL is
+the boundary, exactly like `/config` (#15) — no token to type, no URL to configure. The four
+quadrants of (`STATIC_DIR`, `SYNC_TOKEN`):
+
+| `STATIC_DIR` | `SYNC_TOKEN` | `/sync` behavior |
+|---|---|---|
+| set | **empty/unset** | **token-free** — `/sync` is UNAUTHENTICATED, gated only by network reachability; any `Authorization` header is ignored |
+| set | set | bearer-authed (a single-origin server that ALSO wants a token stays protected) |
+| unset | empty/unset | **refuses to start** (an API-only server with no auth is a footgun) |
+| unset | set | bearer-authed (API-only, the original behavior) |
+
+> **Token-free `/sync` carries plaintext workspace data reachable by anyone who can reach
+> the origin (is on the tailnet)** — strictly weaker than a typed token. It is the
+> single-tenant, self-hosted-behind-Tailscale choice. The server logs a LOUD startup warning
+> when it enters this mode, and **fails fast** if `STATIC_DIR` does not point at a real
+> readable directory (so a typo can never silently open an unauthenticated `/sync` behind a
+> broken app). The client omits the `Authorization` header entirely in this mode.
 
 ## 2. Run it (Docker)
 
@@ -57,11 +81,11 @@ docker run -d --name lucid-sync \
 
 | Var | Required | Default | Notes |
 |-----|----------|---------|-------|
-| `SYNC_TOKEN` | **yes** | — | Bearer token. Non-empty. No default (tokenless = auth hole). |
+| `SYNC_TOKEN` | **yes, unless `STATIC_DIR` is set** | — | Bearer token. Non-empty. No default for an API-only server (tokenless API-only = auth hole). With `STATIC_DIR` set, omitting it runs `/sync` **token-free** (see "Token-free single-origin mode"). |
 | `DB_PATH` | no | `sync.db` | SQLite file. Point it **inside the mounted volume** (e.g. `/data/sync.db`) so data survives restarts. Never `:memory:` (test-only — loses everything on restart). |
 | `PORT` | no | `8787` | Listen port, must be `1..65535`. |
 | `MAX_BODY_BYTES` | no | `5242880` (5 MiB) | Cap on the `POST /sync/changes` body. A normal push is a few KB; this is a resource-exhaustion guard. An over-cap body → `413`. |
-| `STATIC_DIR` | no | — | Path to the **built web app** (`dist/`) to serve at the same origin (#15 cross-device config sync). Set it to serve the app + the API from one origin (no CORS, no URL to type). Unset = API-only (the pre-#15 behavior). |
+| `STATIC_DIR` | no | — | Path to the **built web app** (`dist/`) to serve at the same origin (#15 cross-device config sync). Set it to serve the app + the API from one origin (no CORS, no URL to type). Unset = API-only (the pre-#15 behavior). When set with no `SYNC_TOKEN` it ALSO authorizes the token-free `/sync` mode (#19) and must `stat` to a real readable directory. |
 
 ### The data volume (trust boundary)
 
@@ -70,7 +94,8 @@ synced workspace **in plaintext** — there is no at-rest encryption layer in th
 trust boundary is therefore the box and its disk:
 
 - Anyone with read access to the volume/disk can read the workspace data.
-- Anyone with the token can read and write it over the network.
+- Anyone with the token can read and write it over the network (in token-free single-origin
+  mode, anyone who can reach the origin / is on the tailnet can — there is no token).
 
 Encrypt the underlying disk (full-disk encryption / an encrypted volume) if the host is not
 already trusted, and restrict filesystem access to the volume. This matches the

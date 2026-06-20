@@ -15,6 +15,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 function makeController(overrides: Partial<SyncController> = {}): SyncController {
   return {
     connect: vi.fn(),
+    connectSingleOrigin: vi.fn(),
     resume: vi.fn(),
     syncNow: vi.fn(),
     disconnect: vi.fn().mockResolvedValue(true),

@@ -1,22 +1,36 @@
-// WI-8d — the serve entry's pure config parser (createServerConfig).
-// Only the env→config mapping is unit-tested here; the listen/serve glue in main() is integration
-// glue (a real socket bind) and is intentionally NOT unit-tested. Assertions target observable
-// behavior: a token is REQUIRED (no default — a tokenless server is an auth hole), PORT/MAX_BODY_BYTES
-// parse strictly, and the durable DB-path default is a real file (never ':memory:', which loses data).
+// WI-8d / #19 WI-1 — the serve entry's pure config parser (createServerConfig) + the token-free stat
+// gate (assertTokenFreeDirReadable). Only the env→config mapping AND the injectable stat probe are
+// unit-tested here; the listen/serve glue in main() is integration glue (a real socket bind) and is
+// intentionally NOT unit-tested. Assertions target observable behavior: a token is REQUIRED unless a
+// STATIC_DIR authorizes the token-free single-origin mode (#19), PORT/MAX_BODY_BYTES parse strictly,
+// the durable DB-path default is a real file (never ':memory:'), and the token-free start fails fast
+// when STATIC_DIR does not stat to a readable directory.
 
-import { describe, expect, it } from 'vitest'
-import { createServerConfig, DEFAULT_DB_PATH, DEFAULT_PORT, DEFAULT_MAX_BODY_BYTES } from './index.js'
+import { describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import {
+  createServerConfig,
+  assertTokenFreeDirReadable,
+  isTokenFree,
+  TOKEN_FREE_WARNING,
+  DEFAULT_DB_PATH,
+  DEFAULT_PORT,
+  DEFAULT_MAX_BODY_BYTES,
+  type ServerConfig,
+} from './index.js'
 
-describe('createServerConfig — SYNC_TOKEN (required)', () => {
-  it('throws when SYNC_TOKEN is absent (a tokenless server is an auth hole)', () => {
+describe('createServerConfig — SYNC_TOKEN (required UNLESS token-free single-origin, #19 WI-1)', () => {
+  it('throws when SYNC_TOKEN is absent AND no STATIC_DIR (a tokenless API-only server is an auth hole)', () => {
     expect(() => createServerConfig({})).toThrow(/SYNC_TOKEN/)
   })
 
-  it('throws when SYNC_TOKEN is the empty string', () => {
+  it('throws when SYNC_TOKEN is the empty string AND no STATIC_DIR', () => {
     expect(() => createServerConfig({ SYNC_TOKEN: '' })).toThrow(/SYNC_TOKEN/)
   })
 
-  it('throws when SYNC_TOKEN is whitespace-only', () => {
+  it('throws when SYNC_TOKEN is whitespace-only AND no STATIC_DIR', () => {
     expect(() => createServerConfig({ SYNC_TOKEN: '   ' })).toThrow(/SYNC_TOKEN/)
   })
 
@@ -24,6 +38,104 @@ describe('createServerConfig — SYNC_TOKEN (required)', () => {
     const cfg = createServerConfig({ SYNC_TOKEN: '  super-secret  ' })
     // The presence check trims, but the token used for auth keeps surrounding spaces if the user set them.
     expect(cfg.token).toBe('  super-secret  ')
+  })
+
+  // #19 WI-1: the no-token start is PERMITTED when a STATIC_DIR is set (single-origin token-free
+  // intent). createServerConfig stays PURE — it does NOT stat the dir here; that probe is main()'s job
+  // via assertTokenFreeDirReadable. The token resolves to '' so createApp enters token-free mode.
+  it('permits an ABSENT SYNC_TOKEN when STATIC_DIR is set → token is "" (token-free single-origin)', () => {
+    const cfg = createServerConfig({ STATIC_DIR: '/app/web' })
+    expect(cfg.token).toBe('')
+    expect(cfg.staticDir).toBe('/app/web')
+  })
+
+  it('permits an EMPTY SYNC_TOKEN when STATIC_DIR is set → token is "" (token-free single-origin)', () => {
+    expect(createServerConfig({ SYNC_TOKEN: '', STATIC_DIR: '/app/web' }).token).toBe('')
+  })
+
+  it('permits a WHITESPACE-only SYNC_TOKEN when STATIC_DIR is set → token is "" (collapses to empty)', () => {
+    expect(createServerConfig({ SYNC_TOKEN: '   ', STATIC_DIR: '/app/web' }).token).toBe('')
+  })
+
+  it('does NOT stat STATIC_DIR inside createServerConfig (stays pure even for a bogus dir)', () => {
+    // A nonexistent dir must NOT make the pure parser throw — the stat gate lives in main().
+    expect(() => createServerConfig({ STATIC_DIR: '/no/such/dir/at/all' })).not.toThrow()
+  })
+})
+
+// #19 WI-1 — the stat gate that authorizes the token-free single-origin start. Injectable statSync-like
+// probe keeps createServerConfig pure; main() passes the real fs.statSync. The gate runs ONLY when the
+// config is token-free (empty token + staticDir); every other quadrant is a no-op.
+describe('assertTokenFreeDirReadable — token-free start requires a real readable STATIC_DIR', () => {
+  const base: ServerConfig = {
+    token: '',
+    dbPath: DEFAULT_DB_PATH,
+    port: DEFAULT_PORT,
+    maxBodyBytes: DEFAULT_MAX_BODY_BYTES,
+  }
+
+  it('passes when the token-free STATIC_DIR stats to a directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lucid-statgate-'))
+    writeFileSync(join(dir, 'index.html'), '<!doctype html>')
+    expect(() => assertTokenFreeDirReadable({ ...base, staticDir: dir })).not.toThrow()
+  })
+
+  it('FAILS FAST when the token-free STATIC_DIR is missing (a typo must NOT open an unauthed /sync)', () => {
+    expect(() => assertTokenFreeDirReadable({ ...base, staticDir: '/no/such/dir' })).toThrow(/STATIC_DIR/)
+  })
+
+  it('FAILS FAST when STATIC_DIR points at a FILE, not a directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lucid-statgate-'))
+    const file = join(dir, 'not-a-dir.txt')
+    writeFileSync(file, 'x')
+    expect(() => assertTokenFreeDirReadable({ ...base, staticDir: file })).toThrow(/STATIC_DIR/)
+  })
+
+  it('is a NO-OP for a token-authed config (a token server never stats the dir)', () => {
+    // staticDir set but token present → NOT token-free → the gate does nothing, even for a bad dir.
+    const statProbe = vi.fn()
+    assertTokenFreeDirReadable({ ...base, token: 'real-tok', staticDir: '/no/such/dir' }, statProbe)
+    expect(statProbe).not.toHaveBeenCalled()
+  })
+
+  it('is a NO-OP for an API-only config (no staticDir → never token-free)', () => {
+    const statProbe = vi.fn()
+    assertTokenFreeDirReadable({ ...base, token: 'real-tok' }, statProbe)
+    expect(statProbe).not.toHaveBeenCalled()
+  })
+
+  it('treats a probe that throws (ENOENT) as a missing dir → fail fast', () => {
+    const statProbe = vi.fn(() => {
+      throw new Error('ENOENT')
+    })
+    expect(() => assertTokenFreeDirReadable({ ...base, staticDir: '/x' }, statProbe)).toThrow(/STATIC_DIR/)
+  })
+})
+
+// #19 WI-1 — the token-free predicate + the LOUD startup warning (the content is load-bearing, not
+// cosmetic, so it's pinned). main() logs TOKEN_FREE_WARNING via console.warn when isTokenFree is true.
+describe('isTokenFree + TOKEN_FREE_WARNING (#19 WI-1)', () => {
+  const base: ServerConfig = {
+    token: '',
+    dbPath: DEFAULT_DB_PATH,
+    port: DEFAULT_PORT,
+    maxBodyBytes: DEFAULT_MAX_BODY_BYTES,
+  }
+
+  it.each([
+    { desc: 'staticDir + empty token', cfg: { staticDir: '/app/web', token: '' }, expected: true },
+    { desc: 'staticDir + whitespace token', cfg: { staticDir: '/app/web', token: '   ' }, expected: true },
+    { desc: 'staticDir + real token (quadrant 2)', cfg: { staticDir: '/app/web', token: 'tok' }, expected: false },
+    { desc: 'no staticDir + real token (api-only)', cfg: { token: 'tok' }, expected: false },
+  ])('isTokenFree is $expected for $desc', ({ cfg, expected }) => {
+    expect(isTokenFree({ ...base, ...cfg })).toBe(expected)
+  })
+
+  it('the warning names the consequence (UNAUTHENTICATED + Tailscale ACL + plaintext)', () => {
+    expect(TOKEN_FREE_WARNING).toContain('TOKEN-FREE')
+    expect(TOKEN_FREE_WARNING).toContain('UNAUTHENTICATED')
+    expect(TOKEN_FREE_WARNING).toContain('Tailscale ACL')
+    expect(TOKEN_FREE_WARNING).toContain('Plaintext')
   })
 })
 
