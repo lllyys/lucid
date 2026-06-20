@@ -425,6 +425,101 @@ describe('createApp configuration', () => {
   })
 })
 
+// Feature #19 WI-1 — token-free single-origin /sync. The four quadrants of (staticDir, token):
+// the SINGLE shared predicate `tokenFree = staticDir set AND token empty/whitespace` decides BOTH
+// the startup-throw skip AND the /sync middleware (pass-through vs bearer). Only that one quadrant is
+// unauthenticated; every other quadrant keeps the bearer gate byte-for-byte.
+describe('token-free single-origin /sync (#19 WI-1)', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'lucid-tokenfree-'))
+    writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Lucid</title>')
+  })
+
+  // QUADRANT 1: staticDir set + EMPTY token → token-free (the new mode).
+  it('does NOT throw when token is empty but a staticDir is set (the single-origin token-free quadrant)', () => {
+    expect(() => createApp({ store, token: '', staticDir: dir })).not.toThrow()
+  })
+
+  it('reaches GET /sync/changes WITHOUT any Authorization header → 200 (origin + tailnet is the boundary)', async () => {
+    const tokenFreeApp = createApp({ store, token: '', staticDir: dir })
+    const res = await tokenFreeApp.request('/sync/changes?since=0')
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ changes: [], maxRev: 0 })
+  })
+
+  it('IGNORES a stale `Bearer x` header in token-free mode → still 200 (header not rejected)', async () => {
+    const tokenFreeApp = createApp({ store, token: '', staticDir: dir })
+    const res = await tokenFreeApp.request('/sync/changes?since=0', {
+      headers: { Authorization: 'Bearer stale-token-from-a-prior-mode' },
+    })
+    expect(res.status).toBe(200)
+  })
+
+  it('serves a token-free POST /sync/changes (push) → 200', async () => {
+    const tokenFreeApp = createApp({ store, token: '', staticDir: dir })
+    const res = await tokenFreeApp.request('/sync/changes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([op({ id: 'a' })]),
+    })
+    expect(res.status).toBe(200)
+    const results = (await res.json()) as PushResult[]
+    expect(results[0]?.status).toBe('applied')
+  })
+
+  it('keeps the body-size cap on the route in token-free mode (over-cap → 413)', async () => {
+    const tokenFreeApp = createApp({ store, token: '', staticDir: dir, maxBodyBytes: 64 })
+    const big = JSON.stringify([op({ id: 'x', payload: { value: 'y'.repeat(500) } })])
+    const res = await tokenFreeApp.request('/sync/changes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: big,
+    })
+    expect(res.status).toBe(413)
+  })
+
+  it('serves a token-free DELETE /sync/data (purge) → 204 (the erase path works without auth)', async () => {
+    store.applyOps([op({ id: 'a' })])
+    const tokenFreeApp = createApp({ store, token: '', staticDir: dir })
+    const res = await tokenFreeApp.request('/sync/data', { method: 'DELETE' })
+    expect(res.status).toBe(204)
+    const after = await tokenFreeApp.request('/sync/changes?since=0')
+    expect(((await after.json()) as PullResult).changes).toHaveLength(0)
+  })
+
+  // The whitespace-only token must collapse to the SAME quadrant as the empty token (H1 fix: one
+  // shared `tokenFree` predicate that trims, never two predicates that could drift).
+  it('treats a whitespace-only token + staticDir identically to empty (still token-free → 200)', async () => {
+    const tokenFreeApp = createApp({ store, token: '   ', staticDir: dir })
+    const res = await tokenFreeApp.request('/sync/changes?since=0')
+    expect(res.status).toBe(200)
+  })
+
+  // QUADRANT 2 (NAMED REGRESSION): staticDir set + token SET → /sync STILL bearer-authed. A
+  // single-origin server that ALSO wants a token must stay protected. This preserves the existing
+  // 'does NOT shadow /sync (still 401 without a token)' regression above.
+  it('quadrant-2 regression: staticDir set + a token SET → /sync still 401s a missing bearer', async () => {
+    const protectedApp = createApp({ store, token: TOKEN, staticDir: dir })
+    expect((await protectedApp.request('/sync/changes?since=0')).status).toBe(401)
+  })
+
+  it('quadrant-2: staticDir + token still lets the correct bearer through → 200', async () => {
+    const protectedApp = createApp({ store, token: TOKEN, staticDir: dir })
+    const res = await protectedApp.request('/sync/changes?since=0', {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    })
+    expect(res.status).toBe(200)
+  })
+
+  // QUADRANT 3: NO staticDir + empty token → throw at startup (the footgun is preserved — an
+  // API-only server with no auth must never start).
+  it('quadrant-3: API-only (no staticDir) + empty token STILL throws at startup (footgun preserved)', () => {
+    expect(() => createApp({ store, token: '' })).toThrow()
+    expect(() => createApp({ store, token: '   ' })).toThrow()
+  })
+})
+
 describe('request body-size limit', () => {
   // A tiny cap makes the boundary testable; a real push is a few KB, far under the 5 MB default.
   const SMALL_CAP = 64

@@ -1,15 +1,20 @@
-// Purpose: the serve entry for the self-hosted sync server (#9, WI-8d). Splits cleanly into a PURE,
-// unit-tested config parser (`createServerConfig`) and an integration-only `main()` that opens the
-// SQLite store, builds the Hono app (WI-8c), and binds a real port via @hono/node-server. Only
-// `createServerConfig` is unit-tested; the listen/serve call is a socket bind (integration glue) and
-// is exercised by deployment, not by `pnpm test`.
+// Purpose: the serve entry for the self-hosted sync server (#9, WI-8d; #19 WI-1). Splits cleanly into a
+// PURE, unit-tested config parser (`createServerConfig`) + an injectable stat gate
+// (`assertTokenFreeDirReadable`), and an integration-only `main()` that opens the SQLite store, builds
+// the Hono app (WI-8c), and binds a real port via @hono/node-server. `createServerConfig` and the stat
+// gate are unit-tested; the listen/serve call is a socket bind (integration glue) and is exercised by
+// deployment, not by `pnpm test`.
 //
-// Security: SYNC_TOKEN is REQUIRED and non-empty — there is no default, because a tokenless server is
-// an open auth hole (createApp also rejects an empty token defensively). The token is NEVER logged: the
-// single startup line prints only the port and DB path. DB_PATH defaults to a durable file ('sync.db'),
-// never ':memory:' (that is a test-only store that loses all data on restart).
+// Security: SYNC_TOKEN is REQUIRED and non-empty — EXCEPT in the token-free single-origin mode (#19
+// WI-1), where a set STATIC_DIR authorizes a tokenless start (origin + the Tailscale ACL is the
+// boundary; the token resolves to '' so createApp enters its token-free quadrant). To keep
+// createServerConfig pure it does NOT stat STATIC_DIR; main() runs `assertTokenFreeDirReadable` (with
+// fs.statSync injected) so a token-free start fails fast when STATIC_DIR is missing/not-a-directory
+// rather than silently opening an UNAUTHENTICATED /sync behind a broken app. main() also logs a LOUD,
+// consequence-naming line when token-free. The token is NEVER logged. DB_PATH defaults to a durable
+// file ('sync.db'), never ':memory:' (a test-only store that loses all data on restart).
 
-import { realpathSync } from 'node:fs'
+import { realpathSync, statSync, type Stats } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { serve } from '@hono/node-server'
 import { createApp } from './app.js'
@@ -64,17 +69,30 @@ function parseBoundedInt(
 
 /**
  * Build the server config from a plain env map (injected, so it is pure + unit-testable). Validation:
- *  - SYNC_TOKEN: REQUIRED, non-empty after trim (throws otherwise) — no default, by design.
+ *  - SYNC_TOKEN: REQUIRED non-empty UNLESS a STATIC_DIR is set (#19 WI-1: token-free single-origin). A
+ *    blank/absent token WITH a STATIC_DIR resolves to '' (createApp's token-free quadrant); a blank
+ *    token WITHOUT a STATIC_DIR throws (an API-only server with no auth is a footgun).
  *  - DB_PATH: optional, defaults to a durable file (never ':memory:').
  *  - PORT: optional, must parse to 1–65535 if set.
  *  - MAX_BODY_BYTES: optional, must be a positive integer if set.
  *  - STATIC_DIR: optional path to the built web app to serve at the same origin (#15); unset = API-only.
+ *
+ * PURE by design (#19 Gate-2 Low): it does NOT `stat` STATIC_DIR — the filesystem probe that authorizes
+ * the token-free start lives in `assertTokenFreeDirReadable`, called by main() with fs.statSync injected.
  */
 export function createServerConfig(env: Record<string, string | undefined>): ServerConfig {
-  const token = env.SYNC_TOKEN
-  if (token === undefined || token.trim().length === 0) {
-    throw new Error('SYNC_TOKEN is required and must be non-empty (a tokenless server is an auth hole)')
+  const rawToken = env.SYNC_TOKEN
+  const staticDir = readTrimmed(env.STATIC_DIR)
+  const tokenBlank = rawToken === undefined || rawToken.trim().length === 0
+
+  if (tokenBlank && staticDir === undefined) {
+    throw new Error('SYNC_TOKEN is required and must be non-empty (a tokenless API-only server is an auth hole)')
   }
+  // Token-free single-origin: a blank token with a STATIC_DIR resolves to '' so createApp enters its
+  // token-free quadrant. Otherwise preserve the token VERBATIM — the trim above is only a presence
+  // check; the user may intentionally include surrounding characters, and the auth comparison must use
+  // exactly what they configured.
+  const token = tokenBlank ? '' : (rawToken as string)
 
   const dbPath = readTrimmed(env.DB_PATH) ?? DEFAULT_DB_PATH
   const port = parseBoundedInt(env.PORT, 'PORT', 1, 65535, DEFAULT_PORT)
@@ -86,19 +104,59 @@ export function createServerConfig(env: Record<string, string | undefined>): Ser
     DEFAULT_MAX_BODY_BYTES,
   )
 
-  const staticDir = readTrimmed(env.STATIC_DIR)
-
-  // Preserve the token VERBATIM — the trim above is only a presence check; the user may intentionally
-  // include surrounding characters, and the auth comparison must use exactly what they configured.
   return { token, dbPath, port, maxBodyBytes, staticDir }
+}
+
+/** statSync-like probe — injected so the gate is unit-testable without touching the real filesystem. */
+export type StatProbe = (path: string) => Stats
+
+/**
+ * The LOUD, consequence-naming startup warning for token-free single-origin mode (#19 WI-1). The
+ * content is load-bearing (the operator must understand /sync is open) — pinned by a unit test.
+ */
+export const TOKEN_FREE_WARNING =
+  'TOKEN-FREE single-origin mode — /sync is UNAUTHENTICATED, gated only by network reachability (Tailscale ACL). Plaintext workspace data.'
+
+/** True when the config is the token-free single-origin quadrant (empty token + a staticDir). */
+export function isTokenFree(config: ServerConfig): boolean {
+  return config.staticDir !== undefined && config.token.trim().length === 0
+}
+
+/**
+ * The token-free start gate (#19 WI-1). When (and ONLY when) the config is token-free, `stat` STATIC_DIR
+ * and require it be a real readable directory — else throw and fail fast, so a typo (STATIC_DIR=/typo +
+ * no token) can NEVER open an UNAUTHENTICATED /sync behind a 404ing app. A no-op for every other
+ * quadrant (a token-authed or API-only server never reaches this gate's filesystem probe). The probe is
+ * injectable for tests; main() passes fs.statSync. A throw from the probe (ENOENT) is treated as missing.
+ */
+export function assertTokenFreeDirReadable(config: ServerConfig, statProbe: StatProbe = statSync): void {
+  if (!isTokenFree(config)) return
+  const dir = config.staticDir as string
+  let stats: Stats
+  try {
+    stats = statProbe(dir)
+  } catch {
+    throw new Error(
+      `STATIC_DIR (${dir}) is not accessible — a token-free single-origin start requires a real readable directory`,
+    )
+  }
+  if (!stats.isDirectory()) {
+    throw new Error(`STATIC_DIR (${dir}) is not a directory — a token-free single-origin start requires one`)
+  }
 }
 
 /**
  * Integration glue: read the real environment, open the durable store, build the app, and listen.
- * Not unit-tested (it binds a socket). NEVER logs the token — only the port + DB path.
+ * Not unit-tested (it binds a socket). NEVER logs the token — only the port + DB path. When token-free
+ * (#19 WI-1) it FIRST stat-validates STATIC_DIR (fail fast, no socket bound) and logs a LOUD,
+ * consequence-naming warning so the operator can never be surprised by an UNAUTHENTICATED /sync.
  */
 function main(): void {
   const config = createServerConfig(process.env)
+  // Fail fast BEFORE opening the store or binding a socket: a token-free start must have a real
+  // STATIC_DIR, else we'd serve an open plaintext /sync behind a broken (404ing) app.
+  assertTokenFreeDirReadable(config)
+  if (isTokenFree(config)) console.warn(TOKEN_FREE_WARNING)
   const store = createSyncStore(config.dbPath)
   const app = createApp({
     store,

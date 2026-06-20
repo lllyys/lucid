@@ -280,6 +280,51 @@ describe('createSyncController', () => {
     expect(useSyncStore.getState().status).toBe('offline')
     await ctrl.disconnect({ erase: false })
   })
+
+  // #19 WI-2 — connectSingleOrigin(): the controller affordance for token-free single-origin. It
+  // connects to window.location.origin with an empty token (via the store's connectSingleOrigin),
+  // seeds the current local data, and starts syncing — same flow as connect(), no typed token/URL.
+  it('connectSingleOrigin() connects to window.location.origin token-free, seeds, and starts syncing', async () => {
+    useGlossaryStore.setState({ terms: [term('g1', 'API')] })
+    const be = okBackend()
+    const ctrl = makeController(be)
+    ctrl.connectSingleOrigin()
+
+    expect(useSyncStore.getState().config).toEqual({ serverUrl: window.location.origin, token: '' })
+    expect(useSyncStore.getState().config?.token).toBe('') // token-free
+    expect(useSyncStore.getState().seeded).toBe(true)
+    expect(useSyncQueueStore.getState().entries.map((e) => e.op.id)).toEqual(['g1']) // local data seeded
+    await tick()
+    expect(be.pull).toHaveBeenCalledOnce()
+    await ctrl.disconnect()
+  })
+
+  it('connectSingleOrigin() clears stale queued ops from a prior server before seeding', async () => {
+    useSyncQueueStore.getState().enqueue({ type: 'term', id: 'old', payload: {}, updatedAt: 1, deletedAt: 1, baseRev: 7 })
+    useGlossaryStore.setState({ terms: [term('g1', 'API')] })
+    const be = okBackend()
+    const ctrl = makeController(be)
+    ctrl.connectSingleOrigin()
+    expect(useSyncQueueStore.getState().entries.map((e) => e.op.id)).toEqual(['g1']) // 'old' dropped
+    await tick()
+    await ctrl.disconnect()
+  })
+
+  it('connectSingleOrigin() builds the default REST backend (empty token → no Authorization header)', async () => {
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response(null, { status: 204 })))
+    vi.stubGlobal('fetch', fetchMock)
+    // no createBackend → the default createRestSyncBackend(config) is used; offline so no drain/fetch on connect
+    const ctrl = createSyncController({ isOnline: () => false, subscribeConnectivity: () => () => {} })
+    ctrl.connectSingleOrigin()
+    await tick()
+    await ctrl.disconnect() // purge → DELETE /sync/data via the real fetch
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe(`${window.location.origin}/sync/data`)
+    expect(init.method).toBe('DELETE')
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined() // token-free: no auth header
+    vi.unstubAllGlobals()
+  })
 })
 
 function clearMock(be: SyncBackend): void {

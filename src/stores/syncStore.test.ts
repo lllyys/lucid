@@ -78,6 +78,32 @@ describe('syncStore', () => {
     useSyncStore.getState().setRevs({ b: 5, c: 3 }) // b updated, c added, a kept
     expect(useSyncStore.getState().revs).toEqual({ a: 1, b: 5, c: 3 })
   })
+
+  // #19 WI-2 — connectSingleOrigin: token-free single-origin connect. Builds a config that targets the
+  // served origin (window.location.origin) with an empty token and routes through connect(), so the
+  // same fresh-server re-seed semantics (cursor 0 / seeded false / revs {}) apply.
+  it('connectSingleOrigin targets window.location.origin with an empty token via connect()', () => {
+    useSyncStore.setState({ cursor: 9, seeded: true, revs: { a: 3 } }) // stale prior-server state
+    useSyncStore.getState().connectSingleOrigin()
+    const s = useSyncStore.getState()
+    expect(s.config).toEqual({ serverUrl: window.location.origin, token: '' })
+    expect(s.config?.token).toBe('') // explicitly empty — token-free
+    expect(s.status).toBe('connecting')
+    expect(s.cursor).toBe(0) // re-seed semantics (server change → fresh, idempotent seed)
+    expect(s.seeded).toBe(false)
+    expect(s.revs).toEqual({})
+  })
+
+  it('connectSingleOrigin replaces a prior remote-token connection (server change → re-seed)', () => {
+    useSyncStore.getState().connect(cfg) // a remote token server
+    useSyncStore.getState().markSeeded()
+    useSyncStore.getState().setCursor(42)
+    useSyncStore.getState().connectSingleOrigin()
+    const s = useSyncStore.getState()
+    expect(s.config).toEqual({ serverUrl: window.location.origin, token: '' })
+    expect(s.cursor).toBe(0)
+    expect(s.seeded).toBe(false)
+  })
 })
 
 describe('syncStore persist helpers', () => {
@@ -116,6 +142,25 @@ describe('syncStore persist helpers', () => {
     const persisted = partializeSync(useSyncStore.getState())
     expect(Object.keys(persisted).sort()).toEqual(['config', 'cursor', 'revs', 'seeded'])
     expect(persisted).toEqual({ config: cfg, cursor: 5, seeded: true, revs: { a: 2 } })
+  })
+
+  // #19 WI-2 — a token-free single-origin config has token: '' (an empty STRING, not null/missing). It
+  // is a valid SyncConfig: migrateSync's `typeof token === 'string'` guard accepts '' (cross-version
+  // path), and the same-version rehydrate path runs no guard, so '' survives BOTH ways.
+  const originCfg = { serverUrl: window.location.origin, token: '' }
+  it('migrateSync accepts an empty-token (single-origin) config and resets the rest', () => {
+    expect(migrateSync({ config: originCfg, cursor: 9, seeded: true, revs: { a: 1 } })).toEqual({
+      config: originCfg,
+      cursor: 0,
+      seeded: false,
+      revs: {},
+    })
+  })
+  it('partializeSync persists an empty-token (single-origin) config verbatim (same-version rehydrate path)', () => {
+    useSyncStore.getState().connectSingleOrigin()
+    const persisted = partializeSync(useSyncStore.getState())
+    expect(persisted.config).toEqual(originCfg)
+    expect(persisted.config?.token).toBe('') // empty token round-trips, not coerced away
   })
 })
 
