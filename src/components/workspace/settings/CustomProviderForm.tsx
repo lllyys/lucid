@@ -126,7 +126,9 @@ export function CustomProviderForm({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      {/* items-end: the MODEL + API KEY inputs share a baseline even though the API-KEY label wraps to two
+          lines (design bundle bottom-aligns this row with align-items:flex-end). Fixes bug #7. */}
+      <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-[170px] flex-1 flex-col gap-1.5">
           <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
             {t('settings.model')}
