@@ -9,7 +9,7 @@ import { notify } from '@/components/workspace/notify'
 import { cleanPolishOutput } from '@/lib/polish/cleanPolishOutput'
 import { isRunNowShortcut } from '@/lib/workspace/runNowShortcut'
 import { isMacPlatform } from '@/lib/workspace/platform'
-import type { LLMRequest } from '@/providers/types'
+import type { LLMRequest, PolishGoal } from '@/providers/types'
 import { useAutoRecordTask } from '@/hooks/useAutoRecordTask'
 import { AutoRunToggle } from '@/components/autorun/AutoRunToggle'
 import { AutoRunPendingChip } from '@/components/autorun/AutoRunPendingChip'
@@ -20,6 +20,7 @@ import { OriginalCard } from './OriginalCard'
 import { DraftCard } from './DraftCard'
 import { KeywordsCard } from './KeywordsCard'
 import { PolishResult } from './PolishResult'
+import { GoalChips } from './GoalChips'
 
 const AUTORUN_DEBOUNCE_MS = 1500
 
@@ -39,6 +40,7 @@ export function PolishPanel() {
   const [tgtLang, setTgtLang] = useState('en')
   const [original, setOriginal] = useState('')
   const [draft, setDraft] = useState('')
+  const [goal, setGoal] = useState<PolishGoal>('clarity')
   // Keywords live in a store (feature #3) so the sidebar Glossary's "use" can inject a term. The
   // store holds Keyword entities (#9 sync envelope); the card + the polish request want bare values.
   const keywords = usePolishKeywordsStore((s) => s.keywords)
@@ -62,6 +64,7 @@ export function PolishPanel() {
     original?: string
     lang?: string
     keywords?: readonly string[]
+    goal?: PolishGoal
   } = {}): LLMRequest => {
     const d = over.draft ?? draft
     const o = (over.original ?? original).trim()
@@ -69,7 +72,7 @@ export function PolishPanel() {
     return {
       kind: 'polish',
       text: d,
-      goal: 'clarity',
+      goal: over.goal ?? goal,
       lang: over.lang ?? tgtLang,
       original: o || undefined,
       keywords: kw.length ? kw : undefined,
@@ -159,6 +162,14 @@ export function PolishPanel() {
     resetForInput()
     armPolish(buildPolishRequest({ lang: c }))
   }
+  // A goal change invalidates a showing polish result (it was computed under the OLD goal) — reset it
+  // (mirrors the keywords-change effect) + arm auto-polish with the just-selected goal (the fresh value,
+  // not the not-yet-committed state). Routed through armPolish so it inherits the !translating guard.
+  const onChangeGoal = (g: PolishGoal) => {
+    setGoal(g)
+    resetPolish()
+    armPolish(buildPolishRequest({ goal: g }))
+  }
   // The keywords-change effect above resets the polish op; these just mutate the store.
   const addKeyword = (k: string) => usePolishKeywordsStore.getState().addKeyword(k)
   const removeKeyword = (k: string) => usePolishKeywordsStore.getState().removeKeyword(k)
@@ -212,6 +223,13 @@ export function PolishPanel() {
             {isPolishing ? t('polish.stop') : auto.enabled ? t('autorun.runNow') : t('polish.run')}
           </button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2.5 px-[22px] pb-1.5">
+        <span aria-hidden className="font-mono text-[10px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
+          {t('polish.goal.label')}
+        </span>
+        <GoalChips value={goal} onChange={onChangeGoal} disabled={isPolishing} />
       </div>
 
       {auto.paused && (

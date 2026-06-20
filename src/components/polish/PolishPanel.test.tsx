@@ -319,3 +319,93 @@ describe('PolishPanel — auto-run', () => {
     }
   })
 })
+
+// WI-1 (feature #18): the polish-goal selector — chips feed the polish request; a goal change resets a
+// stale result and (auto-run) arms a run carrying the NEW goal.
+function capturingProvider(sink: { req?: LLMRequest }): LLMProvider {
+  async function* streamOp(req: LLMRequest): AsyncGenerator<StreamChunk, ProviderOutcome, void> {
+    if (req.kind === 'polish') sink.req = req
+    const text = req.kind === 'translate' ? 'translated draft' : 'polished result'
+    yield { text }
+    return { status: 'done', text }
+  }
+  return {
+    vendor: 'anthropic',
+    model: 'm',
+    stream: (req) => streamOp(req),
+    streamOp: (req) => streamOp(req),
+    translate: async () => ({ status: 'done', text: '' }),
+    polish: async () => ({ status: 'done', text: '' }),
+  }
+}
+const goalOf = (r?: LLMRequest) => (r && r.kind === 'polish' ? r.goal : undefined)
+
+describe('PolishPanel — goal selector (feature #18)', () => {
+  it('defaults to clarity and polishes with the selected goal', async () => {
+    const sink: { req?: LLMRequest } = {}
+    mockCreate.mockReturnValue(capturingProvider(sink))
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    expect(screen.getByRole('radio', { name: 'Clarity' })).toBeChecked()
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'hello')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Polish' }))
+      await tick()
+    })
+    expect(goalOf(sink.req)).toBe('clarity')
+    await user.click(screen.getByRole('radio', { name: 'Grammar' }))
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Polish' }))
+      await tick()
+    })
+    expect(goalOf(sink.req)).toBe('grammar')
+  })
+
+  it('changing the goal clears a showing polish result (stale-result reset)', async () => {
+    mockCreate.mockReturnValue(smartProvider())
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'hello')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Polish' }))
+      await tick()
+    })
+    expect(screen.getByText('polished result')).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: 'Tone' }))
+    expect(screen.queryByText('polished result')).toBeNull()
+  })
+
+  it('with auto-run on, changing the goal arms a run carrying the NEW goal', async () => {
+    vi.useFakeTimers()
+    try {
+      act(() => useProviderStore.getState().setVendor('ollama'))
+      useAutoRunStore.getState().setEnabled('polish', true)
+      const sink: { req?: LLMRequest } = {}
+      mockCreate.mockReturnValue(capturingProvider(sink))
+      render(<PolishPanel />)
+      fireEvent.change(screen.getByRole('textbox', { name: 'Draft to polish' }), { target: { value: 'rough draft' } })
+      fireEvent.click(screen.getByRole('radio', { name: 'Grammar' }))
+      await act(async () => {
+        vi.advanceTimersByTime(1500)
+        await Promise.resolve()
+      })
+      expect(goalOf(sink.req)).toBe('grammar')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not arm a run on a goal change with an empty draft', async () => {
+    vi.useFakeTimers()
+    try {
+      act(() => useProviderStore.getState().setVendor('ollama'))
+      useAutoRunStore.getState().setEnabled('polish', true)
+      mockCreate.mockReturnValue(smartProvider())
+      render(<PolishPanel />)
+      fireEvent.click(screen.getByRole('radio', { name: 'Grammar' }))
+      expect(screen.queryByText(/auto-run in 1\.5s/i)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
