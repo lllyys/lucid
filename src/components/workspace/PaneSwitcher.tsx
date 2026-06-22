@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
  *
  * a11y: `role="radiogroup"` + two `role="radio"` chips with `aria-checked` (the GoalChips #18 /
  * single-active precedent), roving tabindex (only the active chip is tabbable), and a visible
- * focus-visible ring (rule 33). The chips are ~36px tall visually but pad out to a ≥44px hit area.
+ * focus-visible ring (rule 33). The chips carry a `min-h-[44px]` tap target (WCAG 2.5.5, AAA).
  * Tokens only (rule 30/31): `--bg-tertiary` track, active = `--bg-color` + `var(--shadow-tab)`.
  */
 export type WorkspacePane = 'translate' | 'polish'
@@ -37,7 +37,7 @@ export function PaneSwitcher({ value, onChange }: PaneSwitcherProps) {
               aria-checked={active}
               tabIndex={active ? 0 : -1}
               onClick={() => onChange(pane.value)}
-              className={`flex-1 rounded-[7px] py-2 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-ink)] ${
+              className={`min-h-[44px] flex-1 rounded-[7px] py-2 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-ink)] ${
                 active
                   ? 'bg-[var(--bg-color)] font-semibold text-[var(--text-color)] shadow-[var(--shadow-tab)]'
                   : 'font-medium text-[var(--text-tertiary)]'
