@@ -210,7 +210,6 @@
   "sync.detail.superseded": "{{n}} superseded",
   "sync.detail.retrying": "retrying",
   "sync.pill.aria": "Sync status: {{status}}",
-
   "sync.connect.title": "Connect a sync server",
   "sync.connect.subtitle": "Self-hosted · your data stays on your own box",
   "sync.connect.localOnlyBadge": "Local-only",
@@ -234,13 +233,11 @@
   "sync.connect.dataKeysNever": "Provider API keys — never",
   "sync.connect.dataScopeFootnote": "Sent only to your server — never to Lucid, never as analytics. Pair with a local model for a zero-third-party path.",
   "sync.connect.persistedTokenNote": "Your token is saved on this device (shown as …{{last4}}) so background sync survives reloads — a deliberate exception to the in-memory-only rule for provider keys. Transmitted over TLS only.",
-
   "sync.connecting.title": "Connecting…",
   "sync.connecting.reached": "Reached server",
   "sync.connecting.tokenAccepted": "Token accepted",
   "sync.connecting.pulling": "Pulling changes…",
   "sync.connecting.cancel": "Cancel",
-
   "sync.panel.title": "Sync",
   "sync.panel.subtitle": "your self-hosted server",
   "sync.panel.connectedBadge": "Connected",
@@ -254,7 +251,6 @@
   "sync.panel.keywords": "keywords",
   "sync.panel.localKeptNote": "Local copy is always kept. Disconnecting at any time reverts Lucid to exactly how it behaves with no server — nothing is lost on this device.",
   "sync.panel.revAuthorityNote": "Ordering authority is the server-assigned rev, not device clocks — a skewed clock can't silently overwrite.",
-
   "sync.card.syncedTitle": "Synced",
   "sync.card.syncedDetailJustNow": "last synced just now",
   "sync.card.syncedDetailMinutesAgo": "last synced {{n}} minutes ago",
@@ -274,7 +270,6 @@
   "sync.card.unreachableTitle": "Server unreachable",
   "sync.card.unreachableDetail": "no response · retrying",
   "sync.card.retryNow": "Retry now",
-
   "sync.disconnect.zoneTitle": "Disconnect",
   "sync.disconnect.disconnect": "Disconnect",
   "sync.disconnect.disconnectSub": "revert to local-only · server data kept",
@@ -289,7 +284,6 @@
   "sync.disconnect.cancel": "Cancel",
   "sync.disconnect.confirm": "Disconnect",
   "sync.disconnect.eraseFailed": "Disconnected, but the server data could not be erased — try again later.",
-
   "sync.conflict.title": "A local edit was superseded",
   "sync.conflict.subtitle": "another device's edit won the merge",
   "sync.conflict.body": "You and another device edited the same item while offline. The server kept the most recent write — your earlier version was superseded.",
@@ -320,7 +314,6 @@
   "sync.banner.details": "Details",
   "sync.dialog.title": "Sync",
   "sync.dialog.description": "Connect a self-hosted sync server, or manage your existing connection.",
-
   "autorun.toggle": "Auto-run",
   "autorun.toggleOn": "Turn auto-run off",
   "autorun.toggleOff": "Turn auto-run on",
@@ -342,7 +335,6 @@
   "autorun.paused.title": "Auto-run paused",
   "autorun.paused.body": "The provider lost its key, so nothing is running on its own. Your text and toggle are kept — fix the key and auto-run resumes.",
   "autorun.paused.fix": "Fix",
-
   "configSync.unlock.title": "Unlock your config",
   "configSync.unlock.found": "encrypted blob found · synced from another device",
   "configSync.unlock.body": "Enter your passphrase to decrypt your providers & config on this device. It never leaves this machine.",
@@ -353,7 +345,6 @@
   "configSync.unlock.forgot": "Forgot passphrase?",
   "configSync.unlock.ciphertextNote": "ciphertext only on server",
   "configSync.unlock.passphrasePlaceholder": "Your passphrase",
-
   "configSync.set.title": "Encrypt & sync your config",
   "configSync.set.subtitle": "first device · choose a passphrase",
   "configSync.set.body": "This passphrase encrypts your providers, models and API keys with end-to-end encryption before they sync. You'll enter it once on each new device.",
@@ -371,29 +362,24 @@
   "configSync.set.privacyConfig": "Config + keys — encrypted on device",
   "configSync.set.privacyServer": "Server — sees ciphertext only",
   "configSync.set.privacyNote": "Key is derived from the passphrase (no key re-entry on unlock). Changing config re-encrypts & saves; the passphrase is never written to disk.",
-
   "configSync.strength.none": "—",
   "configSync.strength.weak": "weak",
   "configSync.strength.fair": "fair",
   "configSync.strength.good": "good",
   "configSync.strength.strong": "strong",
   "configSync.strength.label": "Passphrase strength",
-
   "configSync.error.wrongPassphraseTitle": "That passphrase didn't decrypt the config.",
   "configSync.error.wrongPassphraseBody": "Check it and try again — or the blob may be corrupt.",
   "configSync.error.tryAgain": "Try again",
-
   "configSync.error.unreachableTitle": "Can't reach your config server",
   "configSync.error.unreachableSub": "no response",
   "configSync.error.unreachableBody": "The server hosting your encrypted config didn't respond. Your local workspace still works — unlock will resume once it's reachable.",
   "configSync.error.retryNow": "Retry now",
   "configSync.error.workLocalOnly": "Work local-only",
-
   "configSync.error.requestFailedTitle": "Config request failed",
   "configSync.error.requestFailedSub": "server returned an error · /config",
   "configSync.error.requestFailedBody": "The server was reached but the request errored. Nothing was decrypted. Try again, or check the server logs.",
   "configSync.error.retry": "Retry",
-
   "configSync.insecure.title": "Secure connection required",
   "configSync.insecure.subtitle": "encrypted sync is unavailable on http://",
   "configSync.insecure.body": "End-to-end encryption needs a secure context — the browser's crypto.subtle API is unavailable over plain HTTP. Open Lucid over HTTPS to set or unlock a passphrase.",
@@ -404,13 +390,11 @@
   "configSync.insecure.tailscaleHint": "Quickest path: front Lucid with HTTPS via Tailscale.",
   "configSync.insecure.tailscaleCmd": "tailscale serve 7777",
   "configSync.insecure.openHttps": "Open the HTTPS URL",
-
   "configSync.noConfig.title": "No synced config yet",
   "configSync.noConfig.body": "This device will create the first encrypted blob. Set a passphrase to turn on cross-device sync.",
   "configSync.noConfig.setPassphrase": "Set a passphrase",
   "configSync.noConfig.keepLocal": "Keep working local-only",
   "configSync.noConfig.note": "no /config blob on server",
-
   "configSync.banner.insecureTitle": "Encrypted sync needs HTTPS",
   "configSync.banner.insecureBody": "You're on http:// — crypto is disabled here. Reopen Lucid over its HTTPS address (e.g. tailscale serve) to set or unlock a passphrase.",
   "configSync.banner.insecureAction": "How",
@@ -421,5 +405,12 @@
   "configSync.banner.unreachableBody": "No response. Retrying automatically — local works.",
   "configSync.banner.requestFailedTitle": "Config request failed",
   "configSync.banner.requestFailedBody": "Server reached but returned an error. Nothing decrypted.",
-  "configSync.banner.retry": "Retry"
+  "configSync.banner.retry": "Retry",
+  "workspace.paneTranslate": "Translate",
+  "workspace.panePolish": "Polish",
+  "sidebar.close": "Close menu",
+  "sidebar.settings": "Settings",
+  "footer.details": "Details",
+  "header.openMenu": "Open menu",
+  "header.closeMenu": "Close menu"
 }
