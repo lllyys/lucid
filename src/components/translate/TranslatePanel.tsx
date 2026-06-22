@@ -101,8 +101,8 @@ export function TranslatePanel() {
 
   return (
     <section className="flex min-h-[296px] shrink-0 flex-col border-b">
-      <div className="flex items-center justify-between px-[22px] pb-1 pt-2.5">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between px-[22px] pb-1 pt-2.5 max-[599px]:flex-wrap max-[599px]:gap-2">
+        <div className="flex items-center gap-2.5 max-[599px]:flex-wrap">
           <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-ink)]">
             {t('translate.label')}
           </span>

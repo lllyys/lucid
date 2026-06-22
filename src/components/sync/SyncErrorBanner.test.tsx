@@ -59,4 +59,15 @@ describe('SyncErrorBanner', () => {
       expect(screen.queryByRole('button')).toBeNull()
     },
   )
+
+  // WI-4 — at narrow widths the action button stacks full-width below the text (≥44px touch target).
+  it('stacks the action full-width at narrow width (flex-col below 600)', () => {
+    useSyncStore.getState().setStatus('unreachable')
+    render(<SyncErrorBanner onRetry={() => {}} onOpenSettings={() => {}} />)
+    const action = screen.getByRole('button', { name: /retry now/i })
+    expect(action.className).toContain('max-[599px]:w-full')
+    // The banner row stacks below 600 so the action drops under the text.
+    const row = action.closest('div.flex')!
+    expect(row.className).toContain('max-[599px]:flex-col')
+  })
 })

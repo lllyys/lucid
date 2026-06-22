@@ -72,27 +72,31 @@ export function SyncErrorBanner({ onRetry, onOpenSettings }: SyncErrorBannerProp
 
   return (
     <div className="px-5 pt-3">
+      {/* Below 600 the action stacks full-width under the text (≥44px target); the icon + text stay
+          a row so the icon never balloons full-width. */}
       <div
-        className="flex items-start gap-[13px] rounded-[13px] border p-[14px_16px]"
+        className="flex items-start gap-[13px] rounded-[13px] border p-[14px_16px] max-[599px]:flex-col max-[599px]:items-stretch"
         style={{ borderColor: tone.border, background: tone.bg }}
       >
-        <span
-          aria-hidden
-          className="mt-px inline-flex size-[22px] shrink-0 items-center justify-center rounded-[7px] border bg-[var(--bg-color)] text-[12px]"
-          style={{ borderColor: tone.border, color: tone.fg }}
-        >
-          {view.icon}
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-[13.5px] font-semibold" style={{ color: tone.fg }}>
-            {t(view.titleKey)}
+        <div className="flex min-w-0 flex-1 items-start gap-[13px]">
+          <span
+            aria-hidden
+            className="mt-px inline-flex size-[22px] shrink-0 items-center justify-center rounded-[7px] border bg-[var(--bg-color)] text-[12px]"
+            style={{ borderColor: tone.border, color: tone.fg }}
+          >
+            {view.icon}
           </span>
-          <span className="text-[12px] leading-[1.55] text-[var(--text-secondary)]">{t(view.bodyKey)}</span>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="text-[13.5px] font-semibold" style={{ color: tone.fg }}>
+              {t(view.titleKey)}
+            </span>
+            <span className="text-[12px] leading-[1.55] text-[var(--text-secondary)]">{t(view.bodyKey)}</span>
+          </div>
         </div>
         <button
           type="button"
           onClick={handlers[view.action.handler]}
-          className="shrink-0 rounded-[9px] border px-[13px] py-2 font-sans text-[12px] font-semibold focus-visible:outline-2"
+          className="shrink-0 rounded-[9px] border px-[13px] py-2 font-sans text-[12px] font-semibold focus-visible:outline-2 max-[599px]:w-full max-[599px]:py-3"
           style={
             view.filled
               ? ({ borderColor: 'transparent', background: tone.fg, color: 'var(--on-accent)', outlineColor: tone.fg } as React.CSSProperties)

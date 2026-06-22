@@ -1,15 +1,24 @@
 // WI-9a — the sync status pill: renders the live status, localizes detail, and opens settings on click.
 import { createRef } from 'react'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import '@/i18n'
 import { SyncStatusPill } from './SyncStatusPill'
 import { useSyncStore } from '@/stores/syncStore'
+import type { ViewportTier } from '@/hooks/useViewportTier'
+
+// Drive the tier by mocking the hook (plan M5). Default desktop = the pill keeps its detail line.
+const tierMock = vi.hoisted(() => ({ value: 'desktop' as ViewportTier }))
+vi.mock('@/hooks/useViewportTier', () => ({ useViewportTier: () => tierMock.value }))
 
 beforeEach(() => {
   useSyncStore.getState().reset()
+})
+
+afterEach(() => {
+  tierMock.value = 'desktop'
 })
 
 describe('SyncStatusPill', () => {
@@ -77,5 +86,24 @@ describe('SyncStatusPill', () => {
     const ref = createRef<HTMLButtonElement>()
     render(<SyncStatusPill ref={ref} />)
     expect(ref.current).toBeInstanceOf(HTMLButtonElement)
+  })
+
+  // WI-4 — on phone (<600) the compact 50px header drops the pill's secondary detail line to fit
+  // (design Section F); the primary status label stays. Desktop keeps the detail.
+  it('suppresses the secondary detail line on phone', () => {
+    useSyncStore.getState().setStatus('syncing')
+    useSyncStore.getState().setQueuedCount(12)
+    tierMock.value = 'phone'
+    render(<SyncStatusPill />)
+    expect(screen.getByText('Syncing…')).toBeInTheDocument()
+    expect(screen.queryByText('12 changes')).toBeNull()
+  })
+
+  it('keeps the secondary detail line on tablet/desktop', () => {
+    useSyncStore.getState().setStatus('syncing')
+    useSyncStore.getState().setQueuedCount(12)
+    tierMock.value = 'tablet'
+    render(<SyncStatusPill />)
+    expect(screen.getByText('12 changes')).toBeInTheDocument()
   })
 })
