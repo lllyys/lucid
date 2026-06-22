@@ -416,7 +416,13 @@ export function createConfigSyncController(deps: ConfigSyncControllerDeps = {}):
     passphrase = pass
     // Capture dirty AFTER the await: a local edit during the pull window must not be clobbered (invariant 5).
     const dirty = store().dirty
-    if (res.value !== null && res.value.rev > sync.readSyncedRev() && !dirty) {
+    // Cold-start restore (bug #8): the reload already wiped the in-memory config (keys are in-memory only,
+    // rule 65 §5) while the persisted `syncedRev` survived — so the server blob is authoritative and we
+    // adopt it whenever it exists and no local edit landed during the pull window. We do NOT gate on
+    // `rev > syncedRev` here: on a returning device a server rev EQUAL to `syncedRev` is the common case,
+    // and skipping adopt there would leave the user with empty keys after a successful unlock. (`!dirty`
+    // still preserves invariant 5; the mid-session save / 409-conflict adopt path is separate.)
+    if (res.value !== null && !dirty) {
       adopt(res.value.config, res.value.rev)
     }
     store().set({ status: 'unlocked', error: null })

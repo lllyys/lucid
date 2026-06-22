@@ -301,20 +301,43 @@ describe('configSyncController — unlock() returning device', () => {
     expect(sync.writeSyncedRev).toHaveBeenCalledWith(5)
   })
 
-  it('correct passphrase but rev <= syncedRev → unlocked WITHOUT adopting (local already current)', async () => {
+  // Regression for bug #8 (GH #162): a returning device's in-memory keys are wiped on reload while the
+  // persisted `syncedRev` survives, so when the server blob rev EQUALS `syncedRev` (the common refresh
+  // case) unlock MUST still adopt — otherwise the decrypted keys never rehydrate. The old behavior gated
+  // adopt on `rev > syncedRev` and skipped it here, leaving the user with empty keys after unlock.
+  it('correct passphrase, server rev EQUALS persisted syncedRev → STILL adopts (restore on a returning device)', async () => {
     const adapter = fakeAdapter(CONFIG_A)
     const sync = stubSync({
       loadAndDecrypt: vi
         .fn()
         .mockResolvedValueOnce(ok({ config: CONFIG_B, rev: 5 }))
         .mockResolvedValueOnce(ok({ config: CONFIG_B, rev: 5 })),
-      readSyncedRev: vi.fn(() => 5),
+      readSyncedRev: vi.fn(() => 5), // device last synced at rev 5; server is also at rev 5 (unchanged elsewhere)
     })
     const c = make({ sync, adapter })
     await c.init()
     await c.unlock('pw')
     expect(useConfigSyncStore.getState().status).toBe('unlocked')
-    expect(adapter.apply).not.toHaveBeenCalled()
+    expect(adapter.apply).toHaveBeenCalledWith(CONFIG_B) // keys rehydrated from the server blob
+  })
+
+  // Bug #8 §3: server rev BEHIND the persisted syncedRev (server reset/restore) — cold-start still adopts
+  // the server's authoritative blob (in-memory is empty) and re-aligns the local watermark to the server.
+  it('correct passphrase, server rev BEHIND persisted syncedRev (server restore) → adopts + records the lower rev', async () => {
+    const adapter = fakeAdapter(CONFIG_A)
+    const sync = stubSync({
+      loadAndDecrypt: vi
+        .fn()
+        .mockResolvedValueOnce(ok({ config: CONFIG_B, rev: 5 }))
+        .mockResolvedValueOnce(ok({ config: CONFIG_B, rev: 5 })),
+      readSyncedRev: vi.fn(() => 8), // device watermark ahead of the server's current rev (server was restored)
+    })
+    const c = make({ sync, adapter })
+    await c.init()
+    await c.unlock('pw')
+    expect(useConfigSyncStore.getState().status).toBe('unlocked')
+    expect(adapter.apply).toHaveBeenCalledWith(CONFIG_B)
+    expect(sync.writeSyncedRev).toHaveBeenCalledWith(5) // re-align to the server's actual rev
   })
 
   it('unlock returns null blob (server cleared) → unlocked, nothing adopted', async () => {
