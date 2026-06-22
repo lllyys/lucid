@@ -28,19 +28,19 @@ beforeEach(() => {
 })
 
 describe('SyncSettingsDialog', () => {
-  it('clicking the pill opens the panel (local-only → the connect form)', async () => {
+  it('clicking the pill opens the panel (local-only → the sync toggle)', async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
     render(<SyncSettingsDialog controller={makeController()} open={false} onOpenChange={onOpenChange} />)
     // closed → the panel content is not rendered
-    expect(screen.queryByText(/connect a sync server/i)).toBeNull()
+    expect(screen.queryByRole('switch', { name: /sync workspace data to this server/i })).toBeNull()
     await user.click(screen.getByRole('button', { name: /sync status/i }))
     expect(onOpenChange).toHaveBeenCalledWith(true)
   })
 
-  it('when open, the SyncSettingsPanel content is shown', () => {
+  it('when open, the SyncSettingsPanel content is shown (the local-only sync toggle)', () => {
     render(<SyncSettingsDialog controller={makeController()} open onOpenChange={vi.fn()} />)
-    expect(screen.getByText(/connect a sync server/i)).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: /sync workspace data to this server/i })).toBeInTheDocument()
   })
 
   it('exposes an accessible dialog title for screen readers', () => {

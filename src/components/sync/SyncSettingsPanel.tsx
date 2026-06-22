@@ -1,11 +1,13 @@
-// Purpose: the Settings · Sync panel composition (#9, WI-9c). Composes the connect form, the connected
-// panel, the disconnect dialog, and the conflict card; reads the syncStore via selectors (AGENTS.md —
-// never destructure) and drives the injected SyncController. Local-only → ConnectForm (connect →
-// controller.connect). Connected → ConnectedPanel wired to syncNow/retry → controller; the disconnect
-// buttons open the dialog whose confirm awaits controller.disconnect({ erase }); a failed erase surfaces
-// the EXISTING Sonner toast (no invented surface — rule 51). Conflict "Details" reveals the ConflictCard;
-// Edit / Update token re-show the ConnectForm prefilled with the current config so a new token can be
-// pasted and re-connected. Every string via t() (rule 66 §5).
+// Purpose: the Settings · Sync panel composition (#9, WI-9c; #19 WI-3 simplification). Composes the toggle
+// card, the connected panel, the disconnect dialog, and the conflict card; reads the syncStore via selectors
+// (AGENTS.md — never destructure) and drives the injected SyncController. Local-only → SyncToggleCard: the
+// on/off switch calls controller.connectSingleOrigin() (token-free, this origin), and its Advanced disclosure
+// reveals the EXISTING ConnectForm whose submit calls controller.connect() (remote/cross-origin path).
+// Connected → ConnectedPanel wired to syncNow/retry → controller; the ON toggle + the "Turn off" buttons open
+// the dialog whose confirm awaits controller.disconnect({ erase }); a failed erase surfaces the EXISTING
+// Sonner toast (no invented surface — rule 51). Conflict "Details" reveals the ConflictCard; Edit / Update
+// token re-show the ConnectForm prefilled with the current config (remote only) so a new token can be pasted
+// and re-connected. Every string via t() (rule 66 §5).
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -13,9 +15,13 @@ import { toast } from 'sonner'
 import { useSyncStore, type SyncConfig } from '@/stores/syncStore'
 import type { SyncController } from '@/lib/sync/syncController'
 import { ConnectForm } from './ConnectForm'
+import { SyncToggleCard } from './SyncToggleCard'
 import { ConnectedPanel } from './ConnectedPanel'
 import { DisconnectDialog } from './DisconnectDialog'
 import { ConflictCard } from './ConflictCard'
+
+/** The served origin the single-origin switch targets (matches store.connectSingleOrigin). */
+const servedOrigin = (): string => (typeof window !== 'undefined' ? window.location.origin : '')
 
 export interface SyncSettingsPanelProps {
   controller: SyncController
@@ -44,15 +50,16 @@ export function SyncSettingsPanel({ controller }: SyncSettingsPanelProps) {
     controller.connect(next)
   }
 
-  // Local-only OR an explicit Edit/Update-token re-entry → the connect form (prefilled when editing).
-  if (isLocalOnly || editing) {
-    return (
-      <ConnectForm
-        onConnect={onConnect}
-        onStayLocal={editing ? () => setEditing(null) : undefined}
-        initialConfig={editing ?? undefined}
-      />
-    )
+  // An explicit Edit/Update-token re-entry (remote only) → the connect form prefilled with the current
+  // config so a new token can be pasted and re-connected.
+  if (editing) {
+    return <ConnectForm onConnect={onConnect} onStayLocal={() => setEditing(null)} initialConfig={editing} />
+  }
+
+  // Local-only (sync off) → the simplified on/off toggle card. The switch turns sync ON token-free against
+  // this origin; the Advanced disclosure reveals the ConnectForm for a cross-origin remote server.
+  if (isLocalOnly) {
+    return <SyncToggleCard origin={servedOrigin()} onTurnOn={() => controller.connectSingleOrigin()} onConnect={onConnect} />
   }
 
   // Connecting → the connect flow's progress card (design surface B), shown after connect() sets the
@@ -90,6 +97,10 @@ export function SyncSettingsPanel({ controller }: SyncSettingsPanelProps) {
         onShowConflict={onShowConflict}
         onUpdateToken={() => setEditing(config)}
         onEdit={() => setEditing(config)}
+        onTurnOff={() => {
+          setEraseIntent(false) // toggling off defaults to "keep server data"
+          setDisconnectOpen(true)
+        }}
         onDisconnect={(erase) => {
           setEraseIntent(erase)
           setDisconnectOpen(true)

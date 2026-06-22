@@ -12,6 +12,9 @@ import type { SyncConfig } from '@/stores/syncStore'
 export interface ConnectFormProps {
   onConnect: (config: SyncConfig) => void
   onStayLocal?: () => void
+  /** i18n key for the secondary (stay-local) button — the Advanced disclosure reverts with "Use this
+   * server instead"; defaults to the standalone "Stay local-only" copy. */
+  stayLocalLabelKey?: string
   /** Prefill the inputs (re-connect / update-token flow re-shows this form with the current config). */
   initialConfig?: SyncConfig
   /** When true, render the connecting state instead of the form. */
@@ -81,7 +84,15 @@ function ConnectingCard({ serverUrl, onCancel }: { serverUrl?: string; onCancel?
   )
 }
 
-export function ConnectForm({ onConnect, onStayLocal, initialConfig, connecting, serverUrl, onCancel }: ConnectFormProps) {
+export function ConnectForm({
+  onConnect,
+  onStayLocal,
+  stayLocalLabelKey = 'sync.connect.stayLocal',
+  initialConfig,
+  connecting,
+  serverUrl,
+  onCancel,
+}: ConnectFormProps) {
   const { t } = useTranslation()
   const [url, setUrl] = useState(initialConfig?.serverUrl ?? '')
   const [token, setToken] = useState(initialConfig?.token ?? '')
@@ -216,7 +227,7 @@ export function ConnectForm({ onConnect, onStayLocal, initialConfig, connecting,
             onClick={onStayLocal}
             className="shrink-0 rounded-[11px] border border-[var(--border-strong)] bg-[var(--bg-color)] p-[12px_16px] font-sans text-[13px] font-medium text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
           >
-            {t('sync.connect.stayLocal')}
+            {t(stayLocalLabelKey)}
           </button>
         </div>
       </div>
