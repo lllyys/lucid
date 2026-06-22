@@ -102,8 +102,20 @@ documented follow-up**, not v1. Same-origin → **no CORS surface** (unchanged f
   (conditional-spread header), `syncStore` (`connectSingleOrigin`), controller affordance. Client tests.
   **Gate-5 tier:** foundational — verified by unit tests only; the connect path has NO UI entry point until
   WI-3, by design (rule 51).
-- **WI-3 (behavioral · DESIGN-GATED → BLOCKED) — Settings·Sync simplification UI.** `needs-design`; not
-  built this pass.
+- **WI-3 (behavioral · FINAL · minor) — Settings·Sync simplification UI.** UNBLOCKED 2026-06-22: design
+  landed (`dev-docs/designs/lucid-settings-sync-simplified`, imported via DesignSync MCP; closes needs-design
+  #151). Surface: collapse the local-only default from the URL+token `ConnectForm` to an **on/off switch**
+  ("sync workspace data to this server") that calls `connectSingleOrigin()` (token-free, `window.location.origin`,
+  `token:''`); the URL+token `ConnectForm` survives behind an **"Use a different server" Advanced disclosure**
+  (`aria-expanded`) for cross-origin (`connect(config)`). `SyncSettingsPanel` rewrite + new `SyncToggleCard`
+  (switch + opt-in callout + static scope grid + disclosure); `ConnectedPanel` gains the ON toggle row + a
+  **read-only "Syncing to" origin row (no Edit) when `token===''`** (keeps the server-row+Edit for the remote
+  case — backward compat) + "Turn off" zone (keep vs erase → existing `DisconnectDialog` radio pattern). New
+  i18n keys (`sync.toggle.*`, `sync.advanced.*`, `sync.origin.*`, "turn off" copy, "empty · just turned on").
+  **`error.syncSession` ("session expired / Sign in") banner: build ONLY if the store surfaces an auth/session
+  error state — wire "Sign in" to a page reload (faithful single-origin re-auth); else DEFER (unreachable =
+  dead UI, no invented auth flow).** Gate-5: behavioral slice (CDP — toggle on→connected, advanced disclosure,
+  turn-off dialog).
 
 ## Test catalogue
 - **`server/.../app.test.ts`** (extend):
