@@ -1,7 +1,7 @@
-// Purpose: the Settings · Sync disconnect dialog (#9, WI-9c, design surface E). A modal shadcn Dialog with
-// the two-way disconnect choice — "Disconnect (keep server data)" vs "Disconnect & erase server data" —
-// + Cancel / Disconnect actions. The selected choice maps to the `erase` boolean passed to onConfirm; the
-// panel awaits controller.disconnect({ erase }). Tokens only (rule 30/31); every string via t() (rule 66 §5).
+// Purpose: the Settings · Sync turn-off dialog (#9, WI-9c; #19 WI-3 restyle, design section E). A modal shadcn
+// Dialog with the two-way choice — "Turn off sync" (keep server data) vs "Turn off & erase server data" —
+// + Cancel / Turn off actions. The selected choice maps to the `erase` boolean passed to onConfirm; the panel
+// awaits controller.disconnect({ erase }). Tokens only (rule 30/31); every string via t() (rule 66 §5).
 // Choices use role="radio" (single-select); the keep choice is the default. Local-only selection state
 // resets each time the dialog opens.
 

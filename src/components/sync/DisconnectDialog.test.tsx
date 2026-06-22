@@ -21,8 +21,8 @@ const setup = (overrides: Partial<React.ComponentProps<typeof DisconnectDialog>>
 describe('DisconnectDialog', () => {
   it('renders the title and both choices when open', () => {
     setup()
-    expect(screen.getByText(/disconnect sync\?/i)).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: /disconnect(?!.*erase)/i })).toBeInTheDocument()
+    expect(screen.getByText(/turn off sync\?/i)).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /turn off sync(?!.*erase)/i })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /erase server data/i })).toBeInTheDocument()
   })
 
@@ -34,7 +34,7 @@ describe('DisconnectDialog', () => {
   it('confirms with erase=false by default (keep choice pre-selected)', async () => {
     const user = userEvent.setup()
     const { onConfirm } = setup()
-    await user.click(screen.getByRole('button', { name: /^disconnect$/i }))
+    await user.click(screen.getByRole('button', { name: /^turn off$/i }))
     expect(onConfirm).toHaveBeenCalledWith(false)
   })
 
@@ -42,7 +42,7 @@ describe('DisconnectDialog', () => {
     const user = userEvent.setup()
     const { onConfirm } = setup()
     await user.click(screen.getByRole('radio', { name: /erase server data/i }))
-    await user.click(screen.getByRole('button', { name: /^disconnect$/i }))
+    await user.click(screen.getByRole('button', { name: /^turn off$/i }))
     expect(onConfirm).toHaveBeenCalledWith(true)
   })
 
@@ -56,6 +56,6 @@ describe('DisconnectDialog', () => {
 
   it('renders nothing when closed', () => {
     setup({ open: false })
-    expect(screen.queryByText(/disconnect sync\?/i)).toBeNull()
+    expect(screen.queryByText(/turn off sync\?/i)).toBeNull()
   })
 })
