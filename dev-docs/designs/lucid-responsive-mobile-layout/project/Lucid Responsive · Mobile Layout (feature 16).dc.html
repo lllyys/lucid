@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --board:#ECE8E1; --ink:#1E1C19; --on-accent:#FFFFFF;
+      --border:#E9E6E0; --border-strong:#E2DFD8; --border-dashed:#CFCAC1; --fill-muted:#F0EDE7; --dot-idle:#C9C4BB;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7; --faint:#C4BFB5;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-tint:#F3F2FE; --accent-border:#DDDCFB; --accent-dash:#B9B4F0; --accent-mid:#8A83E0;
+      --hover:#F5F3EF;
+      --ok:#2F7D5B; --ok-solid:#2F7D5B; --ok-strong:#286B4E; --ok-soft:#E8F3EC; --ok-conn:#9FCDB4;
+      --warn:#B8801F; --warn-soft:#FBF1DC; --warn-border:#EDD6A2;
+      --danger:#B23A48; --danger-soft:#FBEAEC; --danger-border:#F0CDD2;
+      --add-soft:#E8F3EC; --add-ink:#286B4E; --del-soft:#FBEAEC; --del-ink:#9A3B47;
+      --shadow-c1:rgba(30,28,25,0.13); --shadow-c2:rgba(30,28,25,0.06); --shadow-c3:rgba(30,28,25,0.22);
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --board:#100F0C; --ink:#F2EFE9; --on-accent:#FFFFFF;
+      --border:#322E27; --border-strong:#3C3830; --border-dashed:#454037; --fill-muted:#2A2720; --dot-idle:#4A453C;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t3:#A6A199; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --t7:#726D65; --faint:#5E5A51;
+      --accent:#6E66DE; --accent-ink:#AEA7F7; --accent-soft:#2A2649; --accent-tint:#221F40; --accent-border:#3C3768; --accent-dash:#564F94; --accent-mid:#847DCB;
+      --hover:#2C2922;
+      --ok:#5FBE90; --ok-solid:#2E7D5A; --ok-strong:#246B49; --ok-soft:#16291E; --ok-conn:#305C46;
+      --warn:#D7A648; --warn-soft:#2A2113; --warn-border:#4A3A1C;
+      --danger:#E27182; --danger-soft:#2E1A1D; --danger-border:#4A2A2F;
+      --add-soft:#16291E; --add-ink:#5FBE90; --del-soft:#2E1A1D; --del-ink:#E27182;
+      --shadow-c1:rgba(0,0,0,0.55); --shadow-c2:rgba(0,0,0,0.4); --shadow-c3:rgba(0,0,0,0.65);
+    }
+    html,body{background:var(--board);}
+    *{box-sizing:border-box;}
+    body{margin:0;}
+    @keyframes lucid-pulse{0%,100%{opacity:1;}50%{opacity:0.28;}}
+    @keyframes lucid-spin{to{transform:rotate(360deg);}}
+    @keyframes lucid-caret{0%,100%{opacity:1;}50%{opacity:0;}}
+  </style>
+</helmet>
+
+<div ref="{{ boardRef }}" data-theme="{{ themeAttr }}" style="min-height:100vh;background:var(--board);color:var(--ink);font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 48px 80px;">
+
+  <!-- ===== BOARD HEADER ===== -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;max-width:1340px;margin:0 auto 8px;flex-wrap:wrap;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="position:relative;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span></span>
+        <span style="font-size:19px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--accent-ink);text-transform:uppercase;background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 7px;border-radius:6px;">Feature&nbsp;#16 · responsive WI</span>
+      </div>
+      <h1 style="margin:0;font-size:29px;font-weight:600;letter-spacing:-0.022em;line-height:1.1;max-width:30ch;">Responsive workspace — phone &amp; small viewports</h1>
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:var(--t2);max-width:64ch;">The desktop flex layout overflows on mobile (#138): sheared panes, horizontal scroll. This bundle reflows the whole workspace at <strong style="font-weight:600;color:var(--t1);">≈390px</strong> — drawer sidebar, a single‑pane <strong style="font-weight:600;color:var(--t1);">Translate / Polish</strong> switcher with stacked editors, and a compact header / footer. Everything reachable on desktop stays reachable on a phone.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">
+      <span>breakpoints: ≥960 two-pane · 600–959 stacked · &lt;600 single-pane + drawer</span>
+      <span>refs #138 · loop like #120 / #151 · frames shown at 390×812</span>
+    </div>
+  </div>
+
+  <div style="max-width:1340px;margin:0 auto;display:flex;flex-direction:column;gap:8px;">
+
+    <!-- ============================ SECTION A — layout model ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:30px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">A</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Layout model — how the chrome collapses</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">desktop side-by-side → tablet stacked → phone single-pane + drawer</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:stretch;">
+      <!-- desktop schematic -->
+      <div style="flex:1;min-width:300px;display:flex;flex-direction:column;gap:9px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">≥ 960px · desktop (today)</div>
+        <div style="flex:1;display:flex;flex-direction:column;border:1px solid var(--border);background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="height:26px;border-bottom:1px solid var(--border);background:var(--canvas);"></div>
+          <div style="flex:1;display:flex;min-height:150px;">
+            <div style="width:64px;border-right:1px solid var(--border);background:var(--fill-muted);"></div>
+            <div style="flex:1;border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--t5);font-family:'Geist Mono',monospace;font-size:10px;">Source</div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t5);font-family:'Geist Mono',monospace;font-size:10px;">Translation</div>
+          </div>
+          <div style="height:22px;border-top:1px solid var(--border);background:var(--canvas);"></div>
+        </div>
+        <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);line-height:1.5;">sidebar + two flex-1 panes side by side</span>
+      </div>
+      <!-- tablet schematic -->
+      <div style="flex:1;min-width:300px;display:flex;flex-direction:column;gap:9px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">600–959px · tablet</div>
+        <div style="flex:1;display:flex;flex-direction:column;border:1px solid var(--border);background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="height:26px;border-bottom:1px solid var(--border);background:var(--canvas);display:flex;align-items:center;padding:0 10px;gap:6px;"><span style="width:14px;height:9px;border:1.4px solid var(--t5);border-radius:2px;"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;min-height:150px;">
+            <div style="flex:1;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--t5);font-family:'Geist Mono',monospace;font-size:10px;">Source</div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t5);font-family:'Geist Mono',monospace;font-size:10px;">Translation</div>
+          </div>
+          <div style="height:22px;border-top:1px solid var(--border);background:var(--canvas);"></div>
+        </div>
+        <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);line-height:1.5;">sidebar → drawer · panes stack vertically</span>
+      </div>
+      <!-- phone schematic -->
+      <div style="flex:1;min-width:300px;display:flex;flex-direction:column;gap:9px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent-ink);">&lt; 600px · phone</div>
+        <div style="flex:1;display:flex;flex-direction:column;border:1px solid var(--accent-border);background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="height:26px;border-bottom:1px solid var(--border);background:var(--canvas);display:flex;align-items:center;justify-content:space-between;padding:0 10px;"><span style="display:flex;flex-direction:column;gap:2px;"><span style="width:13px;height:1.4px;background:var(--t4);"></span><span style="width:13px;height:1.4px;background:var(--t4);"></span><span style="width:13px;height:1.4px;background:var(--t4);"></span></span><span style="width:11px;height:11px;border:1.4px solid var(--t5);border-radius:50%;"></span></div>
+          <div style="display:flex;gap:3px;padding:6px 8px;"><span style="flex:1;height:14px;border-radius:5px;background:var(--accent);"></span><span style="flex:1;height:14px;border-radius:5px;background:var(--fill-muted);"></span></div>
+          <div style="flex:1;display:flex;flex-direction:column;min-height:130px;">
+            <div style="flex:1;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--t5);font-family:'Geist Mono',monospace;font-size:10px;">Source</div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t5);font-family:'Geist Mono',monospace;font-size:10px;">Translation</div>
+          </div>
+          <div style="height:22px;border-top:1px solid var(--border);background:var(--canvas);"></div>
+        </div>
+        <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--accent-ink);line-height:1.5;">single-pane switcher · stacked editors · drawer behind ☰</span>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION B — Translate mobile ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 16px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">B</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Translate — phone portrait</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">stacked source → translation · scrolls as one column · 390 × 812</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;">
+
+      <!-- PHONE 1: translate idle / typing -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">translate · source typed</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div style="border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:760px;">
+            <!-- status strip -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px 5px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);flex:0 0 auto;"><span>9:41</span><span style="display:flex;align-items:center;gap:5px;">⌖<span style="letter-spacing:1px;">▮▮▮</span>100%</span></div>
+            <!-- header -->
+            <header style="display:flex;align-items:center;justify-content:space-between;height:50px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--surface);flex:0 0 auto;">
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;"><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span></button>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="position:relative;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span></span><span style="font-size:16px;font-weight:600;letter-spacing:-0.02em;">Lucid</span></div>
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="width:13px;height:13px;border:1.5px solid var(--t4);border-radius:50%;"></span></button>
+            </header>
+            <!-- pane switcher -->
+            <div style="padding:9px 12px;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border);"><div style="display:flex;background:var(--fill-muted);border-radius:9px;padding:3px;gap:2px;"><button style="flex:1;border:none;background:var(--surface);color:var(--ink);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px var(--shadow-c2);">Translate</button><button style="flex:1;border:none;background:transparent;color:var(--t4);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;cursor:pointer;">Polish</button></div></div>
+            <!-- toolbar -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;flex:0 0 auto;background:var(--surface);">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0;"><div style="display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;"><span style="font-size:12.5px;font-weight:600;color:var(--ink);">中文</span><span style="font-size:11px;color:var(--accent-ink);">→</span><span style="font-size:12.5px;font-weight:600;color:var(--ink);">EN</span></div><button style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t1);font-size:13px;cursor:pointer;flex:0 0 auto;">⇄</button></div>
+              <button style="display:flex;align-items:center;gap:6px;border:none;background:var(--accent);color:var(--on-accent);border-radius:9px;padding:9px 15px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;flex:0 0 auto;">Translate <span style="font-size:14px;">→</span></button>
+            </div>
+            <!-- scroll column -->
+            <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--canvas);">
+              <!-- source -->
+              <div style="flex:0 0 auto;display:flex;flex-direction:column;background:var(--surface);border-top:1px solid var(--border);">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px 7px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span><span style="font-size:11px;color:var(--t6);">中文 detected</span></div><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">31</span></div>
+                <div style="padding:2px 16px 16px;"><p style="margin:0;font-family:Newsreader,'Songti SC',serif;font-size:18px;line-height:1.7;color:var(--ink);">渲染管线的每一帧都必须在十六毫秒内完成，否则用户会察觉到卡顿。</p></div>
+              </div>
+              <!-- divider -->
+              <div style="height:1px;background:var(--border);flex:0 0 auto;"></div>
+              <!-- translation -->
+              <div style="flex:1;display:flex;flex-direction:column;background:var(--canvas);min-height:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px 7px;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:8px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok);"></span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Translation</span><span style="font-size:11px;color:var(--t6);">EN</span></div><div style="display:flex;align-items:center;gap:6px;"><button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 9px;font-family:Geist,sans-serif;font-size:11.5px;color:var(--t1);cursor:pointer;">Copy</button><button style="border:none;background:var(--ok-solid);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:600;color:var(--on-accent);cursor:pointer;">Accept ✓</button></div></div>
+                <div style="flex:1;overflow:hidden;padding:2px 16px 16px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">Every frame of the render pipeline must finish within sixteen milliseconds, or the user will perceive stutter.</p></div>
+              </div>
+            </div>
+            <!-- footer -->
+            <footer style="display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-top:1px solid var(--border);background:var(--surface);flex:0 0 auto;"><div style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 auto;"></span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Local-only · keys in memory</span></div><button style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);cursor:pointer;padding:0;flex:0 0 auto;">Details</button></footer>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHONE 2: translation streaming -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">translate · streaming</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div style="border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:760px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px 5px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);flex:0 0 auto;"><span>9:41</span><span style="display:flex;align-items:center;gap:5px;">⌖<span style="letter-spacing:1px;">▮▮▮</span>100%</span></div>
+            <header style="display:flex;align-items:center;justify-content:space-between;height:50px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--surface);flex:0 0 auto;">
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;"><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span></button>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="position:relative;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span></span><span style="font-size:16px;font-weight:600;letter-spacing:-0.02em;">Lucid</span></div>
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="width:13px;height:13px;border:1.5px solid var(--t4);border-radius:50%;"></span></button>
+            </header>
+            <div style="padding:9px 12px;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border);"><div style="display:flex;background:var(--fill-muted);border-radius:9px;padding:3px;gap:2px;"><button style="flex:1;border:none;background:var(--surface);color:var(--ink);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px var(--shadow-c2);">Translate</button><button style="flex:1;border:none;background:transparent;color:var(--t4);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;cursor:pointer;">Polish</button></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;flex:0 0 auto;background:var(--surface);">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0;"><div style="display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;"><span style="font-size:12.5px;font-weight:600;color:var(--ink);">中文</span><span style="font-size:11px;color:var(--accent-ink);">→</span><span style="font-size:12.5px;font-weight:600;color:var(--ink);">EN</span></div><button style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t1);font-size:13px;cursor:pointer;flex:0 0 auto;">⇄</button></div>
+              <button style="display:flex;align-items:center;gap:7px;border:1px solid var(--accent-border);background:var(--accent-soft);color:var(--accent-ink);border-radius:9px;padding:9px 14px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;flex:0 0 auto;">Stop <span style="width:8px;height:8px;border-radius:2px;background:currentColor;"></span></button>
+            </div>
+            <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--canvas);">
+              <div style="flex:0 0 auto;display:flex;flex-direction:column;background:var(--surface);border-top:1px solid var(--border);">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px 7px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span><span style="font-size:11px;color:var(--t6);">中文</span></div><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">31</span></div>
+                <div style="padding:2px 16px 14px;"><p style="margin:0;font-family:Newsreader,'Songti SC',serif;font-size:17px;line-height:1.65;color:var(--t1);">渲染管线的每一帧都必须在十六毫秒内完成，否则用户会察觉到卡顿。</p></div>
+              </div>
+              <div style="height:1px;background:var(--border);flex:0 0 auto;"></div>
+              <div style="flex:1;display:flex;flex-direction:column;background:var(--canvas);min-height:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px 7px;flex:0 0 auto;"><div style="display:flex;align-items:center;gap:8px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);animation:lucid-pulse 1.2s ease-in-out infinite;"></span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Translation</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-ink);">streaming…</span></div></div>
+                <div style="flex:1;overflow:hidden;padding:2px 16px 16px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">Every frame of the render pipeline must finish within sixteen milli<span style="display:inline-block;width:2px;height:18px;background:var(--accent);vertical-align:-3px;margin-left:1px;animation:lucid-caret 1s step-end infinite;"></span></p></div>
+              </div>
+            </div>
+            <footer style="display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-top:1px solid var(--border);background:var(--surface);flex:0 0 auto;"><div style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex:0 0 auto;animation:lucid-pulse 1.2s ease-in-out infinite;"></span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Streaming · Claude 3.5</span></div><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t6);flex:0 0 auto;">0.4s</span></footer>
+          </div>
+        </div>
+      </div>
+
+      <!-- side annotations -->
+      <div style="display:flex;flex-direction:column;width:280px;max-width:100%;gap:10px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">1</span>
+          <span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Pane switcher</strong> replaces the desktop tabs — Translate / Polish as a full-width segmented control under the header.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">2</span>
+          <span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Source &amp; translation stack</strong> in one scroll column. Source sizes to content; translation grows to fill.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Direction override + swap collapse into the toolbar; the language pill stays tappable. Run button never leaves the thumb zone.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION C — Polish mobile ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 16px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">C</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Polish — phone portrait</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">original → draft → keywords → result, all stacked · result with diff</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;">
+
+      <!-- PHONE 3: polish inputs -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">polish · inputs (scroll top)</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div style="border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:760px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px 5px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);flex:0 0 auto;"><span>9:41</span><span style="display:flex;align-items:center;gap:5px;">⌖<span style="letter-spacing:1px;">▮▮▮</span>100%</span></div>
+            <header style="display:flex;align-items:center;justify-content:space-between;height:50px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--surface);flex:0 0 auto;">
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;"><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span></button>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="position:relative;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span></span><span style="font-size:16px;font-weight:600;letter-spacing:-0.02em;">Lucid</span></div>
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="width:13px;height:13px;border:1.5px solid var(--t4);border-radius:50%;"></span></button>
+            </header>
+            <div style="padding:9px 12px;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border);"><div style="display:flex;background:var(--fill-muted);border-radius:9px;padding:3px;gap:2px;"><button style="flex:1;border:none;background:transparent;color:var(--t4);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;cursor:pointer;">Translate</button><button style="flex:1;border:none;background:var(--surface);color:var(--ink);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px var(--shadow-c2);">Polish</button></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;flex:0 0 auto;background:var(--surface);">
+              <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);text-transform:uppercase;letter-spacing:0.07em;">Refine a draft</span>
+              <button style="display:flex;align-items:center;gap:7px;border:none;background:var(--accent);color:var(--on-accent);border-radius:9px;padding:9px 15px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;flex:0 0 auto;">Polish <span style="font-size:14px;">→</span></button>
+            </div>
+            <!-- scroll column -->
+            <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:11px;padding:12px;background:var(--canvas);">
+              <div style="flex:0 0 auto;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Original</span><button style="display:flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid var(--border-strong);background:var(--surface);border-radius:7px;cursor:pointer;"><span style="font-size:11.5px;font-weight:500;color:var(--ink);">中文</span><span style="display:inline-block;width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--t4);"></span></button></div>
+                <div style="padding:11px 14px;"><p style="margin:0;font-family:Newsreader,'Songti SC',serif;font-size:16px;line-height:1.65;color:var(--ink);">这个功能能显著降低延迟。</p></div>
+              </div>
+              <div style="flex:0 0 auto;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span><button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:7px;padding:4px 8px;font-family:Geist,sans-serif;font-size:11px;color:var(--accent-ink);font-weight:500;cursor:pointer;">↻ Translate</button></div>
+                <div style="padding:11px 14px;"><p style="margin:0;font-family:Newsreader,serif;font-size:16px;line-height:1.65;color:var(--ink);">This feature can significantly reduce the latency.</p></div>
+              </div>
+              <div style="flex:0 0 auto;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;">
+                <div style="padding:10px 14px 6px;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Domain keywords</span></div>
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:2px 12px 12px;"><span style="display:inline-flex;align-items:center;gap:5px;background:var(--accent-soft);color:var(--accent-ink);border-radius:7px;padding:5px 9px;font-size:12px;font-weight:500;">graphics<span style="color:var(--accent-mid);font-size:12px;">×</span></span><span style="display:inline-flex;align-items:center;gap:5px;background:var(--accent-soft);color:var(--accent-ink);border-radius:7px;padding:5px 9px;font-size:12px;font-weight:500;">real-time<span style="color:var(--accent-mid);font-size:12px;">×</span></span><span style="font-family:Geist,sans-serif;font-size:12.5px;color:var(--t6);padding:5px 2px;">Add term…</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHONE 4: polish result + diff -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">polish · result + compare (diff)</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div style="border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:760px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px 5px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);flex:0 0 auto;"><span>9:41</span><span style="display:flex;align-items:center;gap:5px;">⌖<span style="letter-spacing:1px;">▮▮▮</span>100%</span></div>
+            <header style="display:flex;align-items:center;justify-content:space-between;height:50px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--surface);flex:0 0 auto;">
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;"><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span></button>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="position:relative;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span></span><span style="font-size:16px;font-weight:600;letter-spacing:-0.02em;">Lucid</span></div>
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="width:13px;height:13px;border:1.5px solid var(--t4);border-radius:50%;"></span></button>
+            </header>
+            <div style="padding:9px 12px;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border);"><div style="display:flex;background:var(--fill-muted);border-radius:9px;padding:3px;gap:2px;"><button style="flex:1;border:none;background:transparent;color:var(--t4);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;cursor:pointer;">Translate</button><button style="flex:1;border:none;background:var(--surface);color:var(--ink);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px var(--shadow-c2);">Polish</button></div></div>
+            <!-- result header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px 8px;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--fill-muted);">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok);"></span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Polished</span></div>
+              <div style="display:flex;background:var(--fill-muted);border-radius:7px;padding:2px;gap:2px;flex:0 0 auto;"><button style="border:none;background:transparent;color:var(--t4);border-radius:5px;padding:4px 9px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;cursor:pointer;">Result</button><button style="border:none;background:var(--surface);color:var(--ink);border-radius:5px;padding:4px 9px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px var(--shadow-c2);">Compare</button></div>
+            </div>
+            <!-- hunk bar -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 14px;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">2 changes</span><div style="display:flex;gap:6px;"><button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:7px;padding:4px 9px;font-family:Geist,sans-serif;font-size:11px;color:var(--t1);cursor:pointer;">Reject all</button><button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:7px;padding:4px 9px;font-family:Geist,sans-serif;font-size:11px;color:var(--t1);cursor:pointer;">Keep all</button></div></div>
+            <!-- diff body -->
+            <div style="flex:1;overflow:hidden;padding:14px 16px;background:var(--canvas);"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.85;color:var(--ink);">This feature <span style="background:var(--del-soft);color:var(--del-ink);text-decoration:line-through;border-radius:3px;padding:0 2px;">can significantly reduce the</span> <span style="background:var(--add-soft);color:var(--add-ink);border-radius:3px;padding:0 3px;">markedly cuts</span> latency<span style="background:var(--add-soft);color:var(--add-ink);border-radius:3px;padding:0 3px;"> in real-time graphics</span>.</p></div>
+            <!-- accept bar -->
+            <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--border);background:var(--surface);flex:0 0 auto;">
+              <button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:6px 4px;">Regenerate</button>
+              <span style="flex:1;"></span>
+              <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px 13px;font-family:Geist,sans-serif;font-size:12.5px;color:var(--ink);cursor:pointer;">Reject</button>
+              <button style="border:none;background:var(--ok-solid);border-radius:9px;padding:8px 15px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;color:var(--on-accent);cursor:pointer;">Accept ✓</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- annotations -->
+      <div style="display:flex;flex-direction:column;width:280px;max-width:100%;gap:10px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">3</span>
+          <span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Result / Compare</strong> toggle + the hunk bar sit in a sticky sub-header so accept/reject stays one tap away while the diff scrolls.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">4</span>
+          <span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Inline diff</strong> stays word-level; add / delete chips keep the desktop color tokens at a touch-friendly line-height.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION D — drawer ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 16px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">D</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Sidebar — off-canvas drawer</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">☰ in the header opens it · session list + New session + search · tap backdrop to close</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;">
+      <!-- PHONE 5: drawer open -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">drawer · open</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div style="position:relative;border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:760px;">
+            <!-- dimmed app behind -->
+            <div style="position:absolute;inset:0;background:var(--canvas);"></div>
+            <div style="position:absolute;inset:0;background:rgba(18,16,12,0.42);"></div>
+            <!-- drawer -->
+            <div style="position:absolute;top:0;bottom:0;left:0;width:312px;background:var(--surface);border-right:1px solid var(--border);box-shadow:0 0 40px var(--shadow-c3);display:flex;flex-direction:column;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 14px 10px;flex:0 0 auto;">
+                <div style="display:flex;align-items:center;gap:8px;"><span style="position:relative;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span></span><span style="font-size:15px;font-weight:600;letter-spacing:-0.02em;">Lucid</span></div>
+                <button style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:14px;cursor:pointer;">×</button>
+              </div>
+              <div style="padding:0 12px 10px;flex:0 0 auto;"><div style="display:flex;background:var(--fill-muted);border-radius:9px;padding:3px;gap:2px;"><button style="flex:1;border:none;background:var(--surface);color:var(--ink);border-radius:7px;padding:7px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px var(--shadow-c2);">Sessions</button><button style="flex:1;border:none;background:transparent;color:var(--t4);border-radius:7px;padding:7px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;">Glossary</button></div></div>
+              <div style="padding:0 12px 10px;flex:0 0 auto;display:flex;flex-direction:column;gap:8px;">
+                <button style="display:flex;align-items:center;justify-content:center;gap:7px;border:1px dashed var(--border-dashed);background:var(--canvas);border-radius:9px;padding:9px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;color:var(--t1);cursor:pointer;">＋ New session</button>
+                <div style="display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;"><span style="color:var(--t7);font-size:12px;">⌕</span><span style="flex:1;font-family:Geist,sans-serif;font-size:12.5px;color:var(--t7);">Search sessions…</span></div>
+              </div>
+              <div style="flex:1;overflow:hidden;padding:0 8px 12px;display:flex;flex-direction:column;gap:3px;">
+                <button style="display:flex;align-items:center;gap:10px;padding:9px 8px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;cursor:pointer;text-align:left;"><span style="width:28px;height:28px;flex:0 0 auto;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:12px;">❑</span><span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:13px;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Render pipeline notes</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">中→EN · 4 tasks · 2m</span></span></button>
+                <button style="display:flex;align-items:center;gap:10px;padding:9px 8px;border:1px solid transparent;background:transparent;border-radius:9px;cursor:pointer;text-align:left;"><span style="width:28px;height:28px;flex:0 0 auto;border-radius:8px;background:var(--fill-muted);color:var(--t4);display:inline-flex;align-items:center;justify-content:center;font-size:12px;">❑</span><span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:13px;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Contract clauses · zh</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">中→EN · 11 tasks · 1h</span></span></button>
+                <button style="display:flex;align-items:center;gap:10px;padding:9px 8px;border:1px solid transparent;background:transparent;border-radius:9px;cursor:pointer;text-align:left;"><span style="width:28px;height:28px;flex:0 0 auto;border-radius:8px;background:var(--fill-muted);color:var(--t4);display:inline-flex;align-items:center;justify-content:center;font-size:12px;">❑</span><span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:13px;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Product copy polish</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">EN→中 · 6 tasks · yesterday</span></span></button>
+              </div>
+              <div style="padding:11px 14px;border-top:1px solid var(--border);flex:0 0 auto;display:flex;align-items:center;gap:8px;"><span style="width:13px;height:13px;border:1.5px solid var(--t4);border-radius:50%;flex:0 0 auto;"></span><span style="font-family:Geist,sans-serif;font-size:12.5px;color:var(--t1);">Settings</span></div>
+            </div>
+            <!-- edge peek of content -->
+            <div style="position:absolute;top:0;bottom:0;right:0;width:78px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHONE 6: drawer closed (hamburger) -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">drawer · closed (full-width work area)</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div style="border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:760px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px 5px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);flex:0 0 auto;"><span>9:41</span><span style="display:flex;align-items:center;gap:5px;">⌖<span style="letter-spacing:1px;">▮▮▮</span>100%</span></div>
+            <header style="display:flex;align-items:center;justify-content:space-between;height:50px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--surface);flex:0 0 auto;">
+              <button style="width:34px;height:34px;border:1px solid var(--accent-border);background:var(--accent-soft);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;"><span style="width:15px;height:1.6px;background:var(--accent-ink);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--accent-ink);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--accent-ink);border-radius:2px;"></span></button>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="position:relative;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span></span><span style="font-size:16px;font-weight:600;letter-spacing:-0.02em;">Lucid</span></div>
+              <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="width:13px;height:13px;border:1.5px solid var(--t4);border-radius:50%;"></span></button>
+            </header>
+            <div style="padding:9px 12px;flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border);"><div style="display:flex;background:var(--fill-muted);border-radius:9px;padding:3px;gap:2px;"><button style="flex:1;border:none;background:var(--surface);color:var(--ink);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px var(--shadow-c2);">Translate</button><button style="flex:1;border:none;background:transparent;color:var(--t4);border-radius:7px;padding:8px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;cursor:pointer;">Polish</button></div></div>
+            <!-- empty source prompt -->
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:30px 26px;background:var(--canvas);">
+              <span style="width:48px;height:48px;border-radius:14px;background:var(--fill-muted);display:inline-flex;align-items:center;justify-content:center;font-size:20px;color:var(--faint);">⌨</span>
+              <span style="font-size:15px;font-weight:600;color:var(--t1);">Type or paste to translate</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;line-height:1.6;color:var(--t5);max-width:26ch;">Lucid detects Chinese or English and sets the direction automatically.</span>
+              <button style="display:flex;align-items:center;gap:7px;border:1px solid var(--border-strong);background:var(--surface);border-radius:10px;padding:10px 16px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;color:var(--ink);cursor:pointer;margin-top:4px;">Paste from clipboard</button>
+            </div>
+            <footer style="display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-top:1px solid var(--border);background:var(--surface);flex:0 0 auto;"><div style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 auto;"></span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Local-only</span></div><button style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);cursor:pointer;padding:0;flex:0 0 auto;">Details</button></footer>
+          </div>
+        </div>
+      </div>
+
+      <!-- annotations -->
+      <div style="display:flex;flex-direction:column;width:280px;max-width:100%;gap:10px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">5</span>
+          <span style="font-size:11.5px;line-height:1.6;color:var(--t2);">The <strong style="color:var(--ink);font-weight:600;">drawer</strong> reuses the desktop sidebar verbatim — Sessions / Glossary toggle, New session, search, list rows — at 312px over a 42% scrim. The ☰ button highlights while open.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);">
+          <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Opening a session closes the drawer and returns to the work area. Settings moves into the drawer footer (the gear stays in the header too).</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION E — reflow details ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 16px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">E</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Header · toolbar · footer reflow</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">component-level detail at 390px — what changes vs desktop</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:18px;">
+      <!-- header -->
+      <div style="flex:1;min-width:320px;display:flex;flex-direction:column;gap:9px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">header · 50px</div>
+        <div style="border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="display:flex;align-items:center;justify-content:space-between;height:50px;padding:0 14px;">
+            <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;"><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span><span style="width:15px;height:1.6px;background:var(--t2);border-radius:2px;"></span></button>
+            <div style="display:flex;align-items:center;gap:8px;"><span style="position:relative;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span></span><span style="font-size:16px;font-weight:600;">Lucid</span></div>
+            <button style="width:34px;height:34px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;align-items:center;justify-content:center;"><span style="width:13px;height:13px;border:1.5px solid var(--t4);border-radius:50%;"></span></button>
+          </div>
+        </div>
+        <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);line-height:1.55;">“translate &amp; polish” tagline + run-hint drop; ☰ and gear become icon buttons; logo centers</span>
+      </div>
+      <!-- footer -->
+      <div style="flex:1;min-width:320px;display:flex;flex-direction:column;gap:9px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">footer · privacy</div>
+        <div style="border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;"><div style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok);flex:0 0 auto;"></span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Local-only · keys in memory</span></div><button style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;">Details</button></div>
+        </div>
+        <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);line-height:1.55;">privacy text truncates with ellipsis; the CTA shortens to “Details” and never wraps</span>
+      </div>
+      <!-- toolbar -->
+      <div style="flex:1;min-width:320px;display:flex;flex-direction:column;gap:9px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">translate toolbar</div>
+        <div style="border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;"><div style="display:flex;align-items:center;gap:7px;"><div style="display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;"><span style="font-size:12.5px;font-weight:600;color:var(--ink);">中文</span><span style="font-size:11px;color:var(--accent-ink);">→</span><span style="font-size:12.5px;font-weight:600;color:var(--ink);">EN</span></div><button style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t1);font-size:13px;">⇄</button></div><button style="display:flex;align-items:center;gap:6px;border:none;background:var(--accent);color:var(--on-accent);border-radius:9px;padding:9px 15px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;">Translate →</button></div>
+        </div>
+        <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);line-height:1.55;">direction-override chip folds into the lang pill menu; only pill + swap + Run stay inline</span>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION F — gates at mobile ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 16px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">F</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Gates &amp; banners at mobile width</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">passphrase unlock (#15) full-screen · sync pill + banners reflow (#151)</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;">
+      <!-- PHONE 7: passphrase gate -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">unlock gate · full-screen</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div style="border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:660px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px 5px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);flex:0 0 auto;"><span>9:41</span><span style="display:flex;align-items:center;gap:5px;">⌖<span style="letter-spacing:1px;">▮▮▮</span>100%</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 22px;gap:0;">
+              <div style="width:100%;max-width:330px;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:26px 22px 16px;text-align:center;">
+                  <span style="width:42px;height:42px;border-radius:12px;background:var(--accent-soft);border:1px solid var(--accent-border);display:inline-flex;align-items:center;justify-content:center;color:var(--accent-ink);font-size:17px;">🔒</span>
+                  <div style="display:flex;flex-direction:column;gap:4px;"><span style="font-size:17px;font-weight:600;letter-spacing:-0.01em;">Unlock Lucid</span><span style="font-family:'Geist Mono',monospace;font-size:11px;line-height:1.55;color:var(--t5);">enter your passphrase to decrypt synced config</span></div>
+                </div>
+                <div style="padding:4px 22px 22px;display:flex;flex-direction:column;gap:12px;">
+                  <div style="display:flex;align-items:center;gap:8px;border:1px solid var(--accent-border);background:var(--surface);border-radius:11px;padding:11px 13px;"><input type="text" value="••••••••••" spellcheck="false" style="flex:1;border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:15px;color:var(--ink);padding:0;letter-spacing:0.18em;" /><button style="border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:11px;color:var(--t3);cursor:pointer;">Show</button></div>
+                  <button style="border:none;background:var(--accent);color:var(--on-accent);border-radius:11px;padding:13px;font-family:Geist,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Unlock</button>
+                  <button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12.5px;color:var(--t4);cursor:pointer;">Use a different device key</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- mobile sync surfaces -->
+      <div style="display:flex;flex-direction:column;gap:14px;flex:1;min-width:320px;max-width:520px;">
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">sync pill — fits the 50px header</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;border:1px solid var(--ok-conn);background:var(--ok-soft);"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok);"></span><span style="font-size:12px;font-weight:600;color:var(--ok-strong);">Synced</span></span>
+            <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);"><span style="width:8px;height:8px;border-radius:50%;background:var(--dot-idle);"></span><span style="font-size:12px;font-weight:600;color:var(--t3);">Local-only</span></span>
+            <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;border:1px solid var(--accent-border);background:var(--accent-tint);"><span style="width:9px;height:9px;border-radius:50%;border:1.5px solid var(--accent);border-top-color:transparent;display:inline-block;animation:lucid-spin 0.7s linear infinite;"></span><span style="font-size:12px;font-weight:600;color:var(--accent-ink);">Syncing</span></span>
+          </div>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);line-height:1.55;">drops the secondary timestamp to fit; full copy lives in the drawer footer + Settings · Sync</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">unlock banner — stacked, full-width</div>
+          <div style="display:flex;flex-direction:column;gap:10px;padding:13px 14px;border:1px solid var(--warn-border);background:var(--warn-soft);border-radius:13px;">
+            <div style="display:flex;align-items:flex-start;gap:11px;"><span style="width:22px;height:22px;flex:0 0 auto;border-radius:7px;background:var(--surface);border:1px solid var(--warn-border);display:inline-flex;align-items:center;justify-content:center;color:var(--warn);font-size:12px;margin-top:1px;">🔒</span><div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:13px;font-weight:600;color:var(--warn);">Synced config is locked</span><span style="font-size:11.5px;line-height:1.55;color:var(--t2);">Unlock to merge settings from your other devices. Lucid keeps working locally meanwhile.</span></div></div>
+            <button style="border:1px solid var(--warn-border);background:var(--surface);color:var(--warn);border-radius:9px;padding:9px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;">Unlock now</button>
+          </div>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);line-height:1.55;">desktop's inline action stacks below the text at &lt;600px so the button keeps a 44px target</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- footer -->
+    <div style="margin-top:44px;padding-top:18px;border-top:1px solid var(--border-strong);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">
+      <span>Lucid · feature #16 · responsive design bundle · matches workspace tokens (light + dark)</span>
+      <span>drawer sidebar · pane switcher · stacked editors · 44px targets · ≈390px portrait</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1480,&quot;height&quot;:1024},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#574FD6&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  boardRef = React.createRef();
+  applyAccent() {
+    const a = this.props.accent;
+    if (a && this.boardRef.current) this.boardRef.current.style.setProperty('--accent', a);
+  }
+  componentDidMount() { this.applyAccent(); }
+  componentDidUpdate() { this.applyAccent(); }
+  renderVals() {
+    return {
+      themeAttr: this.props.theme ?? 'light',
+      boardRef: this.boardRef,
+    };
+  }
+}
+</script>
+</body>
+</html>
