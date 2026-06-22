@@ -55,6 +55,24 @@ describe('TranslatePanel', () => {
     expect(screen.getByText('English')).toBeInTheDocument()
   })
 
+  // WI-3 / #13 — the editor cap is tier-scoped: 50vh on phone (<600), 88vh on tablet/desktop, so one
+  // editor can't swallow the single-column phone layout. The two-column editor row stacks below 600.
+  it('caps the source editor height per tier (50vh phone / 88vh ≥600)', () => {
+    render(<TranslatePanel />)
+    const source = screen.getByLabelText('Source')
+    expect(source.className).toContain('max-[599px]:max-h-[50vh]')
+    expect(source.className).toContain('min-[600px]:max-h-[88vh]')
+    // Never the unconditional 88vh cap that #13 flagged as too tall for a 760px phone.
+    expect(source.className.split(/\s+/)).not.toContain('max-h-[88vh]')
+  })
+
+  it('stacks the source/translation columns below 600', () => {
+    const { container } = render(<TranslatePanel />)
+    const row = screen.getByLabelText('Source').closest('.flex.items-start')!
+    expect(row.className).toContain('max-[599px]:flex-col')
+    expect(container).toBeTruthy()
+  })
+
   it('streams a translation on Run (mocked provider) and shows Copy/Accept when done', async () => {
     useProviderStore.getState().setApiKey('sk-test')
     mockCreate.mockReturnValue(okProvider('Hola mundo'))

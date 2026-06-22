@@ -6,6 +6,7 @@
 import { forwardRef, type ComponentPropsWithoutRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSyncStore } from '@/stores/syncStore'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import { syncPillView, type PillTone, type PillView } from './syncPillView'
 
 /**
@@ -67,6 +68,9 @@ export const SyncStatusPill = forwardRef<HTMLButtonElement, SyncStatusPillProps>
   const status = useSyncStore((s) => s.status)
   const queuedCount = useSyncStore((s) => s.queuedCount)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
+  // On phone the compact 50px header drops the pill's secondary detail line to fit (feature #16,
+  // design Section F); the full copy stays in the drawer footer + Settings · Sync.
+  const compact = useViewportTier() === 'phone'
 
   const view = syncPillView({ status, queuedCount, lastSyncedAt }, Date.now())
   const tone = TONE[view.tone]
@@ -94,7 +98,7 @@ export const SyncStatusPill = forwardRef<HTMLButtonElement, SyncStatusPillProps>
       <span className="text-[12.5px] font-semibold" style={{ color: tone.label }}>
         {label}
       </span>
-      {view.detail && (
+      {view.detail && !compact && (
         <span className="font-mono text-[10px]" style={{ color: tone.detail }}>
           {t(view.detail.key, view.detail.vars)}
         </span>

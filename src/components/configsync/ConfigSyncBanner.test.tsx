@@ -50,4 +50,14 @@ describe('ConfigSyncBanner', () => {
     expect(screen.getByText(/encrypted sync needs https/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /how/i })).toBeInTheDocument()
   })
+
+  // WI-4 — at narrow widths the action button stacks full-width below the text (≥44px target).
+  it('stacks the action full-width at narrow width (flex-col below 600)', () => {
+    useConfigSyncStore.getState().set({ syncError: 'configUnreachable' })
+    render(<ConfigSyncBanner onRetry={() => {}} />)
+    const action = screen.getByRole('button', { name: /retry/i })
+    expect(action.className).toContain('max-[599px]:w-full')
+    const row = action.closest('div.flex')!
+    expect(row.className).toContain('max-[599px]:flex-col')
+  })
 })

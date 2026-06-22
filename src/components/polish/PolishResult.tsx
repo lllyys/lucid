@@ -5,6 +5,7 @@ import { createWordDiff, applyDiff, type DiffSegment } from '@/lib/polish/wordDi
 import { groupHunks, acceptedIdsForRejected, type Hunk } from '@/lib/polish/groupHunks'
 import { cleanPolishOutput } from '@/lib/polish/cleanPolishOutput'
 import { ResultBanner } from '@/components/workspace/ResultBanner'
+import { useViewportTier } from '@/hooks/useViewportTier'
 
 const wd = createWordDiff()
 
@@ -35,6 +36,10 @@ export function PolishResult({
 }) {
   const { t } = useTranslation()
   const op = useOperationStore((s) => s.polish)
+  // On phone the Result/Compare toggle + hunk bar pin as a sticky sub-header so accept/reject stays
+  // one tap away while the diff scrolls (design Section C). Tier-gated so desktop is byte-for-byte
+  // unchanged (audit H3). Mobile tests mock useViewportTier; under jsdom it defaults to desktop.
+  const isMobile = useViewportTier() === 'phone'
   const [view, setView] = useState<'result' | 'compare'>('result')
   const [copied, setCopied] = useState(false)
   const [rejected, setRejected] = useState<ReadonlySet<string>>(new Set())
@@ -117,7 +122,12 @@ export function PolishResult({
   return (
     <div>
       {isDone && (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div
+          data-slot="polish-subheader"
+          className={`mb-2 flex flex-wrap items-center gap-2 ${
+            isMobile ? 'sticky top-0 z-10 -mx-6 border-b bg-[var(--bg-color)] px-6 py-2' : ''
+          }`}
+        >
           <div className="inline-flex gap-0.5 rounded-[7px] bg-[var(--bg-tertiary)] p-0.5">
             <button
               type="button"

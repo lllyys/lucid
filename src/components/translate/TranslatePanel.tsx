@@ -101,8 +101,8 @@ export function TranslatePanel() {
 
   return (
     <section className="flex min-h-[296px] shrink-0 flex-col border-b">
-      <div className="flex items-center justify-between px-[22px] pb-1 pt-2.5">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between px-[22px] pb-1 pt-2.5 max-[599px]:flex-wrap max-[599px]:gap-2">
+        <div className="flex items-center gap-2.5 max-[599px]:flex-wrap">
           <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--accent-ink)]">
             {t('translate.label')}
           </span>
@@ -146,8 +146,8 @@ export function TranslatePanel() {
         </div>
       )}
 
-      <div className="flex items-start">
-        <section className="flex flex-1 flex-col border-r bg-[var(--bg-color)]">
+      <div className="flex items-start max-[599px]:flex-col">
+        <section className="flex flex-1 flex-col border-r bg-[var(--bg-color)] max-[599px]:w-full max-[599px]:border-b max-[599px]:border-r-0">
           <div className="flex items-center justify-between px-[22px] pb-2 pt-3">
             <span className="font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
               {t('translate.source')}
@@ -180,10 +180,10 @@ export function TranslatePanel() {
             spellCheck={false}
             dir={srcBidi.dir}
             style={{ ...srcBidi.style, textAlign: 'start' }}
-            className="field-sizing-content min-h-[88px] max-h-[88vh] resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75]"
+            className="field-sizing-content min-h-[88px] resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75] max-[599px]:max-h-[50vh] min-[600px]:max-h-[88vh]"
           />
         </section>
-        <section className="flex flex-1 flex-col bg-[var(--bg-canvas)] px-6 py-4">
+        <section className="flex flex-1 flex-col bg-[var(--bg-canvas)] px-6 py-4 max-[599px]:w-full">
           <div className="mb-2 flex items-center gap-2">
             <span className="font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
               {t('translate.translation')}
