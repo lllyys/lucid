@@ -412,5 +412,6 @@
   "sidebar.settings": "Settings",
   "footer.details": "Details",
   "header.openMenu": "Open menu",
-  "header.closeMenu": "Close menu"
+  "header.closeMenu": "Close menu",
+  "workspace.paneSwitcher": "Active pane"
 }

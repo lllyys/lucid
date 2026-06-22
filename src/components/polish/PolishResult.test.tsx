@@ -1,10 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import '@/i18n'
 import { PolishResult } from './PolishResult'
 import { useOperationStore } from '@/stores/operationStore'
+import type { ViewportTier } from '@/hooks/useViewportTier'
+
+// Drive the responsive tier by mocking the hook (plan M5). Default desktop = byte-for-byte unchanged.
+const tierMock = vi.hoisted(() => ({ value: 'desktop' as ViewportTier }))
+vi.mock('@/hooks/useViewportTier', () => ({ useViewportTier: () => tierMock.value }))
 
 // draft "the cat sat" vs result "the dog sat" → exactly one change hunk (cat → dog).
 const DRAFT = 'the cat sat'
@@ -13,6 +18,10 @@ const setDone = (text: string) =>
 
 beforeEach(() => {
   useOperationStore.getState().reset('polish')
+})
+
+afterEach(() => {
+  tierMock.value = 'desktop'
 })
 
 const renderResult = (overrides: Partial<Parameters<typeof PolishResult>[0]> = {}) => {
@@ -92,6 +101,35 @@ describe('PolishResult per-hunk accept/reject (WI-7)', () => {
     await user.click(screen.getByRole('button', { name: /reject this change/i }))
     await user.click(screen.getByRole('button', { name: /keep this change/i }))
     await user.click(screen.getByRole('button', { name: 'Accept' }))
+    expect(onAccept).toHaveBeenCalledWith('the dog sat')
+  })
+})
+
+describe('PolishResult sticky sub-header on mobile (WI-3, design Section C)', () => {
+  it('makes the Result/Compare toggle a sticky sub-header on phone', () => {
+    tierMock.value = 'phone'
+    setDone('the dog sat')
+    const { container } = render(<PolishResult draft={DRAFT} onAccept={vi.fn()} onRegenerate={vi.fn()} onReject={vi.fn()} />)
+    const subHeader = container.querySelector('[data-slot="polish-subheader"]')!
+    expect(subHeader).not.toBeNull()
+    expect(subHeader.className).toContain('sticky')
+    expect(subHeader.className).toContain('top-0')
+  })
+
+  it('keeps the desktop layout free of the sticky sub-header (byte-for-byte unchanged)', () => {
+    tierMock.value = 'desktop'
+    setDone('the dog sat')
+    const { container } = render(<PolishResult draft={DRAFT} onAccept={vi.fn()} onRegenerate={vi.fn()} onReject={vi.fn()} />)
+    const subHeader = container.querySelector('[data-slot="polish-subheader"]')!
+    expect(subHeader.className).not.toContain('sticky')
+  })
+
+  it('keeps accept/reject reachable from the mobile result (accept fires onAccept)', async () => {
+    tierMock.value = 'phone'
+    setDone('the dog sat')
+    const onAccept = vi.fn()
+    render(<PolishResult draft={DRAFT} onAccept={onAccept} onRegenerate={vi.fn()} onReject={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Accept' }))
     expect(onAccept).toHaveBeenCalledWith('the dog sat')
   })
 })

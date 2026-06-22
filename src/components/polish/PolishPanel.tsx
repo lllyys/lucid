@@ -238,8 +238,10 @@ export function PolishPanel() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex flex-1 flex-col gap-3.5 overflow-auto p-4">
+      <div className="flex min-h-0 flex-1 max-[599px]:flex-col">
+        {/* Phone (#17 H7): drop the input column's own overflow so `<main>` is the single scroll
+            region — no nested scroll. Desktop/tablet keep the independent overflow-auto. */}
+        <div className="flex flex-1 flex-col gap-3.5 p-4 min-[600px]:overflow-auto">
           <OriginalCard
             value={original}
             onChange={onOriginal}
@@ -263,7 +265,7 @@ export function PolishPanel() {
           />
           <KeywordsCard keywords={keywordValues} onAdd={addKeyword} onRemove={removeKeyword} />
         </div>
-        <section className="flex flex-1 flex-col border-l bg-[var(--bg-color)] px-6 py-4">
+        <section className="flex flex-1 flex-col border-l bg-[var(--bg-color)] px-6 py-4 max-[599px]:border-l-0 max-[599px]:border-t">
           <div className="mb-2 flex items-center gap-2">
             <span className="font-mono text-[11px] uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
               {t('polish.polished')}

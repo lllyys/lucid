@@ -89,6 +89,22 @@ describe('PolishPanel', () => {
     expect(screen.queryByText(/from glossary/i)).toBeNull()
   })
 
+  // WI-3 / #17 H7 — on phone, neither Polish column owns a scrollbar: the input column's
+  // overflow-auto is gated to ≥600 (min-[600px]:overflow-auto, never the bare class), and the
+  // result column has no independent overflow. `<main>` is the single scroll region on phone.
+  it('does not give either Polish column an unconditional scroll on phone', () => {
+    const { container } = render(<PolishPanel />)
+    // The input column is the editor stack (flex-col + p-4); it scrolls only at ≥600 — not
+    // unconditionally (which would nest a scroll on phone).
+    const inputColumn = container.querySelector('div.flex-col.p-4')!
+    expect(inputColumn.className).toContain('min-[600px]:overflow-auto')
+    expect(inputColumn.className.split(/\s+/)).not.toContain('overflow-auto')
+    // The result column never declares its own overflow scroll at any tier.
+    const resultColumn = container.querySelector('section.border-l')!
+    expect(resultColumn.className).not.toContain('overflow-auto')
+    expect(resultColumn.className).not.toContain('overflow-scroll')
+  })
+
   it('adds a keyword via Enter and removes it via ×', async () => {
     const user = userEvent.setup()
     render(<PolishPanel />)
