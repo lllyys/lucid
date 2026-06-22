@@ -57,8 +57,10 @@ export function ConnectedPanel(props: ConnectedPanelProps) {
   const { config, counts } = props
   const last4 = config.token.slice(-4) || '————'
   const isSingleOrigin = config.token === ''
-  // "empty · just turned on": connected but never synced, and not mid-cycle / failing.
-  const isEmpty = props.status === 'idle' && props.lastSyncedAt === null
+  // "empty · just turned on": single-origin connected but never synced, and not mid-cycle / failing.
+  // Gated to single-origin — the "just turned on" framing is the token-free flow (design Section D); a
+  // remote reconnect with no sync yet keeps the normal status card.
+  const isEmpty = isSingleOrigin && props.status === 'idle' && props.lastSyncedAt === null
 
   return (
     <div className="w-[520px] max-w-full overflow-hidden rounded-[18px] border border-[var(--border-color)] bg-[var(--bg-color)] shadow-[var(--shadow-tab)]">

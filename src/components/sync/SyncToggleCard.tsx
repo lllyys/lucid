@@ -67,7 +67,7 @@ export function SyncToggleCard({ origin, onTurnOn, onConnect }: SyncToggleCardPr
             aria-checked={false}
             aria-label={t('sync.toggle.switchLabel')}
             onClick={onTurnOn}
-            className="relative h-[26px] w-11 shrink-0 rounded-full border border-[var(--border-strong)] bg-[var(--fill-muted)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
+            className="relative h-[26px] w-11 shrink-0 rounded-full border border-[var(--border-strong)] bg-[var(--bg-tertiary)] focus-visible:outline-2 focus-visible:outline-[var(--accent-ink)]"
           >
             <span className="absolute left-0.5 top-0.5 size-5 rounded-full bg-[var(--bg-color)] shadow-[var(--shadow-tab)]" />
           </button>
