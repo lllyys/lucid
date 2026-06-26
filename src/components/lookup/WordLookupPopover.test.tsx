@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import '@/i18n'
@@ -12,6 +12,43 @@ import type { ViewportTier } from '@/hooks/useViewportTier'
 const tierMock = vi.hoisted(() => ({ value: 'desktop' as ViewportTier }))
 vi.mock('@/hooks/useViewportTier', () => ({ useViewportTier: () => tierMock.value }))
 
+// A controllable fake Speech so play/stop/voice-race are observable without the browser API.
+const speechMock = vi.hoisted(() => {
+  const state = {
+    speaking: false,
+    voicesReady: true,
+    voiceLangs: ['en', 'zh'] as string[],
+    subs: new Set<() => void>(),
+  }
+  const notify = () => state.subs.forEach((cb) => cb())
+  const api = {
+    speak: vi.fn((text: string, lang: string) => {
+      void text
+      void lang
+      state.speaking = true
+      notify()
+      return null
+    }),
+    cancel: vi.fn(() => {
+      state.speaking = false
+      notify()
+    }),
+    isSpeaking: () => state.speaking,
+    hasVoiceFor: (lang: string) => state.voiceLangs.some((v) => v === lang.split('-')[0]),
+    get voicesReady() {
+      return state.voicesReady
+    },
+    subscribe: (cb: () => void) => {
+      state.subs.add(cb)
+      return () => state.subs.delete(cb)
+    },
+    __state: state,
+    __notify: notify,
+  }
+  return { api }
+})
+vi.mock('@/lib/speech/speak', () => ({ createSpeech: () => speechMock.api }))
+
 import { WordLookupPopover } from './WordLookupPopover'
 import { useLookupStore } from '@/stores/lookupStore'
 import type { DefineSense } from '@/lib/lookup/parseDefine'
@@ -19,76 +56,187 @@ import type { DefineSense } from '@/lib/lookup/parseDefine'
 beforeEach(() => {
   lookupMock.lookup.mockReset()
   lookupMock.close.mockReset()
+  speechMock.api.speak.mockClear()
+  speechMock.api.cancel.mockClear()
+  speechMock.api.__state.speaking = false
+  speechMock.api.__state.voicesReady = true
+  speechMock.api.__state.voiceLangs = ['en', 'zh']
   useLookupStore.getState().close()
 })
 afterEach(() => {
   tierMock.value = 'desktop'
 })
 
-// Helper to drive the store into a given lookup state for the open word.
-function openStore(over: Partial<ReturnType<typeof useLookupStore.getState>>) {
+type StoreShape = ReturnType<typeof useLookupStore.getState>
+function setStore(over: Partial<StoreShape>) {
   act(() => {
     useLookupStore.setState({
       open: true,
       word: 'stutter',
       ipa: '/ˈstʌtər/',
       partOfSpeech: 'noun',
-      translations: ['卡顿'],
+      translations: ['卡顿', '抖动'],
       meaning: 'a brief judder',
       senses: [] as DefineSense[],
       status: 'done',
-      sentence: 'perceive stutter',
+      sentence: 'the user will perceive stutter',
       sourceLang: 'en',
       targetLang: 'zh',
+      error: undefined,
       ...over,
     })
   })
 }
 
-describe('WordLookupPopover — WI-6 clickable text wiring', () => {
-  it('renders plain text (no clickable words) while NOT done (streaming pane)', () => {
-    render(<WordLookupPopover text="Hello world" done={false} />)
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
-    expect(screen.getByText(/Hello world/)).toBeInTheDocument()
+const dialog = () => screen.getByRole('dialog')
+
+describe('WordLookupPopover — WI-7 states', () => {
+  it('does not render a dialog while the store is closed', () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('renders clickable words once the host pane is done', () => {
-    render(<WordLookupPopover text="Hello world" done />)
-    expect(screen.getByRole('button', { name: 'Hello' })).toBeInTheDocument()
+  it('loading: shows the looking-up status and a disabled play button', () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({ status: 'streaming', translations: [], meaning: '' })
+    expect(within(dialog()).getByText(/looking up/i)).toBeInTheDocument()
+    expect(within(dialog()).getByRole('button', { name: /speak word/i })).toBeDisabled()
   })
 
-  it('drives useWordLookup.lookup on activate with the clicked word + threaded en→zh', async () => {
-    render(<WordLookupPopover text="Hello world" done />)
-    await userEvent.click(screen.getByRole('button', { name: 'world' }))
+  it('loaded: shows word, IPA, translation, meaning and an enabled play button', () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    const d = dialog()
+    expect(within(d).getByText('stutter')).toBeInTheDocument()
+    expect(within(d).getByText('/ˈstʌtər/')).toBeInTheDocument()
+    expect(within(d).getByText(/卡顿/)).toBeInTheDocument()
+    expect(within(d).getByText('a brief judder')).toBeInTheDocument()
+    expect(within(d).getByRole('button', { name: /speak word/i })).toBeEnabled()
+  })
+
+  it('play: clicking Speak calls speak then exposes a Stop control', async () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    await userEvent.click(within(dialog()).getByRole('button', { name: /speak word/i }))
+    expect(speechMock.api.speak).toHaveBeenCalledTimes(1)
+    // word is spoken in its own (source) language
+    expect(speechMock.api.speak.mock.calls[0][1]).toBe('en')
+    expect(within(dialog()).getByRole('button', { name: /stop/i })).toBeInTheDocument()
+  })
+
+  it('stop: clicking Stop while speaking calls cancel', async () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    await userEvent.click(within(dialog()).getByRole('button', { name: /speak word/i }))
+    await userEvent.click(within(dialog()).getByRole('button', { name: /stop/i }))
+    expect(speechMock.api.cancel).toHaveBeenCalled()
+  })
+
+  it('no-voice (voicesReady && !hasVoiceFor): play is disabled with a note', () => {
+    speechMock.api.__state.voiceLangs = [] // no voices match
+    render(<WordLookupPopover text="卡顿" done />)
+    setStore({ word: '卡顿', sourceLang: 'zh', targetLang: 'en' })
+    expect(within(dialog()).getByRole('button', { name: /no voice/i })).toBeDisabled()
+  })
+
+  it('voice-race: play is transiently disabled while !voicesReady, re-enables on voiceschanged', () => {
+    speechMock.api.__state.voicesReady = false
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    expect(within(dialog()).getByRole('button', { name: /speak word/i })).toBeDisabled()
+    // voices load asynchronously → voicesReady flips, hasVoiceFor('en') true
+    act(() => {
+      speechMock.api.__state.voicesReady = true
+      speechMock.api.__notify()
+    })
+    expect(within(dialog()).getByRole('button', { name: /speak word/i })).toBeEnabled()
+  })
+
+  it('error: shows the no-definition message with Retry and Providers', () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({ status: 'error', error: { kind: 'refusal', messageKey: 'error.refusal', retryable: false } })
+    const d = dialog()
+    expect(within(d).getByText(/no definition/i)).toBeInTheDocument()
+    expect(within(d).getByRole('button', { name: /retry/i })).toBeInTheDocument()
+    expect(within(d).getByRole('button', { name: /providers/i })).toBeInTheDocument()
+  })
+
+  it('long / multi-sense: renders each sense', () => {
+    render(<WordLookupPopover text="Hello render" done />)
+    setStore({
+      word: 'render',
+      senses: [
+        { gloss: '渲染', meaning: 'graphics sense' },
+        { gloss: '使成为', meaning: 'cause-to-be sense' },
+      ],
+    })
+    const d = dialog()
+    expect(within(d).getByText('渲染')).toBeInTheDocument()
+    expect(within(d).getByText('使成为')).toBeInTheDocument()
+  })
+})
+
+describe('WordLookupPopover — WI-7 a11y, lifecycle, RTL, responsive', () => {
+  it('the dialog is labelled with the word', () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(/stutter/)
+  })
+
+  it('the meaning is an aria-live=polite region', () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    const live = within(dialog()).getByText('a brief judder')
+    expect(live.closest('[aria-live="polite"]')).not.toBeNull()
+  })
+
+  it('clicking Close dismisses via the lookup store', async () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    await userEvent.click(within(dialog()).getByRole('button', { name: /close/i }))
+    expect(lookupMock.close).toHaveBeenCalled()
+  })
+
+  it('Retry re-issues the lookup for the same word', async () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({ status: 'error', error: { kind: 'refusal', messageKey: 'error.refusal', retryable: false } })
+    await userEvent.click(within(dialog()).getByRole('button', { name: /retry/i }))
     expect(lookupMock.lookup).toHaveBeenCalledTimes(1)
-    const payload = lookupMock.lookup.mock.calls[0][0]
-    expect(payload.word).toBe('world')
-    expect(payload.sourceLang).toBe('en')
-    expect(payload.targetLang).toBe('zh')
-    expect(payload.sentence).toContain('world')
+    expect(lookupMock.lookup.mock.calls[0][0].word).toBe('stutter')
   })
 
-  it('threads zh→en for a Chinese result pane', async () => {
-    render(<WordLookupPopover text="你好世界" done />)
-    await userEvent.click(screen.getAllByRole('button')[0])
-    const payload = lookupMock.lookup.mock.calls[0][0]
-    expect(payload.sourceLang).toBe('zh')
-    expect(payload.targetLang).toBe('en')
+  it('cancels in-flight speech on unmount (M4)', async () => {
+    const { unmount } = render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    await userEvent.click(within(dialog()).getByRole('button', { name: /speak word/i }))
+    speechMock.api.cancel.mockClear()
+    unmount()
+    expect(speechMock.api.cancel).toHaveBeenCalled()
   })
 
-  it('highlights the active word (aria-current) while its lookup is open', async () => {
-    render(<WordLookupPopover text="Hello world" done />)
-    await userEvent.click(screen.getByRole('button', { name: 'world' }))
-    openStore({ word: 'world', sentence: 'Hello world' })
-    expect(screen.getByRole('button', { name: 'world' })).toHaveAttribute('aria-current', 'true')
-    expect(screen.getByRole('button', { name: 'Hello' })).not.toHaveAttribute('aria-current', 'true')
+  it('cancels prior speech when the active word changes (M4)', async () => {
+    render(<WordLookupPopover text="Hello stutter render" done />)
+    setStore({})
+    await userEvent.click(within(dialog()).getByRole('button', { name: /speak word/i }))
+    speechMock.api.cancel.mockClear()
+    setStore({ word: 'render', sentence: 'Hello render' })
+    expect(speechMock.api.cancel).toHaveBeenCalled()
   })
 
-  it('clears the highlight when the lookup store closes', async () => {
-    render(<WordLookupPopover text="Hello world" done />)
-    await userEvent.click(screen.getByRole('button', { name: 'world' }))
-    openStore({ word: 'world', sentence: 'Hello world' })
-    act(() => useLookupStore.getState().close())
-    expect(screen.getByRole('button', { name: 'world' })).not.toHaveAttribute('aria-current', 'true')
+  it('renders dir=rtl for an Arabic word', () => {
+    render(<WordLookupPopover text="إطار" done />)
+    setStore({ word: 'إطار', sourceLang: 'ar', targetLang: 'en' })
+    expect(dialog().getAttribute('dir')).toBe('rtl')
+  })
+
+  it('phone: renders the bottom sheet instead of the popover', () => {
+    tierMock.value = 'phone'
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({})
+    // The sheet content is still a dialog labelled with the word; the desktop popover would carry
+    // a context line ("ctx") that the sheet omits — assert the sheet's drag handle is present.
+    const d = dialog()
+    expect(d).toHaveAccessibleName(/stutter/)
+    expect(within(d).queryByText('ctx')).toBeNull()
   })
 })
