@@ -32,7 +32,24 @@ export interface PolishRequest {
   /** Domain anchor terms; sent to the model as data, never as instructions (feature #2). */
   keywords?: readonly string[]
 }
-export type LLMRequest = TranslateRequest | PolishRequest
+/**
+ * Dictionary word-lookup request (feature #20): define one `word` in its `sentence`
+ * context. Has NO `text` field — its validation/prompt branch must run BEFORE any shared
+ * `req.text` access (rule: validateRequest restructure). The model returns one JSON object
+ * (word, ipa, partOfSpeech, translations, meaning, senses); `sentence` is injected as data.
+ */
+export interface DefineRequest {
+  kind: 'define'
+  /** The clicked token to define. */
+  word: string
+  /** The full sentence the word was clicked in (context; sent as data, never instructions). */
+  sentence: string
+  /** Source language of the word/sentence (optional, threaded from the host pane). */
+  sourceLang?: string
+  /** Target language for the translation/meaning (must resolve via the curated registry). */
+  targetLang: string
+}
+export type LLMRequest = TranslateRequest | PolishRequest | DefineRequest
 
 export interface StreamChunk {
   text: string

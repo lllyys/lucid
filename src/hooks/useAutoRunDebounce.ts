@@ -60,6 +60,9 @@ export function useAutoRunDebounce(
   const scheduleRun = useCallback(
     (request: LLMRequest) => {
       if (composing.current) return // held during IME composition; re-armed on compositionend
+      // Auto-run only ever schedules translate/polish (both carry `text`); a word-lookup define
+      // request (feature #20) is never debounced — guard the discriminant so the union narrows.
+      if (request.kind === 'define') return
       if (request.text.trim().length < minChars) {
         cancel()
         return
