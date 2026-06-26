@@ -33,6 +33,13 @@ If you cannot point at a file in `dev-docs/designs/` that shows the surface you 
 
 When you reach a slice that would touch undesigned UI:
 
+> **Filing the `needs-design` issue is a proactive, automatic workflow step — never a question.** Do NOT
+> ask the user "should I file a design issue?" or wait for permission. The moment a design-gated surface is
+> identified (a Gate-1 plan, a triage, or a deferred follow-up), file the `needs-design` issue, link it from
+> the parent, and report that you filed it. The precedent pairs: feature #164 ↔ design #166 (the #20
+> click-a-word popover); feature #169 ↔ design #173 (the editable-pane word-lookup overlay). Asking first is
+> the lapse this rule corrects — rule 51 already mandates the issue, so file it as a matter of course.
+
 1. **Stop that slice.** Do not write the component. Do not write a placeholder. Do not improvise.
 2. **File a GitHub issue** — file it first, before any tracker edit, so the row stamp and the issue land together (the `check_gh_issue_mirror.sh` PreToolUse hook blocks a row change that lacks a GH ref):
    - Title: `Design needed: <surface> for feature #<N>` (or `for bug #<N>`). This is intentionally descriptive and does NOT follow lucid's `Feature #N:` / `Bug #N:` mirror-title convention — a needs-design issue is its own design request, not a mirror of a tracker row.
