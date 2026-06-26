@@ -191,7 +191,8 @@ describe('PolishPanel', () => {
       await user.click(screen.getByRole('button', { name: /^polish$/i }))
       await tick()
     })
-    expect(screen.getByText('polished result')).toBeInTheDocument()
+    // The done result renders as word-lookup tokens (feature #20) — assert a distinctive word.
+    expect(screen.getByRole('button', { name: 'result' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^accept$/i })).toBeInTheDocument()
 
     // Start "Translate original" — the stale polish result + its Accept must clear.
@@ -200,7 +201,7 @@ describe('PolishPanel', () => {
       await user.click(screen.getByRole('button', { name: /translate original/i }))
       await tick()
     })
-    expect(screen.queryByText('polished result')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'result' })).toBeNull()
     expect(screen.queryByRole('button', { name: /^accept$/i })).toBeNull()
     expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('partial')
     await act(async () => {
@@ -219,10 +220,10 @@ describe('PolishPanel', () => {
       await user.click(screen.getByRole('button', { name: /^polish$/i }))
       await tick()
     })
-    expect(screen.getByText('polished result')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'result' })).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: 'add keyword' }), 'inference{Enter}')
     expect(useOperationStore.getState().polish.status).toBe('idle')
-    expect(screen.queryByText('polished result')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'result' })).toBeNull()
   })
 
   it('polishes the draft, then Accept commits the result to the draft and toasts', async () => {
@@ -234,7 +235,7 @@ describe('PolishPanel', () => {
       await user.click(screen.getByRole('button', { name: /^polish$/i }))
       await tick()
     })
-    expect(screen.getByText('polished result')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'result' })).toBeInTheDocument()
 
     // Compare toggle works
     await user.click(screen.getByRole('button', { name: /compare/i }))
@@ -386,9 +387,9 @@ describe('PolishPanel — goal selector (feature #18)', () => {
       await user.click(screen.getByRole('button', { name: 'Polish' }))
       await tick()
     })
-    expect(screen.getByText('polished result')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'result' })).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: 'Tone' }))
-    expect(screen.queryByText('polished result')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'result' })).toBeNull()
   })
 
   it('with auto-run on, changing the goal arms a run carrying the NEW goal', async () => {
