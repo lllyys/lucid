@@ -161,6 +161,17 @@ describe('WordLookupPopover — WI-7 states', () => {
     expect(within(d).getByRole('button', { name: /providers/i })).toBeInTheDocument()
   })
 
+  it('error: clicking Providers opens Settings and dismisses (error recovery)', async () => {
+    render(<WordLookupPopover text="Hello stutter" done />)
+    setStore({ status: 'error', error: { kind: 'refusal', messageKey: 'error.refusal', retryable: false } })
+    const opened = vi.fn()
+    window.addEventListener('lucid:open-settings', opened)
+    await userEvent.click(within(dialog()).getByRole('button', { name: /providers/i }))
+    window.removeEventListener('lucid:open-settings', opened)
+    expect(opened).toHaveBeenCalled() // openSettings() fired → SettingsDialog opens to fix the provider
+    expect(lookupMock.close).toHaveBeenCalled()
+  })
+
   it('long / multi-sense: renders each sense', () => {
     render(<WordLookupPopover text="Hello render" done />)
     setStore({

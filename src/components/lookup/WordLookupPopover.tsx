@@ -5,6 +5,7 @@ import { useWordLookup } from '@/hooks/useWordLookup'
 import { useLookupStore } from '@/stores/lookupStore'
 import { useViewportTier } from '@/hooks/useViewportTier'
 import { createSpeech } from '@/lib/speech/speak'
+import { openSettings } from '@/lib/workspace/openSettings'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { ClickableText, type WordActivation } from './ClickableText'
@@ -137,7 +138,10 @@ export function WordLookupPopover({ text, done }: { text: string; done: boolean 
       play={play}
       onClose={close}
       onRetry={onRetry}
-      onProviders={close}
+      onProviders={() => {
+        close()
+        openSettings()
+      }}
       showContext={showContext}
       voicesReady={voicesReady}
       hasVoice={hasVoice}
