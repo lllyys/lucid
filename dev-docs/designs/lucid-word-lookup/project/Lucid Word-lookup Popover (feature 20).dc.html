@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Noto+Naskh+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --board:#ECE8E1; --ink:#1E1C19; --on-accent:#FFFFFF;
+      --border:#E9E6E0; --border-strong:#E2DFD8; --border-dashed:#CFCAC1; --fill-muted:#F0EDE7; --dot-idle:#C9C4BB;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7; --faint:#C4BFB5;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-tint:#F3F2FE; --accent-border:#DDDCFB; --accent-dash:#B9B4F0; --accent-mid:#8A83E0;
+      --hover:#F5F3EF;
+      --ok:#2F7D5B; --ok-solid:#2F7D5B; --ok-strong:#286B4E; --ok-soft:#E8F3EC; --ok-conn:#9FCDB4;
+      --warn:#B8801F; --warn-soft:#FBF1DC; --warn-border:#EDD6A2;
+      --danger:#B23A48; --danger-soft:#FBEAEC; --danger-border:#F0CDD2;
+      --shadow-c1:rgba(30,28,25,0.13); --shadow-c2:rgba(30,28,25,0.06); --shadow-c3:rgba(30,28,25,0.22);
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --board:#100F0C; --ink:#F2EFE9; --on-accent:#FFFFFF;
+      --border:#322E27; --border-strong:#3C3830; --border-dashed:#454037; --fill-muted:#2A2720; --dot-idle:#4A453C;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t3:#A6A199; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --t7:#726D65; --faint:#5E5A51;
+      --accent:#6E66DE; --accent-ink:#AEA7F7; --accent-soft:#2A2649; --accent-tint:#221F40; --accent-border:#3C3768; --accent-dash:#564F94; --accent-mid:#847DCB;
+      --hover:#2C2922;
+      --ok:#5FBE90; --ok-solid:#2E7D5A; --ok-strong:#246B49; --ok-soft:#16291E; --ok-conn:#305C46;
+      --warn:#D7A648; --warn-soft:#2A2113; --warn-border:#4A3A1C;
+      --danger:#E27182; --danger-soft:#2E1A1D; --danger-border:#4A2A2F;
+      --shadow-c1:rgba(0,0,0,0.55); --shadow-c2:rgba(0,0,0,0.4); --shadow-c3:rgba(0,0,0,0.65);
+    }
+    html,body{background:var(--board);}
+    *{box-sizing:border-box;}
+    body{margin:0;}
+    @keyframes lucid-pulse{0%,100%{opacity:1;}50%{opacity:0.28;}}
+    @keyframes lucid-spin{to{transform:rotate(360deg);}}
+    @keyframes lucid-caret{0%,100%{opacity:1;}50%{opacity:0;}}
+    @keyframes lucid-bars{0%,100%{transform:scaleY(0.35);}50%{transform:scaleY(1);}}
+    @keyframes lucid-skel{0%,100%{opacity:1;}50%{opacity:0.4;}}
+    @keyframes lucid-ring{0%{transform:scale(0.7);opacity:0.55;}100%{transform:scale(1.9);opacity:0;}}
+  </style>
+</helmet>
+
+<div ref="{{ boardRef }}" data-theme="{{ themeAttr }}" style="min-height:100vh;background:var(--board);color:var(--ink);font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 48px 80px;">
+
+  <!-- ===== BOARD HEADER ===== -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;max-width:1340px;margin:0 auto 8px;flex-wrap:wrap;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="position:relative;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span></span>
+        <span style="font-size:19px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--accent-ink);text-transform:uppercase;background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 7px;border-radius:6px;">Feature&nbsp;#20 · word lookup</span>
+      </div>
+      <h1 style="margin:0;font-size:29px;font-weight:600;letter-spacing:-0.022em;line-height:1.1;max-width:32ch;">Word-lookup popover — click a word, read the meaning</h1>
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:var(--t2);max-width:66ch;">Click any word in a rendered pane — <strong style="font-weight:600;color:var(--t1);">translate result</strong>, polish original, draft, or result — and a popover opens beside it with the word, its <strong style="font-weight:600;color:var(--t1);">translation</strong>, <strong style="font-weight:600;color:var(--t1);">pronunciation</strong>, <strong style="font-weight:600;color:var(--t1);">meaning in context</strong>, and tap-to-speak audio. This bundle specifies every state, the light/dark tokens, the phone bottom-sheet, RTL, and the focus behaviour. Headless logic (provider, prompt, segmentation, audio) is built separately.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">
+      <span>refs #20 · tokens from #2 / #16 · rule 51 bundle</span>
+      <span>states: loading · loaded · playing · no-audio · error · multi-sense</span>
+      <span>desktop popover 300w · phone &lt;600 → bottom-sheet</span>
+    </div>
+  </div>
+
+  <div style="max-width:1340px;margin:0 auto;display:flex;flex-direction:column;gap:8px;">
+
+    <!-- ============================ SECTION A — anatomy ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:30px 0 16px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">A</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Anatomy — where it appears &amp; what's in it</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">click a word in a result pane → popover anchored to it, arrow to the clicked word</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start;">
+      <!-- pane + floating popover -->
+      <div style="position:relative;flex:0 0 auto;width:580px;max-width:100%;">
+        <!-- result pane -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok);"></span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Translation · EN</span></div>
+            <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);">tap a word ⌕</span>
+          </div>
+          <div style="padding:16px 18px 58px;">
+            <p style="margin:0;font-family:Newsreader,serif;font-size:19px;line-height:1.85;color:var(--ink);">Every frame of the render pipeline must finish within sixteen milliseconds, or the user will perceive <span style="background:var(--accent-soft);color:var(--accent-ink);border-radius:4px;padding:1px 4px;box-shadow:inset 0 -1.5px 0 var(--accent-mid);cursor:pointer;">stutter</span>.</p>
+          </div>
+        </div>
+        <!-- arrow -->
+        <div style="position:absolute;left:330px;top:118px;width:14px;height:14px;background:var(--surface);border-left:1px solid var(--border-strong);border-top:1px solid var(--border-strong);transform:rotate(45deg);z-index:2;box-shadow:-2px -2px 6px rgba(30,28,25,0.04);"></div>
+        <!-- popover (loaded) -->
+        <div role="dialog" aria-label="Word lookup: stutter" style="position:absolute;left:206px;top:124px;width:300px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 18px 44px var(--shadow-c1),0 2px 8px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;z-index:3;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);">stutter</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">/ˈstʌtər/</span></div>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">noun · EN → 中文</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+              <button aria-label="Speak word" style="width:30px;height:30px;border:1px solid var(--accent-border);background:var(--accent-soft);border-radius:9px;color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;"><span style="width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px;"></span></button>
+              <button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
+          </div>
+          <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:4px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span>
+            <span style="font-family:Newsreader,serif;font-size:17px;color:var(--ink);">卡顿 · 抖动 · 停顿</span>
+          </div>
+          <div style="padding:11px 14px 12px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span>
+            <p style="margin:0;font-size:13px;line-height:1.62;color:var(--t1);">The visible hitching a user notices when a frame misses its 16&nbsp;ms budget — a brief judder, not a full freeze.</p>
+          </div>
+          <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t6);flex:0 0 auto;">ctx</span>
+            <span style="font-family:Newsreader,serif;font-size:12.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">…the user will perceive <mark style="background:var(--accent-soft);color:var(--accent-ink);border-radius:4px;padding:0 3px;">stutter</mark>.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- callouts -->
+      <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:9px;padding-top:4px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">1</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Word + IPA.</strong> The clicked token in display serif, phonetic in mono. Part of speech and direction below.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">2</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Play.</strong> Speaks the word aloud — labelled icon button, 44px target on touch, visible focus ring (§F).</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">3</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Translation.</strong> One or more equivalents, serif, comma-separated by sense weight.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">4</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Meaning in context.</strong> How the word is used in <em>this</em> sentence — streams from the model on a tinted shelf.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">5</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Context line + arrow.</strong> Echoes the source sentence with the word highlighted; the arrow ties the card back to the clicked word.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Dismiss: Esc · outside-click · ×. Clicking a new word moves the popover. Selection highlight on the clicked word persists while open.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION B — states ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">B</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">States — every condition the popover must handle</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">loading · loaded · playing · no-audio · error · long / multi-sense</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:22px 24px;align-items:flex-start;">
+
+      <!-- STATE: loading / streaming -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">loading · meaning streaming</div>
+        <div role="dialog" aria-label="Looking up stutter" aria-busy="true" style="width:300px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);">stutter</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">/ˈstʌtər/</span></div>
+              <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent-ink);"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);animation:lucid-pulse 1.2s ease-in-out infinite;"></span>looking up…</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+              <button aria-label="Speak word" disabled style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--fill-muted);border-radius:9px;color:var(--faint);cursor:wait;display:flex;align-items:center;justify-content:center;"><span style="width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px;"></span></button>
+              <button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
+          </div>
+          <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:6px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span>
+            <span style="font-family:Newsreader,serif;font-size:17px;color:var(--ink);">卡顿 · 抖动</span>
+          </div>
+          <div style="padding:11px 14px 14px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span>
+            <p style="margin:0;font-size:13px;line-height:1.62;color:var(--t1);">The visible hitching a user notices when a frame<span style="display:inline-block;width:2px;height:14px;background:var(--accent);vertical-align:-2px;margin-left:1px;animation:lucid-caret 1s step-end infinite;"></span></p>
+            <span style="height:9px;width:78%;border-radius:5px;background:var(--fill-muted);animation:lucid-skel 1.4s ease-in-out infinite;"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATE: loaded -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent-ink);">loaded · play enabled</div>
+        <div role="dialog" aria-label="Word lookup: stutter" style="width:300px;background:var(--surface);border:1px solid var(--accent-border);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);">stutter</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">/ˈstʌtər/</span></div>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">noun · EN → 中文</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+              <button aria-label="Speak word" style="width:30px;height:30px;border:1px solid var(--accent-border);background:var(--accent-soft);border-radius:9px;color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;"><span style="width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px;"></span></button>
+              <button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
+          </div>
+          <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:4px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span>
+            <span style="font-family:Newsreader,serif;font-size:17px;color:var(--ink);">卡顿 · 抖动 · 停顿</span>
+          </div>
+          <div style="padding:11px 14px 12px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span>
+            <p style="margin:0;font-size:13px;line-height:1.62;color:var(--t1);">The visible hitching a user notices when a frame misses its 16&nbsp;ms budget — a brief judder, not a full freeze.</p>
+          </div>
+          <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t6);flex:0 0 auto;">ctx</span>
+            <span style="font-family:Newsreader,serif;font-size:12.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">…the user will perceive <mark style="background:var(--accent-soft);color:var(--accent-ink);border-radius:4px;padding:0 3px;">stutter</mark>.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATE: playing -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">playing · speaking aloud</div>
+        <div role="dialog" aria-label="Word lookup: stutter" style="width:300px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);">stutter</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">/ˈstʌtər/</span></div>
+              <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent-ink);"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span>speaking…</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+              <span style="position:relative;width:30px;height:30px;flex:0 0 auto;">
+                <span style="position:absolute;inset:0;border-radius:9px;border:1px solid var(--accent);animation:lucid-ring 1.1s ease-out infinite;"></span>
+                <button aria-label="Stop" style="position:relative;width:30px;height:30px;border:1px solid var(--accent);background:var(--accent);border-radius:9px;color:var(--on-accent);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:2px;box-shadow:0 0 0 3px var(--accent-soft);">
+                  <span style="width:2px;height:8px;background:currentColor;border-radius:1px;transform-origin:center;animation:lucid-bars 0.6s ease-in-out infinite;"></span>
+                  <span style="width:2px;height:13px;background:currentColor;border-radius:1px;transform-origin:center;animation:lucid-bars 0.6s ease-in-out infinite 0.15s;"></span>
+                  <span style="width:2px;height:9px;background:currentColor;border-radius:1px;transform-origin:center;animation:lucid-bars 0.6s ease-in-out infinite 0.3s;"></span>
+                </button>
+              </span>
+              <button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
+          </div>
+          <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:4px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span>
+            <span style="font-family:Newsreader,serif;font-size:17px;color:var(--ink);">卡顿 · 抖动 · 停顿</span>
+          </div>
+          <div style="padding:11px 14px 12px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span>
+            <p style="margin:0;font-size:13px;line-height:1.62;color:var(--t1);">The visible hitching a user notices when a frame misses its 16&nbsp;ms budget — a brief judder, not a full freeze.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATE: no audio -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">no audio · IPA only</div>
+        <div role="dialog" aria-label="Word lookup: 卡顿" style="width:300px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);">卡顿</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">kǎ&nbsp;dùn</span></div>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">noun · 中文 → EN</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+              <button aria-label="No voice available for 中文" disabled style="width:30px;height:30px;border:1px dashed var(--border-dashed);background:var(--fill-muted);border-radius:9px;color:var(--faint);cursor:not-allowed;display:flex;align-items:center;justify-content:center;position:relative;"><span style="width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px;"></span><span style="position:absolute;width:26px;height:1.5px;background:var(--t6);transform:rotate(-45deg);"></span></button>
+              <button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
+          </div>
+          <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:4px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span>
+            <span style="font-family:Newsreader,serif;font-size:17px;color:var(--ink);">stutter · lag · jank</span>
+          </div>
+          <div style="padding:11px 14px 12px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;">
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span>
+            <p style="margin:0;font-size:13px;line-height:1.62;color:var(--t1);">Names the perceptible frame drops when rendering misses the 16&nbsp;ms budget.</p>
+          </div>
+          <div style="padding:9px 14px 11px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;"><span style="width:14px;height:14px;flex:0 0 auto;border-radius:50%;border:1px solid var(--border-strong);color:var(--t5);font-size:9px;display:flex;align-items:center;justify-content:center;">i</span><span style="font-size:11px;line-height:1.5;color:var(--t4);">No 中文 voice on this device — showing phonetics only.</span></div>
+        </div>
+      </div>
+
+      <!-- STATE: error -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">error · no definition / provider</div>
+        <div role="dialog" aria-label="Lookup error" style="width:300px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+              <span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);">stutter</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">EN → 中文</span>
+            </div>
+            <button aria-label="Close" style="width:30px;height:30px;flex:0 0 auto;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+          </div>
+          <div style="padding:6px 16px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;background:var(--canvas);border-top:1px solid var(--border);padding-top:18px;">
+            <span style="width:34px;height:34px;border-radius:10px;background:var(--danger-soft);border:1px solid var(--danger-border);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;">!</span>
+            <span style="font-size:13.5px;font-weight:600;color:var(--ink);">No definition found</span>
+            <span style="font-family:'Geist Mono',monospace;font-size:11px;line-height:1.55;color:var(--t5);max-width:30ch;">The provider returned no entry for this word in context. Check your connection or switch providers.</span>
+            <div style="display:flex;gap:8px;margin-top:2px;">
+              <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px 15px;font-family:Geist,sans-serif;font-size:12.5px;font-weight:500;color:var(--ink);cursor:pointer;">Retry</button>
+              <button style="border:none;background:transparent;border-radius:9px;padding:8px 10px;font-family:Geist,sans-serif;font-size:12.5px;color:var(--t4);cursor:pointer;">Providers…</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATE: long / multi-sense -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">long word · multiple senses</div>
+        <div role="dialog" aria-label="Word lookup: render" style="width:300px;max-height:392px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;flex:0 0 auto;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;letter-spacing:-0.01em;color:var(--ink);">render</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">/ˈrɛndər/</span></div>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">verb · 3 senses · EN → 中文</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+              <button aria-label="Speak word" style="width:30px;height:30px;border:1px solid var(--accent-border);background:var(--accent-soft);border-radius:9px;color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;"><span style="width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px;"></span></button>
+              <button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
+          </div>
+          <div style="flex:1;overflow:hidden;position:relative;border-top:1px solid var(--border);background:var(--canvas);">
+            <div style="padding:12px 14px 16px;display:flex;flex-direction:column;gap:11px;">
+              <div style="display:flex;flex-direction:column;gap:5px;padding:11px 12px;background:var(--surface);border:1px solid var(--accent-border);border-radius:11px;box-shadow:0 1px 2px var(--shadow-c2);">
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-ink);background:var(--accent-soft);border-radius:5px;padding:1px 6px;">sense 1 · in context</span><span style="font-family:Newsreader,serif;font-size:15px;color:var(--ink);">渲染 · 绘制</span></div>
+                <p style="margin:0;font-size:12.5px;line-height:1.6;color:var(--t1);">To generate an image from a model — the graphics sense, exactly as used here.</p>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;padding:2px;">
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">sense 2</span><span style="font-family:Newsreader,serif;font-size:15px;color:var(--ink);">使成为</span></div>
+                <p style="margin:0;font-size:12.5px;line-height:1.6;color:var(--t3);">To cause something to be in a state — “render it useless.”</p>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;padding:2px;">
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">sense 3</span><span style="font-family:Newsreader,serif;font-size:15px;color:var(--ink);">表达 · 翻译</span></div>
+                <p style="margin:0;font-size:12.5px;line-height:1.6;color:var(--t3);">To express or translate into another form or language.</p>
+              </div>
+            </div>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:30px;background:linear-gradient(to bottom,transparent,var(--canvas));pointer-events:none;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- annotation column -->
+      <div style="display:flex;flex-direction:column;width:260px;gap:10px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">↻</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Skeleton, never jump.</strong> Word + IPA appear first (from segmentation); translation and meaning fill in. The card keeps its width so it doesn't reflow under the cursor.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">♪</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Audio is optional.</strong> No voice for the language → the play button is disabled with a struck-through glyph and a one-line note, never an empty control.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Errors are localized prose with a Retry — never a stack trace. Multiple senses surface the in-context one in an accent card, the rest below; the body scrolls, the header stays.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION C — light + dark ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">C</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Light + dark — same tokens (#2 / #30 / #34)</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">surface / border / accent all token-driven; no hardcoded colours</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+      <!-- light -->
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">light</div>
+        <div data-theme="light" style="padding:30px;border-radius:18px;background:#ECE8E1;border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;">
+          <div role="dialog" aria-label="Word lookup: stutter" style="width:300px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+              <div style="display:flex;flex-direction:column;gap:5px;min-width:0;"><div style="display:flex;align-items:baseline;gap:9px;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;color:var(--ink);">stutter</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">/ˈstʌtər/</span></div><span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">noun · EN → 中文</span></div>
+              <div style="display:flex;gap:6px;flex:0 0 auto;"><button aria-label="Speak" style="width:30px;height:30px;border:1px solid var(--accent-border);background:var(--accent-soft);border-radius:9px;color:var(--accent-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px;"></span></button><button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;cursor:pointer;">×</button></div>
+            </div>
+            <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span><span style="font-family:Newsreader,serif;font-size:17px;color:var(--ink);">卡顿 · 抖动 · 停顿</span></div>
+            <div style="padding:11px 14px 12px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span><p style="margin:0;font-size:13px;line-height:1.62;color:var(--t1);">The visible hitching a user notices when a frame misses its 16&nbsp;ms budget.</p></div>
+          </div>
+        </div>
+      </div>
+      <!-- dark -->
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">dark</div>
+        <div data-theme="dark" style="padding:30px;border-radius:18px;background:#100F0C;border:1px solid #322E27;display:flex;align-items:center;justify-content:center;">
+          <div role="dialog" aria-label="Word lookup: stutter" style="width:300px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+              <div style="display:flex;flex-direction:column;gap:5px;min-width:0;"><div style="display:flex;align-items:baseline;gap:9px;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;color:var(--ink);">stutter</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">/ˈstʌtər/</span></div><span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">noun · EN → 中文</span></div>
+              <div style="display:flex;gap:6px;flex:0 0 auto;"><button aria-label="Speak" style="width:30px;height:30px;border:1px solid var(--accent-border);background:var(--accent-soft);border-radius:9px;color:var(--accent-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px;"></span></button><button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;cursor:pointer;">×</button></div>
+            </div>
+            <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span><span style="font-family:Newsreader,serif;font-size:17px;color:var(--ink);">卡顿 · 抖动 · 停顿</span></div>
+            <div style="padding:11px 14px 12px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span><p style="margin:0;font-size:13px;line-height:1.62;color:var(--t1);">The visible hitching a user notices when a frame misses its 16&nbsp;ms budget.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:10px;padding-top:30px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">◑</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);">The card reads <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">--surface / --border / --accent-soft</code> — the same tokens as the workspace. Shadows swap to the heavier dark <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">--shadow-c1</code> so the popover still lifts off a near-black canvas.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Accent ink lightens in dark (AA on surface). The highlighted word's selection chip uses --accent-soft in both themes.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION D — responsive / bottom sheet ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">D</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Responsive — phone becomes a bottom-sheet (&lt;600px)</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">popover would clip on a narrow viewport → dock full-width to the bottom with a grab handle</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <!-- phone bottom sheet -->
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">phone · bottom-sheet over the result</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div style="position:relative;border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:720px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px 5px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);flex:0 0 auto;"><span>9:41</span><span style="display:flex;align-items:center;gap:5px;">⌖<span style="letter-spacing:1px;">▮▮▮</span>100%</span></div>
+            <header style="display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--surface);flex:0 0 auto;">
+              <button style="width:32px;height:32px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;"><span style="width:14px;height:1.6px;background:var(--t2);"></span><span style="width:14px;height:1.6px;background:var(--t2);"></span><span style="width:14px;height:1.6px;background:var(--t2);"></span></button>
+              <div style="display:flex;align-items:center;gap:7px;"><span style="position:relative;width:15px;height:15px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent);"></span></span><span style="font-size:15px;font-weight:600;letter-spacing:-0.02em;">Lucid</span></div>
+              <button style="width:32px;height:32px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;"><span style="width:12px;height:12px;border:1.5px solid var(--t4);border-radius:50%;"></span></button>
+            </header>
+            <!-- result with highlighted word, dimmed -->
+            <div style="flex:1;display:flex;flex-direction:column;background:var(--canvas);">
+              <div style="padding:11px 16px 7px;display:flex;align-items:center;gap:8px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok);"></span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;">Translation · EN</span></div>
+              <div style="padding:2px 16px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.8;color:var(--t2);">Every frame of the render pipeline must finish within sixteen milliseconds, or the user will perceive <span style="background:var(--accent-soft);color:var(--accent-ink);border-radius:4px;padding:1px 4px;box-shadow:inset 0 -1.5px 0 var(--accent-mid);">stutter</span>.</p></div>
+            </div>
+            <!-- scrim -->
+            <div style="position:absolute;inset:0;background:rgba(18,16,12,0.34);"></div>
+            <!-- bottom sheet -->
+            <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border-strong);border-radius:22px 22px 0 0;box-shadow:0 -12px 40px var(--shadow-c3);display:flex;flex-direction:column;">
+              <div style="display:flex;justify-content:center;padding:9px 0 4px;"><span style="width:38px;height:4px;border-radius:3px;background:var(--border-dashed);"></span></div>
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:6px 18px 12px;">
+                <div style="display:flex;flex-direction:column;gap:5px;"><div style="display:flex;align-items:baseline;gap:10px;"><span style="font-family:Newsreader,serif;font-size:26px;font-weight:600;color:var(--ink);">stutter</span><span style="font-family:'Geist Mono',monospace;font-size:13px;color:var(--accent-ink);">/ˈstʌtər/</span></div><span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">noun · EN → 中文</span></div>
+                <button aria-label="Speak word" style="width:44px;height:44px;flex:0 0 auto;border:1px solid var(--accent-border);background:var(--accent-soft);border-radius:12px;color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;"><span style="width:0;height:0;border-left:12px solid currentColor;border-top:8px solid transparent;border-bottom:8px solid transparent;margin-left:3px;"></span></button>
+              </div>
+              <div style="padding:0 18px 14px;display:flex;flex-direction:column;gap:5px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span><span style="font-family:Newsreader,serif;font-size:19px;color:var(--ink);">卡顿 · 抖动 · 停顿</span></div>
+              <div style="padding:13px 18px 16px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span><p style="margin:0;font-size:14px;line-height:1.62;color:var(--t1);">The visible hitching a user notices when a frame misses its 16&nbsp;ms budget — a brief judder, not a full freeze.</p></div>
+              <div style="height:18px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- annotation + tablet note -->
+      <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:10px;padding-top:26px;max-width:360px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">1</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Grab handle + scrim.</strong> Below 600px the popover can't fit beside a word without clipping, so it docks to the bottom edge full-width. Swipe-down or tap the scrim dismisses.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">2</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Bigger targets.</strong> Play grows to 44px; type scales up. The clicked word stays highlighted above the sheet so context is never lost.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">≥600px keeps the anchored popover (§A). The switch is the same breakpoint family as #16 — the sheet inherits the workspace's drawer scrim.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION E — RTL + placement ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">E</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">RTL &amp; placement — bidi-safe, edge-aware</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">no hardcoded left/right · flips &amp; shifts to stay in the viewport</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <!-- RTL popover -->
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">rtl · arabic (dir=rtl, mirrored)</div>
+        <div dir="rtl" role="dialog" aria-label="بحث عن كلمة: إطار" style="width:312px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;font-family:'Noto Naskh Arabic',Newsreader,serif;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;text-align:right;">
+              <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;"><span style="font-size:24px;font-weight:600;color:var(--ink);">إطار</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">/ʔiˈtˤaːr/</span></div>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.04em;color:var(--t5);">اسم · AR → EN</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+              <button aria-label="نطق الكلمة" style="width:30px;height:30px;border:1px solid var(--accent-border);background:var(--accent-soft);border-radius:9px;color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;"><span style="width:0;height:0;border-right:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-right:2px;"></span></button>
+              <button aria-label="إغلاق" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+            </div>
+          </div>
+          <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:4px;text-align:right;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">الترجمة</span><span style="font-size:17px;color:var(--ink);">frame · 帧</span></div>
+          <div style="padding:11px 14px 12px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;text-align:right;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">في هذه الجملة</span><p style="margin:0;font-size:13.5px;line-height:1.7;color:var(--t1);">صورة واحدة من تسلسل العرض يجب أن يكتمل رسمها خلال ست عشرة مللي ثانية.</p></div>
+          <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;direction:rtl;"><span style="font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;color:var(--t6);flex:0 0 auto;">سياق</span><span style="font-size:13px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">…يجب أن يكتمل كل <mark style="background:var(--accent-soft);color:var(--accent-ink);border-radius:4px;padding:0 3px;">إطار</mark> في الوقت.</span></div>
+        </div>
+      </div>
+
+      <!-- placement diagrams -->
+      <div style="flex:1;min-width:320px;display:flex;flex-direction:column;gap:11px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">anchor placement · stays inside the viewport</div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;">
+          <!-- default below -->
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <div style="position:relative;width:160px;height:120px;border:1px solid var(--border);background:var(--surface);border-radius:11px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+              <span style="position:absolute;left:28px;top:30px;width:30px;height:6px;border-radius:3px;background:var(--accent-soft);box-shadow:inset 0 -1.5px 0 var(--accent-mid);"></span>
+              <span style="position:absolute;left:14px;top:44px;width:9px;height:9px;background:var(--surface);border-left:1px solid var(--accent-border);border-top:1px solid var(--accent-border);transform:rotate(45deg);"></span>
+              <span style="position:absolute;left:20px;top:50px;width:84px;height:46px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:7px;"></span>
+            </div>
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">below · default</span>
+          </div>
+          <!-- flip above -->
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <div style="position:relative;width:160px;height:120px;border:1px solid var(--border);background:var(--surface);border-radius:11px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+              <span style="position:absolute;left:28px;top:88px;width:30px;height:6px;border-radius:3px;background:var(--accent-soft);box-shadow:inset 0 -1.5px 0 var(--accent-mid);"></span>
+              <span style="position:absolute;left:20px;top:26px;width:84px;height:46px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:7px;"></span>
+              <span style="position:absolute;left:36px;top:80px;width:9px;height:9px;background:var(--surface);border-right:1px solid var(--accent-border);border-bottom:1px solid var(--accent-border);transform:rotate(45deg);"></span>
+            </div>
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">flips above · near bottom</span>
+          </div>
+          <!-- shift inward -->
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <div style="position:relative;width:160px;height:120px;border:1px solid var(--border);background:var(--surface);border-radius:11px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+              <span style="position:absolute;right:14px;top:30px;width:30px;height:6px;border-radius:3px;background:var(--accent-soft);box-shadow:inset 0 -1.5px 0 var(--accent-mid);"></span>
+              <span style="position:absolute;right:8px;top:50px;width:96px;height:46px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:7px;"></span>
+              <span style="position:absolute;right:22px;top:44px;width:9px;height:9px;background:var(--surface);border-left:1px solid var(--accent-border);border-top:1px solid var(--accent-border);transform:rotate(45deg);"></span>
+            </div>
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">shifts in · near edge</span>
+          </div>
+          <!-- phone sheet -->
+          <div style="display:flex;flex-direction:column;gap:7px;">
+            <div style="position:relative;width:84px;height:120px;border:1px solid var(--border);background:var(--surface);border-radius:11px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+              <span style="position:absolute;left:18px;top:26px;width:26px;height:6px;border-radius:3px;background:var(--accent-soft);box-shadow:inset 0 -1.5px 0 var(--accent-mid);"></span>
+              <span style="position:absolute;inset:0;background:rgba(18,16,12,0.22);"></span>
+              <span style="position:absolute;left:0;right:0;bottom:0;height:56px;background:var(--accent-tint);border-top:1px solid var(--accent-border);border-radius:9px 9px 0 0;"></span>
+              <span style="position:absolute;left:50%;bottom:46px;transform:translateX(-50%);width:22px;height:3px;border-radius:2px;background:var(--accent-mid);"></span>
+            </div>
+            <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">&lt;600 · bottom sheet</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);margin-top:2px;"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Placement uses logical inline-start/-end, not left/right, so RTL mirrors for free. The arrow always points at the clicked word; the card flips on the cross axis and shifts on the main axis to clear viewport edges (8px gutter).</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION F — focus & a11y ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">F</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Focus &amp; accessibility (rule 33)</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">role=dialog · focus trap · keyboard-dismissible · labelled controls</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <!-- popover with focused play -->
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">play button · keyboard focus</div>
+        <div role="dialog" aria-label="Word lookup: stutter" style="width:300px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;box-shadow:0 16px 40px var(--shadow-c1),0 2px 6px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 14px 11px;">
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;"><div style="display:flex;align-items:baseline;gap:9px;"><span style="font-family:Newsreader,serif;font-size:23px;font-weight:600;color:var(--ink);">stutter</span><span style="font-family:'Geist Mono',monospace;font-size:12.5px;color:var(--accent-ink);">/ˈstʌtər/</span></div><span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">noun · EN → 中文</span></div>
+            <div style="display:flex;gap:6px;flex:0 0 auto;"><button aria-label="Speak word" style="width:30px;height:30px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:9px;color:var(--accent-ink);display:flex;align-items:center;justify-content:center;cursor:pointer;outline:none;box-shadow:0 0 0 3px var(--accent-border),0 0 0 4px var(--accent);"><span style="width:0;height:0;border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;margin-left:2px;"></span></button><button aria-label="Close" style="width:30px;height:30px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;color:var(--t4);font-size:15px;cursor:pointer;">×</button></div>
+          </div>
+          <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Translation</span><span style="font-family:Newsreader,serif;font-size:17px;color:var(--ink);">卡顿 · 抖动 · 停顿</span></div>
+          <div style="padding:11px 14px 12px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">In this sentence</span><p style="margin:0;font-size:13px;line-height:1.62;color:var(--t1);">The visible hitching a user notices when a frame misses its 16&nbsp;ms budget.</p></div>
+        </div>
+      </div>
+
+      <!-- a11y checklist -->
+      <div style="flex:1;min-width:300px;display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;align-items:flex-start;gap:11px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="width:18px;height:18px;flex:0 0 auto;border-radius:6px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px;">✓</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Focus trap.</strong> On open, focus moves into the popover; Tab cycles play → close → play and never leaves the card until it's dismissed.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:11px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="width:18px;height:18px;flex:0 0 auto;border-radius:6px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px;">✓</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Keyboard dismiss.</strong> Esc closes and returns focus to the clicked word in the text, so arrow-key reading continues where it left off.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:11px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="width:18px;height:18px;flex:0 0 auto;border-radius:6px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px;">✓</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Labelled controls.</strong> Play is <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">aria-label="Speak word"</code>; while speaking it becomes “Stop”. Visible 2px accent focus ring (shown left), independent of hover.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:11px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="width:18px;height:18px;flex:0 0 auto;border-radius:6px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px;">✓</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Announced.</strong> <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">role=dialog</code> + <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">aria-label</code> name the word; streaming meaning is an <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">aria-live="polite"</code> region so the definition is read once settled, not per token.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:11px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Contrast: accent ink ≥ 4.5:1 on surface in both themes; the highlighted word keeps a 3:1 non-text indicator (the underline) so it reads without colour.</span></div>
+      </div>
+    </div>
+
+    <!-- footer -->
+    <div style="margin-top:46px;padding-top:18px;border-top:1px solid var(--border-strong);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">
+      <span>Lucid · feature #20 · word-lookup popover bundle · matches workspace tokens (light + dark)</span>
+      <span>anchored popover · bottom-sheet &lt;600 · bidi-safe · focus-trapped · 6 states</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1480,&quot;height&quot;:1024},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#574FD6&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  boardRef = React.createRef();
+  applyAccent() {
+    const a = this.props.accent;
+    if (a && this.boardRef.current) this.boardRef.current.style.setProperty('--accent', a);
+  }
+  componentDidMount() { this.applyAccent(); }
+  componentDidUpdate() { this.applyAccent(); }
+  renderVals() {
+    return {
+      themeAttr: this.props.theme ?? 'light',
+      boardRef: this.boardRef,
+    };
+  }
+}
+</script>
+</body>
+</html>
