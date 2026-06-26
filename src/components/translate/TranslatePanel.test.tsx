@@ -83,7 +83,8 @@ describe('TranslatePanel', () => {
       await user.click(screen.getByRole('button', { name: /^translate$/i }))
       await tick()
     })
-    expect(screen.getByText('Hola mundo')).toBeInTheDocument()
+    // The done result renders as word-lookup tokens (feature #20) — assert a distinctive word.
+    expect(screen.getByRole('button', { name: 'mundo' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /accept/i })).toBeInTheDocument()
   })

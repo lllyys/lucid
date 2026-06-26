@@ -2,11 +2,15 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
 import { ResultBanner } from '@/components/workspace/ResultBanner'
+import { WordLookupPopover } from '@/components/lookup/WordLookupPopover'
 
 /**
- * Translate result pane (feature #2, WI-8; error/cancelled banner added feature #4, WI-5).
- * States: idle (italic placeholder), streaming (text + live caret), done (text + Copy/Accept),
- * error/cancelled (partial text kept — rule 65 §3 — plus a localized ResultBanner #14).
+ * Translate result pane (feature #2, WI-8; error/cancelled banner added feature #4, WI-5; word
+ * lookup added feature #20, WI-6). States: idle (italic placeholder), streaming (text + live
+ * caret), done (text + Copy/Accept), error/cancelled (partial text kept — rule 65 §3 — plus a
+ * localized ResultBanner #14). The done result text renders through WordLookupPopover so each word
+ * is a clickable dictionary lookup; words are interactive only at `done` so a stale offset can
+ * never be clicked while the text still grows.
  *
  * Accept COMMITS the result to the panel (via onAccept) — it is not a bare toast (rule 66 §2);
  * the panel owns the accepted working translation and shows the "accepted" state here.
@@ -49,7 +53,7 @@ export function TranslateResult({
         style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
         className="whitespace-pre-wrap font-serif text-[20px] leading-[1.78]"
       >
-        {op.text}
+        <WordLookupPopover text={op.text} done={op.status === 'done'} />
         {op.status === 'streaming' && (
           <span className="ml-px inline-block h-[0.95em] w-0.5 translate-y-0.5 bg-[var(--accent-primary)] [animation:lucid-caret_1s_steps(1)_infinite]" />
         )}

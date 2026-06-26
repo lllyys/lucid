@@ -6,6 +6,7 @@ import { groupHunks, acceptedIdsForRejected, type Hunk } from '@/lib/polish/grou
 import { cleanPolishOutput } from '@/lib/polish/cleanPolishOutput'
 import { ResultBanner } from '@/components/workspace/ResultBanner'
 import { useViewportTier } from '@/hooks/useViewportTier'
+import { WordLookupPopover } from '@/components/lookup/WordLookupPopover'
 
 const wd = createWordDiff()
 
@@ -171,7 +172,7 @@ export function PolishResult({
           renderCompare()
         ) : (
           <>
-            {text}
+            <WordLookupPopover text={text} done={isDone} />
             {op.status === 'streaming' && (
               <span className="ml-px inline-block h-[0.95em] w-0.5 translate-y-0.5 bg-[var(--accent-primary)] [animation:lucid-caret_1s_steps(1)_infinite]" />
             )}

@@ -11,6 +11,11 @@ import type { ViewportTier } from '@/hooks/useViewportTier'
 const tierMock = vi.hoisted(() => ({ value: 'desktop' as ViewportTier }))
 vi.mock('@/hooks/useViewportTier', () => ({ useViewportTier: () => tierMock.value }))
 
+// Word-lookup wiring (feature #20, WI-6): stub the lookup hook so clicking a word is observable.
+const lookupMock = vi.hoisted(() => ({ lookup: vi.fn(), close: vi.fn() }))
+vi.mock('@/hooks/useWordLookup', () => ({ useWordLookup: () => lookupMock }))
+import { useLookupStore } from '@/stores/lookupStore'
+
 // draft "the cat sat" vs result "the dog sat" → exactly one change hunk (cat → dog).
 const DRAFT = 'the cat sat'
 const setDone = (text: string) =>
@@ -18,6 +23,8 @@ const setDone = (text: string) =>
 
 beforeEach(() => {
   useOperationStore.getState().reset('polish')
+  lookupMock.lookup.mockReset()
+  useLookupStore.getState().close()
 })
 
 afterEach(() => {
@@ -134,6 +141,26 @@ describe('PolishResult sticky sub-header on mobile (WI-3, design Section C)', ()
   })
 })
 
+describe('PolishResult word-lookup wiring (feature #20, WI-6)', () => {
+  it('makes Result-view words clickable at done and opens a lookup on click', async () => {
+    setDone('the dog sat')
+    renderResult()
+    const word = screen.getByRole('button', { name: 'dog' })
+    await userEvent.click(word)
+    expect(lookupMock.lookup).toHaveBeenCalledTimes(1)
+    expect(lookupMock.lookup.mock.calls[0][0].word).toBe('dog')
+  })
+
+  it('the Compare view has NO clickable word tokens (descoped — plan §Scope)', async () => {
+    setDone('the dog sat')
+    renderResult()
+    await userEvent.click(screen.getByRole('button', { name: /compare/i }))
+    // Compare exposes hunk toggles + view/action chrome, never word-lookup buttons
+    expect(screen.queryByRole('button', { name: 'dog' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'sat' })).not.toBeInTheDocument()
+  })
+})
+
 describe('PolishResult strips model meta-prose from the done result (bug #96)', () => {
   // A non-compliant model wraps the answer in a preamble + quotes + a "Changes made:" list.
   const RAW = 'Here is the improved sentence:\n\n"the dog sat"\n\nChanges made:\n- cat → dog'
@@ -141,7 +168,12 @@ describe('PolishResult strips model meta-prose from the done result (bug #96)', 
   it('shows only the polished sentence in the Result view (no preamble, no changes list)', () => {
     setDone(RAW)
     renderResult()
-    expect(screen.getByText('the dog sat')).toBeInTheDocument()
+    // The cleaned sentence renders as word-lookup tokens (feature #20); the preamble + "Changes
+    // made:" list must be stripped before tokenization, so their words never appear.
+    expect(screen.getByRole('button', { name: 'dog' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'sat' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'improved' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Changes' })).toBeNull()
     expect(screen.queryByText(/Here is the improved sentence/i)).toBeNull()
     expect(screen.queryByText(/Changes made/i)).toBeNull()
   })
