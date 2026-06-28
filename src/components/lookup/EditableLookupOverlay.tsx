@@ -7,6 +7,9 @@ import { openSettings } from '@/lib/workspace/openSettings'
 import { LookupCardHost } from './LookupCardHost'
 import { useMirrorSync } from './useMirrorSync'
 
+/** Touch long-press threshold (design §F) — a press held this long opens the lookup. */
+const LONG_PRESS_MS = 450
+
 /**
  * The editable-pane word-lookup overlay (feature #169, WI-3 — design bundle
  * `dev-docs/designs/lucid-word-lookup-editable/`). A mirror click-layer over a `<textarea>`: a
@@ -82,6 +85,28 @@ export function EditableLookupOverlay({
     })
   }
 
+  // Touch long-press (design §F): a ~450 ms press on an armed word span opens the lookup; a short
+  // tap falls through to the field (caret). One press at a time, so a single timer + a "fired" flag
+  // suffice; the flag suppresses the synthetic click the browser fires after a long-press.
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressFired = useRef(false)
+  const clearLongPress = () => {
+    if (longPressTimer.current !== null) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+  const startLongPress = (seg: WordSegment, el: HTMLElement) => {
+    longPressFired.current = false
+    clearLongPress()
+    longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null
+      longPressFired.current = true
+      onWordClick(seg, el)
+    }, LONG_PRESS_MS)
+  }
+  useEffect(() => clearLongPress, []) // clear any pending press on unmount
+
   // Interleave word spans with the inter-word gap text (plain nodes → fall through to the field).
   const children: React.ReactNode[] = []
   let cursor = 0
@@ -99,22 +124,42 @@ export function EditableLookupOverlay({
           role="button"
           tabIndex={0}
           aria-current={isActive ? 'true' : undefined}
-          onClick={(e) => onWordClick(seg, e.currentTarget)}
+          onClick={(e) => {
+            // A long-press already fired this lookup — swallow the browser's follow-up click so the
+            // word isn't looked up twice.
+            if (longPressFired.current) {
+              longPressFired.current = false
+              return
+            }
+            onWordClick(seg, e.currentTarget)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
               onWordClick(seg, e.currentTarget)
             }
           }}
+          // Touch (design §F): a held press opens the lookup; a finger move (scroll/select) cancels.
+          onTouchStart={(e) => startLongPress(seg, e.currentTarget)}
+          onTouchMove={clearLongPress}
+          onTouchEnd={(e) => {
+            if (longPressFired.current) e.preventDefault() // suppress native long-press selection
+            clearLongPress()
+          }}
+          onTouchCancel={clearLongPress}
           // Hover (design §C): faint tint + dotted accent underline + accent-ink GLYPH (so the
           // transparent mirror text paints visibly over its own chip — matches #20's ClickableText).
           className="cursor-help rounded-[4px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ink)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent-ink)] hover:[text-decoration-color:var(--accent-border)] hover:[text-decoration-line:underline] hover:[text-decoration-style:dotted]"
           // pointer-events is set inline (not via a Tailwind class) so the armed word captures
           // clicks even where compiled CSS is absent; the root stays none so gaps fall through.
-          // Active chip matches #20 exactly: --accent-subtle fill + --accent-ink glyph + underline
-          // (color set so the glyph paints over the otherwise-transparent mirror — it stays legible).
+          // userSelect:none suppresses the native long-press selection / OS magnifier over armed
+          // word spans (design §F). Active chip matches #20 exactly: --accent-subtle fill +
+          // --accent-ink glyph + underline (color set so the glyph paints over the otherwise-
+          // transparent mirror — it stays legible).
           style={{
             pointerEvents: 'auto',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
             ...(isActive
               ? {
                   background: 'var(--accent-subtle)',

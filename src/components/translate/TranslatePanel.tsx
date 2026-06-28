@@ -11,6 +11,9 @@ import { isMacPlatform } from '@/lib/workspace/platform'
 import type { LLMRequest } from '@/providers/types'
 import { notify } from '@/components/workspace/notify'
 import { useAutoRecordTask } from '@/hooks/useAutoRecordTask'
+import { usePaneLookup } from '@/hooks/usePaneLookup'
+import { EditableLookupOverlay } from '@/components/lookup/EditableLookupOverlay'
+import { LookupToggle } from '@/components/lookup/LookupToggle'
 import { AutoRunToggle } from '@/components/autorun/AutoRunToggle'
 import { AutoRunPendingChip } from '@/components/autorun/AutoRunPendingChip'
 import { AutoRunCostDialog } from '@/components/autorun/AutoRunCostDialog'
@@ -44,6 +47,14 @@ export function TranslatePanel() {
   const labels = directionLabels(detectDirection(source))
   const isStreaming = op.status === 'streaming'
   const srcBidi = bidiAttrs(dirOverride)
+  // Word lookup (feature #169, WI-4): the source is in the DETECTED source language → look words
+  // up src→tgt (owner `translateSource`). The detected direction also drives the request langs.
+  const lookup = usePaneLookup({
+    text: source,
+    owner: 'translateSource',
+    sourceLang: labels.srcCode,
+    targetLang: labels.tgtCode,
+  })
 
   // Build the translate request from the latest source text (auto-run + manual share one builder).
   const buildRequest = (text: string): LLMRequest => {
@@ -161,6 +172,7 @@ export function TranslatePanel() {
                   variant="footer"
                 />
               )}
+              <LookupToggle active={lookup.mode === 'latched'} disabled={!source.trim()} onToggle={lookup.toggle} />
               <span className="font-mono text-[11px] text-[var(--text-disabled)]">
                 {t('translate.charCount', { count: source.length })}
               </span>
@@ -169,19 +181,39 @@ export function TranslatePanel() {
               </button>
             </div>
           </div>
-          <textarea
-            aria-label={t('translate.source')}
-            value={source}
-            onChange={(e) => onSourceChange(e.target.value)}
-            onCompositionStart={debounce.onCompositionStart}
-            onCompositionEnd={(e) => onSourceCompositionEnd(e.currentTarget.value)}
-            onKeyDown={onSourceKeyDown}
-            placeholder={t('translate.sourcePlaceholder')}
-            spellCheck={false}
-            dir={srcBidi.dir}
-            style={{ ...srcBidi.style, textAlign: 'start' }}
-            className="field-sizing-content min-h-[88px] resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75] max-[599px]:max-h-[50vh] min-[600px]:max-h-[88vh]"
-          />
+          <div className="relative">
+            <textarea
+              ref={lookup.textareaRef}
+              aria-label={t('translate.source')}
+              value={source}
+              onChange={(e) => {
+                lookup.onTextInput()
+                onSourceChange(e.target.value)
+              }}
+              onCompositionStart={() => {
+                lookup.setComposing(true)
+                debounce.onCompositionStart()
+              }}
+              onCompositionEnd={(e) => {
+                lookup.setComposing(false)
+                onSourceCompositionEnd(e.currentTarget.value)
+              }}
+              onKeyDown={onSourceKeyDown}
+              placeholder={t('translate.sourcePlaceholder')}
+              spellCheck={false}
+              dir={srcBidi.dir}
+              style={{ ...srcBidi.style, textAlign: 'start' }}
+              className="field-sizing-content min-h-[88px] w-full resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75] max-[599px]:max-h-[50vh] min-[600px]:max-h-[88vh]"
+            />
+            <EditableLookupOverlay
+              textareaRef={lookup.textareaRef}
+              text={source}
+              owner="translateSource"
+              sourceLang={labels.srcCode}
+              targetLang={labels.tgtCode}
+              armed={lookup.armed}
+            />
+          </div>
         </section>
         <section className="flex flex-1 flex-col bg-[var(--bg-canvas)] px-6 py-4 max-[599px]:w-full">
           <div className="mb-2 flex items-center gap-2">

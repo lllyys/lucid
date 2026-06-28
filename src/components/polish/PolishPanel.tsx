@@ -247,6 +247,8 @@ export function PolishPanel() {
             onChange={onOriginal}
             lang={srcLang}
             onLang={onSrcLang}
+            // The Original is in the source language → look words up src→tgt.
+            targetLang={tgtLang}
             onCompositionStart={debounce.onCompositionStart}
             onCompositionEnd={(v) => onSourceCompositionEnd(buildPolishRequest({ original: v }))}
             onKeyDown={onSourceKeyDown}
@@ -256,6 +258,8 @@ export function PolishPanel() {
             onChange={onDraft}
             lang={tgtLang}
             onLang={onTgtLang}
+            // The Draft is in the target language → its lookup is INVERTED (meaning lang = srcLang).
+            targetLang={srcLang}
             onTranslateOriginal={onTranslateOriginal}
             onStopTranslate={onStopTranslate}
             translating={translating}

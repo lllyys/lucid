@@ -1,16 +1,27 @@
 import { useTranslation } from 'react-i18next'
+import { usePaneLookup } from '@/hooks/usePaneLookup'
+import { EditableLookupOverlay } from '@/components/lookup/EditableLookupOverlay'
+import { LookupToggle } from '@/components/lookup/LookupToggle'
 import { LanguagePicker } from './LanguagePicker'
 
 /**
  * Draft-to-polish card. "Translate original" streams a translation of the Original into the
  * draft (the draftTranslate op); while that streams, the draft is filled live and the action
  * is replaced by a "translating…" note. Editing the draft afterwards owns the field.
+ *
+ * Word lookup (feature #169, WI-4): the ⌕ header toggle arms a mirror overlay over the textarea
+ * (owner `polishDraft`). The Draft is in the TARGET language, so its lookup is INVERTED — `lang`
+ * (the draft/target lang) is the word's language and `targetLang` (the polish SOURCE lang, threaded
+ * from PolishPanel) is the meaning language. The overlay is disarmed while the draft streams
+ * (`translating`, plan M3) — offsets are unstable mid-stream; a manually-typed, never-translated
+ * draft still arms (`!translating`).
  */
 export function DraftCard({
   value,
   onChange,
   lang,
   onLang,
+  targetLang,
   onTranslateOriginal,
   onStopTranslate,
   translating,
@@ -22,6 +33,8 @@ export function DraftCard({
   onChange: (v: string) => void
   lang: string
   onLang: (code: string) => void
+  /** The lookup meaning language (polish SOURCE lang — the Draft lookup is inverted). */
+  targetLang: string
   onTranslateOriginal: () => void
   onStopTranslate: () => void
   translating: boolean
@@ -31,6 +44,13 @@ export function DraftCard({
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
 }) {
   const { t } = useTranslation()
+  const lookup = usePaneLookup({
+    text: value,
+    owner: 'polishDraft',
+    sourceLang: lang,
+    targetLang,
+    streaming: translating,
+  })
   return (
     <div className="flex min-h-[130px] shrink-0 flex-col overflow-hidden rounded-[14px] border bg-[var(--bg-color)]">
       <div className="flex items-center justify-between border-b px-4 py-2.5">
@@ -61,22 +81,47 @@ export function DraftCard({
               ↻ {t('polish.translateOriginal')}
             </button>
           )}
+          <LookupToggle
+            active={lookup.mode === 'latched'}
+            disabled={translating || !value.trim()}
+            onToggle={lookup.toggle}
+          />
           <LanguagePicker value={lang} onChange={onLang} label={`${t('polish.draft')} language`} />
         </div>
       </div>
-      <textarea
-        aria-label={t('polish.draft')}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onCompositionStart={onCompositionStart}
-        onCompositionEnd={(e) => onCompositionEnd?.(e.currentTarget.value)}
-        onKeyDown={onKeyDown}
-        placeholder={t('polish.draftPlaceholder')}
-        spellCheck={false}
-        dir="auto"
-        style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
-        className="field-sizing-content min-h-[88px] max-h-[88vh] resize-none bg-transparent px-4 py-3 font-serif text-[18px] leading-[1.7]"
-      />
+      <div className="relative">
+        <textarea
+          ref={lookup.textareaRef}
+          aria-label={t('polish.draft')}
+          value={value}
+          onChange={(e) => {
+            lookup.onTextInput()
+            onChange(e.target.value)
+          }}
+          onCompositionStart={() => {
+            lookup.setComposing(true)
+            onCompositionStart?.()
+          }}
+          onCompositionEnd={(e) => {
+            lookup.setComposing(false)
+            onCompositionEnd?.(e.currentTarget.value)
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={t('polish.draftPlaceholder')}
+          spellCheck={false}
+          dir="auto"
+          style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
+          className="field-sizing-content min-h-[88px] max-h-[88vh] resize-none bg-transparent px-4 py-3 font-serif text-[18px] leading-[1.7]"
+        />
+        <EditableLookupOverlay
+          textareaRef={lookup.textareaRef}
+          text={value}
+          owner="polishDraft"
+          sourceLang={lang}
+          targetLang={targetLang}
+          armed={lookup.armed}
+        />
+      </div>
     </div>
   )
 }
