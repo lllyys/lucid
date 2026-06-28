@@ -19,6 +19,9 @@ function makeController(overrides: Partial<SyncController> = {}): SyncController
     resume: vi.fn(),
     syncNow: vi.fn(),
     disconnect: vi.fn().mockResolvedValue(true),
+    maybeAutoConnect: vi.fn().mockResolvedValue(undefined),
+    acceptAutoSync: vi.fn(),
+    declineAutoSync: vi.fn(),
     ...overrides,
   }
 }

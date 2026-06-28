@@ -7,8 +7,9 @@
 // ACCESS TOKEN is PERSISTED here alongside the server URL. This is a deliberate, user-chosen exception
 // (see dev-docs/designs/lucid-sync + the plan): background sync must survive reloads, the server is the
 // user's own single-tenant box, and the token is transmitted over TLS only. The UI shows it redacted
-// (…last4); it is NEVER logged. Only config + cursor + seeded + revs (the per-entity rev map) are
-// persisted — never the transient status/counts/conflict. The trust boundary is documented further with the WI-8 server package.
+// (…last4); it is NEVER logged. Only config + cursor + seeded + revs (the per-entity rev map) + the
+// auto-sync consent decision (`autoSyncPrompt`, #21) are persisted — never the transient
+// status/counts/conflict/showAutoPrompt. The trust boundary is documented further with the WI-8 server package.
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
@@ -45,6 +46,16 @@ export interface SyncConflictInfo {
   id: string
 }
 
+/**
+ * The one-time auto-sync consent decision (#21). `unseen` = never offered; `accepted` = the user opted
+ * the token-free single-origin server in; `declined` = the user chose to stay local-only. PERSISTED and
+ * DURABLE — it survives disconnect/reset so a declined user is never re-asked (Gate-2 M2).
+ */
+export type AutoSyncPrompt = 'unseen' | 'accepted' | 'declined'
+const AUTO_SYNC_PROMPTS: readonly AutoSyncPrompt[] = ['unseen', 'accepted', 'declined']
+const isAutoSyncPrompt = (v: unknown): v is AutoSyncPrompt =>
+  typeof v === 'string' && (AUTO_SYNC_PROMPTS as readonly string[]).includes(v)
+
 export interface SyncState {
   config: SyncConfig | null // null = local-only (PERSISTED, incl. token — see header)
   cursor: number // last-seen server rev (PERSISTED)
@@ -58,6 +69,10 @@ export interface SyncState {
   counts: SyncCounts // transient
   queuedCount: number // transient
   lastConflict: SyncConflictInfo | null // transient
+  // #21 auto-sync consent. autoSyncPrompt is PERSISTED + durable (survives disconnect/reset). showAutoPrompt
+  // is TRANSIENT — the controller raises it when the probe is eligible+unseen; WI-3's prompt reads it.
+  autoSyncPrompt: AutoSyncPrompt // PERSISTED — the durable consent decision (NOT reset by disconnect/reset)
+  showAutoPrompt: boolean // transient — surface the one-time consent prompt
   connect: (config: SyncConfig) => void
   disconnect: () => void
   setStatus: (status: SyncStatus) => void
@@ -68,6 +83,8 @@ export interface SyncState {
   setCursor: (rev: number) => void
   setRevs: (updates: Record<string, number>) => void
   markSeeded: () => void
+  setAutoSyncPrompt: (v: AutoSyncPrompt) => void
+  setShowAutoPrompt: (v: boolean) => void
   reset: () => void
   /**
    * Token-free single-origin connect (#19 WI-2): target the served origin
@@ -90,6 +107,10 @@ const INITIAL = {
   counts: ZERO_COUNTS,
   queuedCount: 0,
   lastConflict: null as SyncConflictInfo | null,
+  // #21: showAutoPrompt is TRANSIENT, so it lives in INITIAL — disconnect/reset spread INITIAL and clear
+  // it. autoSyncPrompt is deliberately NOT here (it is a sibling default in create() below) so the
+  // durable consent decision survives turning sync off (Gate-2 M2).
+  showAutoPrompt: false,
 }
 
 /**
@@ -111,17 +132,29 @@ export function migrateSync(persisted: unknown): unknown {
     config === null ||
     (isRecord(config) && typeof config.serverUrl === 'string' && typeof config.token === 'string')
   if (!configOk) return undefined
-  return { config, cursor: 0, seeded: false, revs: {} }
+  // #21: carry the auto-sync consent decision across a (future) version bump, but VALIDATE it is one of
+  // the three literals first (mirror the configOk guard) — a corrupt/absent value defaults to 'unseen'.
+  const autoSyncPrompt = isAutoSyncPrompt(persisted.autoSyncPrompt) ? persisted.autoSyncPrompt : 'unseen'
+  return { config, cursor: 0, seeded: false, revs: {}, autoSyncPrompt }
 }
-/** Persist ONLY the durable sync state — never the transient status/counts/conflict. */
-export function partializeSync(s: SyncState): Pick<SyncState, 'config' | 'cursor' | 'seeded' | 'revs'> {
-  return { config: s.config, cursor: s.cursor, seeded: s.seeded, revs: s.revs }
+/**
+ * Persist ONLY the durable sync state — never the transient status/counts/conflict/showAutoPrompt.
+ * Includes the #21 auto-sync consent decision (`autoSyncPrompt`) so a declined user is never re-asked.
+ */
+export function partializeSync(
+  s: SyncState,
+): Pick<SyncState, 'config' | 'cursor' | 'seeded' | 'revs' | 'autoSyncPrompt'> {
+  return { config: s.config, cursor: s.cursor, seeded: s.seeded, revs: s.revs, autoSyncPrompt: s.autoSyncPrompt }
 }
 
 export const useSyncStore = create<SyncState>()(
   persist(
     (set) => ({
       ...INITIAL,
+      // #21: autoSyncPrompt is a SIBLING default here, deliberately NOT in INITIAL — so disconnect/reset
+      // (which spread INITIAL) PRESERVE the durable consent decision (Gate-2 M2). Existing v2 blobs (no
+      // PERSIST_VERSION bump) carry no autoSyncPrompt, so they hydrate to this 'unseen' default.
+      autoSyncPrompt: 'unseen' as AutoSyncPrompt,
       // A fresh connection re-seeds + re-pulls from scratch (cursor 0, seeded false) — idempotent, so
       // reconnecting to the same server is safe. A reload rehydrates config/cursor/seeded and does NOT
       // call connect(), so an established cursor survives restarts.
@@ -139,6 +172,8 @@ export const useSyncStore = create<SyncState>()(
       setCursor: (cursor) => set({ cursor }),
       setRevs: (updates) => set((s) => ({ revs: { ...s.revs, ...updates } })),
       markSeeded: () => set({ seeded: true }),
+      setAutoSyncPrompt: (autoSyncPrompt) => set({ autoSyncPrompt }),
+      setShowAutoPrompt: (showAutoPrompt) => set({ showAutoPrompt }),
       reset: () => set({ ...INITIAL }),
     }),
     {
