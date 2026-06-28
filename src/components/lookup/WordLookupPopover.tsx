@@ -75,6 +75,7 @@ export function WordLookupPopover({
       <LookupCardHost
         anchorEl={anchorRef}
         owner={owner}
+        fallbackTarget={labels.tgtCode}
         onProviders={() => {
           close()
           openSettings()

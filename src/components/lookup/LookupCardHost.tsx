@@ -36,10 +36,13 @@ export function LookupCardHost({
   anchorEl,
   owner,
   onProviders,
+  fallbackTarget,
 }: {
   anchorEl: React.RefObject<HTMLElement | null>
   owner: LookupOwner
   onProviders: () => void
+  /** Target lang to retry with when the error state cleared the store's targetLang (config-error paths). */
+  fallbackTarget?: string
 }) {
   const { t } = useTranslation()
   const { lookup, close } = useWordLookup()
@@ -112,9 +115,12 @@ export function LookupCardHost({
   const play: PlayState = { kind: playKind, onToggle: onTogglePlay }
 
   const onRetry = () => {
-    // targetLang is set by every lookup(), so it is always defined while the error card is shown.
-    if (targetLang === undefined) return
-    lookup({ word: storeWord, sentence, sourceLang, targetLang, owner })
+    // The config-error paths in useWordLookup (invalidKey / createProvider throw) clear the store via
+    // close()+setState WITHOUT a targetLang, so the error card can render with targetLang undefined.
+    // Fall back to the pane's target (the pre-refactor onRetry used `targetLang ?? labels.tgtCode`).
+    const target = targetLang ?? fallbackTarget
+    if (target === undefined) return
+    lookup({ word: storeWord, sentence, sourceLang, targetLang: target, owner })
   }
 
   const dir = sourceLang && RTL_LANGS.has(sourceLang) ? 'rtl' : undefined

@@ -173,6 +173,16 @@ describe('WordLookupPopover — WI-7 states', () => {
     expect(lookupMock.close).toHaveBeenCalled()
   })
 
+  it('error retry with a cleared targetLang falls back to the pane target (no dead Retry)', async () => {
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
+    // config-error path clears targetLang; Retry must still re-issue using the pane's fallback (tgtCode).
+    setStore({ status: 'error', error: { kind: 'invalidKey', messageKey: 'error.invalidKey', retryable: false }, targetLang: undefined })
+    await userEvent.click(within(dialog()).getByRole('button', { name: /retry/i }))
+    expect(lookupMock.lookup).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: 'translateResult', targetLang: expect.any(String) }),
+    )
+  })
+
   it('long / multi-sense: renders each sense', () => {
     render(<WordLookupPopover text="Hello render" done owner="translateResult" />)
     setStore({
