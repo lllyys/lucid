@@ -10,6 +10,7 @@ import { SidebarDrawer } from '@/components/sidebar/SidebarDrawer'
 import { TranslatePanel } from '@/components/translate/TranslatePanel'
 import { PolishPanel } from '@/components/polish/PolishPanel'
 import { SyncErrorBanner } from '@/components/sync/SyncErrorBanner'
+import { AutoSyncConsentPrompt } from '@/components/sync/AutoSyncConsentPrompt'
 import { createSyncController } from '@/lib/sync/syncController'
 import { useViewportTier } from '@/hooks/useViewportTier'
 
@@ -39,6 +40,12 @@ export function Workspace() {
 
   useEffect(() => {
     controller.resume() // re-attach a persisted connection after a reload (no-op when local-only)
+    // #21 auto-on: probe the served origin for a token-free single-origin server and, if eligible+unseen,
+    // raise the one-time consent prompt (never a silent connect). The AbortController aborts the in-flight
+    // probe on unmount so a late resolve raises nothing stale.
+    const probeAbort = new AbortController()
+    void controller.maybeAutoConnect(probeAbort.signal)
+    return () => probeAbort.abort()
   }, [controller])
 
   const drawer = !isDesktop ? <SidebarDrawer open={drawerOpen} onOpenChange={setDrawerOpen} /> : null
@@ -91,6 +98,7 @@ export function Workspace() {
       </div>
       <FooterPrivacy />
       <WorkspaceToast />
+      <AutoSyncConsentPrompt controller={controller} />
     </div>
   )
 }

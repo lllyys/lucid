@@ -78,9 +78,10 @@ export interface SyncController {
    * run the eligibility check, then — AFTER the async probe resolves — re-check `config === null &&
    * autoSyncPrompt === 'unseen'` (a manual connect or a decision during the probe must not be clobbered,
    * Gate-2 M4). If still eligible + unseen, RAISE the one-time consent flag (`showAutoPrompt`); it does
-   * NOT connect (consent first — rule 65 §6). No-op when ineligible. Headless: nothing calls it yet (WI-3).
+   * NOT connect (consent first — rule 65 §6). No-op when ineligible. WI-3 wires it into the Workspace load
+   * effect; the optional `signal` aborts the in-flight probe on unmount so a stale resolve raises nothing.
    */
-  maybeAutoConnect: () => Promise<void>
+  maybeAutoConnect: (signal?: AbortSignal) => Promise<void>
   /** Consent → "Sync to my server": connect token-free single-origin + record `accepted` + dismiss the prompt. */
   acceptAutoSync: () => void
   /** Consent → "Keep local-only": record `declined` (never re-asked) + dismiss the prompt. Does NOT connect. */
@@ -162,12 +163,14 @@ export function createSyncController(deps: SyncControllerDeps = {}): SyncControl
       }
       return purged
     },
-    async maybeAutoConnect() {
+    async maybeAutoConnect(signal) {
       // Build a token-free single-origin probe backend via the injectable factory (L3) and check if the
       // served origin is a token-free single-origin sync server. The probe backend is LOCAL — it never
       // becomes the controller's active backend (only launch() assigns that).
       const probe = createBackend({ serverUrl: window.location.origin, token: '' })
       const eligible = await detectAutoSyncEligibility({ pull: probe.pull })
+      // The host unmounted mid-probe (the Workspace effect cleanup aborts) — surface nothing stale.
+      if (signal?.aborted) return
       // Re-check AFTER the await (Gate-2 M4): a manual connect (config !== null) or a decision
       // (autoSyncPrompt !== 'unseen') during the in-flight probe must not be clobbered. Read fresh.
       const s = useSyncStore.getState()
