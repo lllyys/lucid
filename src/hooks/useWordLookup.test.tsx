@@ -16,7 +16,13 @@ import { makeProviderError } from '@/providers/errors'
 
 const mockCreate = vi.mocked(createProvider)
 const tick = () => new Promise<void>((r) => setTimeout(r, 0))
-const PAYLOAD = { word: 'stutter', sentence: 'perceive stutter', sourceLang: 'en', targetLang: 'zh' }
+const PAYLOAD = {
+  word: 'stutter',
+  sentence: 'perceive stutter',
+  sourceLang: 'en',
+  targetLang: 'zh',
+  owner: 'translateResult' as const,
+}
 const FULL = JSON.stringify({ word: 'stutter', ipa: '/x/', meaning: 'm', translations: ['卡顿'] })
 
 function okProvider(outcome: ProviderOutcome = { status: 'done', text: FULL }): LLMProvider {
@@ -48,6 +54,16 @@ describe('useWordLookup', () => {
     expect(s.status).toBe('error')
     expect(s.error?.kind).toBe('invalidKey')
     expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('stamps the payload owner on the not-ready error so it opens in the clicked host', () => {
+    // A stale owner from a prior host must not capture this error popover.
+    useLookupStore.setState({ owner: 'polishResult' })
+    const { result } = renderHook(() => useWordLookup())
+    act(() => result.current.lookup({ ...PAYLOAD, owner: 'translateSource' }))
+    const s = useLookupStore.getState()
+    expect(s.status).toBe('error')
+    expect(s.owner).toBe('translateSource')
   })
 
   it('maps a createProvider ProviderException to the lookup error', () => {

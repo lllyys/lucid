@@ -53,7 +53,7 @@ export function TranslateResult({
         style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
         className="whitespace-pre-wrap font-serif text-[20px] leading-[1.78]"
       >
-        <WordLookupPopover text={op.text} done={op.status === 'done'} />
+        <WordLookupPopover text={op.text} done={op.status === 'done'} owner="translateResult" />
         {op.status === 'streaming' && (
           <span className="ml-px inline-block h-[0.95em] w-0.5 translate-y-0.5 bg-[var(--accent-primary)] [animation:lucid-caret_1s_steps(1)_infinite]" />
         )}

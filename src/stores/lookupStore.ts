@@ -6,7 +6,9 @@
 // captured runId (mirrors operationStore). It consumes provider.streamOp, accumulates the text,
 // and re-parses via parseDefine on each chunk + at the terminal. A `done` outcome whose final
 // parse yields no usable word/meaning maps to an error (rule 65) — streamOp returns `done` for
-// any completed stream, so this explicit mapping is required.
+// any completed stream, so this explicit mapping is required. Each lookup carries an `owner`
+// (the host that started it) so that — with several lookup hosts mounted at once (feature #169)
+// — only the owning host renders the surface; gating keys on `open && owner === hostId`.
 
 import { create } from 'zustand'
 import type { DefineRequest, LLMProvider, ProviderError, StreamOptions } from '@/providers/types'
@@ -15,12 +17,27 @@ import { parseDefine, type DefineSense } from '@/lib/lookup/parseDefine'
 
 export type LookupStatus = 'idle' | 'streaming' | 'done' | 'error'
 
+/**
+ * Which lookup HOST owns the active lookup. There is one global lookup at a time, but several
+ * hosts are mounted concurrently (both result panes are always rendered; the editable-pane
+ * overlays mount alongside — feature #169). Each host gates its surface on `open && owner === id`
+ * so a lookup in one host never opens (or paints a chip in) another. One value per host (5).
+ */
+export type LookupOwner =
+  | 'translateResult'
+  | 'polishResult'
+  | 'translateSource'
+  | 'polishOriginal'
+  | 'polishDraft'
+
 /** What the host pane supplies at click time (the define request + display context). */
 export interface LookupPayload {
   word: string
   sentence: string
   sourceLang?: string
   targetLang: string
+  /** The host that initiated this lookup; stamped into the store so only it shows the surface. */
+  owner: LookupOwner
 }
 
 interface LookupStore {
@@ -36,6 +53,8 @@ interface LookupStore {
   error?: ProviderError
   runId: number
   open: boolean
+  /** The host that owns the active lookup (gated on `open && owner === id`). */
+  owner: LookupOwner
   // activation context (for the header direction + context line)
   sentence: string
   sourceLang?: string
@@ -70,6 +89,9 @@ export const useLookupStore = create<LookupStore>((set, get) => ({
   status: 'idle',
   runId: 0,
   open: false,
+  // Initial owner is irrelevant while `open === false` — gating keys on `open && owner === id`.
+  // It is re-stamped on every lookup() and left as-is by close() (no host reads it while closed).
+  owner: 'translateResult',
   sentence: '',
 
   close() {
@@ -98,6 +120,7 @@ export const useLookupStore = create<LookupStore>((set, get) => ({
       status: 'streaming',
       error: undefined,
       open: true,
+      owner: payload.owner, // stamp the host so only it shows the surface (#169)
       sentence: payload.sentence,
       sourceLang: payload.sourceLang,
       targetLang: payload.targetLang,
