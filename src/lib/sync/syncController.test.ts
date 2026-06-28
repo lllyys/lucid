@@ -4,7 +4,7 @@ import type { SyncBackend, BackendResult } from './backend'
 import { useSyncStore } from '@/stores/syncStore'
 import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useGlossaryStore } from '@/stores/glossaryStore'
-import { okBackend, term, tick, resetSyncStores } from '@/test/orchestratorHarness'
+import { okBackend, errBackend, deferredPullBackend, term, tick, resetSyncStores } from '@/test/orchestratorHarness'
 
 const CONFIG = { serverUrl: 'https://lucid.example', token: 'tok-1' }
 
@@ -324,6 +324,102 @@ describe('createSyncController', () => {
     expect(init.method).toBe('DELETE')
     expect((init.headers as Record<string, string>).Authorization).toBeUndefined() // token-free: no auth header
     vi.unstubAllGlobals()
+  })
+
+  // #21 — auto-sync on by default for a token-free single-origin server. maybeAutoConnect() probes the
+  // served origin, and only surfaces a one-time consent flag (never silently connects); accept/decline
+  // record the durable decision. reset() preserves autoSyncPrompt, so re-baseline it per test.
+  describe('auto-sync (#21)', () => {
+    beforeEach(() => {
+      useSyncStore.setState({ autoSyncPrompt: 'unseen', showAutoPrompt: false })
+    })
+
+    it('maybeAutoConnect surfaces the consent prompt when the probe is eligible + unseen (does NOT connect)', async () => {
+      const be = okBackend() // pull(0) → ok → eligible
+      const createBackend = vi.fn(() => be)
+      const ctrl = createSyncController({ createBackend, isOnline: () => true, subscribeConnectivity: () => () => {} })
+      await ctrl.maybeAutoConnect()
+      expect(useSyncStore.getState().showAutoPrompt).toBe(true) // consent surfaced
+      expect(useSyncStore.getState().config).toBeNull() // NOT connected yet — consent first (rule 65 §6)
+      expect(useSyncStore.getState().autoSyncPrompt).toBe('unseen') // decision deferred to accept/decline
+      // L3 — the probe backend is built via the injectable createBackend with the served origin + empty token
+      expect(createBackend).toHaveBeenCalledWith({ serverUrl: window.location.origin, token: '' })
+      expect(be.pull).toHaveBeenCalledWith(0)
+    })
+
+    it('maybeAutoConnect is a no-op when the probe is ineligible (auth error → a tokened server)', async () => {
+      const be = errBackend('auth') // pull(0) → auth → ineligible
+      const createBackend = vi.fn(() => be)
+      const ctrl = createSyncController({ createBackend, isOnline: () => true, subscribeConnectivity: () => () => {} })
+      await ctrl.maybeAutoConnect()
+      expect(useSyncStore.getState().showAutoPrompt).toBe(false)
+      expect(useSyncStore.getState().config).toBeNull()
+      expect(useSyncStore.getState().autoSyncPrompt).toBe('unseen')
+    })
+
+    it('maybeAutoConnect does NOT prompt when a manual connect lands during the in-flight probe (Gate-2 M4)', async () => {
+      const probe = deferredPullBackend()
+      const sync = okBackend()
+      let n = 0
+      const ctrl = createSyncController({
+        createBackend: () => (n++ === 0 ? probe.backend : sync),
+        now: () => 5000,
+        debounceMs: 100,
+        pollMs: 1000,
+        isOnline: () => true,
+        subscribeConnectivity: () => () => {},
+      })
+      const p = ctrl.maybeAutoConnect() // probe pull pending (createBackend #0)
+      ctrl.connect(CONFIG) // manual connect mid-probe (createBackend #1 → sync) sets config
+      await tick()
+      probe.resolve({ ok: true, value: { changes: [], maxRev: 0 } }) // probe resolves eligible…
+      await p
+      // …but the post-await re-check sees config !== null → the manual session is not clobbered
+      expect(useSyncStore.getState().showAutoPrompt).toBe(false)
+      expect(useSyncStore.getState().config).toEqual(CONFIG)
+      await ctrl.disconnect()
+    })
+
+    it('maybeAutoConnect does NOT prompt when a decision is made during the in-flight probe', async () => {
+      const probe = deferredPullBackend()
+      const createBackend = vi.fn(() => probe.backend)
+      const ctrl = createSyncController({ createBackend, isOnline: () => true, subscribeConnectivity: () => () => {} })
+      const p = ctrl.maybeAutoConnect() // probe pull pending
+      useSyncStore.getState().setAutoSyncPrompt('declined') // user decides during the probe (e.g. another tab)
+      probe.resolve({ ok: true, value: { changes: [], maxRev: 0 } }) // eligible…
+      await p
+      expect(useSyncStore.getState().showAutoPrompt).toBe(false) // …but autoSyncPrompt !== 'unseen' → no prompt
+      expect(useSyncStore.getState().config).toBeNull()
+    })
+
+    it('acceptAutoSync connects single-origin token-free and records the accepted decision', async () => {
+      useGlossaryStore.setState({ terms: [term('g1', 'API')] })
+      const be = okBackend()
+      const ctrl = makeController(be)
+      useSyncStore.setState({ showAutoPrompt: true }) // prompt was showing
+      ctrl.acceptAutoSync()
+      expect(useSyncStore.getState().config).toEqual({ serverUrl: window.location.origin, token: '' }) // single-origin connect
+      expect(useSyncStore.getState().autoSyncPrompt).toBe('accepted') // decision recorded + persisted
+      expect(useSyncStore.getState().showAutoPrompt).toBe(false) // prompt dismissed
+      expect(useSyncQueueStore.getState().entries.map((e) => e.op.id)).toEqual(['g1']) // local data seeded
+      await tick()
+      expect(be.pull).toHaveBeenCalledOnce() // syncing started
+      await ctrl.disconnect()
+    })
+
+    it('declineAutoSync records the declined decision and never connects', async () => {
+      const be = okBackend()
+      const createBackend = vi.fn(() => be)
+      const ctrl = createSyncController({ createBackend, isOnline: () => true, subscribeConnectivity: () => () => {} })
+      useSyncStore.setState({ showAutoPrompt: true })
+      ctrl.declineAutoSync()
+      expect(useSyncStore.getState().autoSyncPrompt).toBe('declined') // declined users are never re-asked
+      expect(useSyncStore.getState().showAutoPrompt).toBe(false)
+      expect(useSyncStore.getState().config).toBeNull() // stays local-only
+      await tick()
+      expect(createBackend).not.toHaveBeenCalled() // no connect → no backend built
+      expect(be.pull).not.toHaveBeenCalled()
+    })
   })
 })
 

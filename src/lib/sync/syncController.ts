@@ -21,6 +21,11 @@
 //     data behind (a later reconnect could resurrect it), so the UI surfaces it. With erase:false (the
 //     design's "Disconnect · keep server data · reconnect later to resume") it skips the purge and returns
 //     true; a later reconnect re-seeds + rejoins the kept data.
+//   • maybeAutoConnect()/acceptAutoSync()/declineAutoSync() (#21 auto-on): probe the served origin for a
+//     token-free single-origin server and, if eligible+unseen, RAISE a one-time consent flag
+//     (showAutoPrompt) — consent first, never a silent connect (rule 65 §6). accept → connectSingleOrigin()
+//     + persist 'accepted'; decline → persist 'declined' (never re-asked). HEADLESS — nothing calls
+//     maybeAutoConnect yet (the load-path wiring + the consent UI are the design-gated WI-3).
 //
 // A controller `generation` guards the async disconnect tail: if a connect()/resume() starts a new
 // session while disconnect() awaits a slow purge, the disconnect's post-purge local reset is skipped so
@@ -33,6 +38,7 @@
 import { createSyncOrchestrator, type SyncOrchestrator, type SyncOrchestratorDeps } from './syncOrchestrator'
 import { buildSeedFromLocal } from './seed'
 import { createRestSyncBackend, type SyncBackend } from './backend'
+import { detectAutoSyncEligibility } from './singleOriginAuto'
 import { useSyncStore, type SyncConfig } from '@/stores/syncStore'
 import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useSessionStore } from '@/stores/sessionStore'
@@ -66,6 +72,18 @@ export interface SyncController {
    * false means server data may persist (a later reconnect could resurrect it), so the UI surfaces it.
    */
   disconnect: (opts?: { erase?: boolean }) => Promise<boolean>
+  /**
+   * Auto-on probe (#21): build a token-free single-origin probe backend (the served origin, empty token),
+   * run the eligibility check, then — AFTER the async probe resolves — re-check `config === null &&
+   * autoSyncPrompt === 'unseen'` (a manual connect or a decision during the probe must not be clobbered,
+   * Gate-2 M4). If still eligible + unseen, RAISE the one-time consent flag (`showAutoPrompt`); it does
+   * NOT connect (consent first — rule 65 §6). No-op when ineligible. Headless: nothing calls it yet (WI-3).
+   */
+  maybeAutoConnect: () => Promise<void>
+  /** Consent → "Sync to my server": connect token-free single-origin + record `accepted` + dismiss the prompt. */
+  acceptAutoSync: () => void
+  /** Consent → "Keep local-only": record `declined` (never re-asked) + dismiss the prompt. Does NOT connect. */
+  declineAutoSync: () => void
 }
 
 const snapshot = () => ({
@@ -100,19 +118,22 @@ export function createSyncController(deps: SyncControllerDeps = {}): SyncControl
     orchestrator.start()
   }
 
+  // Token-free single-origin connect (#19 WI-2); also the accept path for the #21 auto-on consent.
+  function connectSingleOrigin(): void {
+    useSyncStore.getState().connectSingleOrigin() // origin config + empty token, resets cursor/seeded/revs
+    useSyncQueueStore.getState().reset() // drop stale ops from a prior server/session before re-seeding
+    // connectSingleOrigin always set a non-null config; read it back so the backend targets the exact
+    // origin + empty token the store chose (token-free → the REST backend omits the Authorization header).
+    launch(useSyncStore.getState().config as SyncConfig)
+  }
+
   return {
     connect(config) {
       useSyncStore.getState().connect(config) // sets config, resets cursor/seeded/revs → a fresh seed
       useSyncQueueStore.getState().reset() // drop stale ops from a prior server/session before re-seeding
       launch(config)
     },
-    connectSingleOrigin() {
-      useSyncStore.getState().connectSingleOrigin() // origin config + empty token, resets cursor/seeded/revs
-      useSyncQueueStore.getState().reset() // drop stale ops from a prior server/session before re-seeding
-      // connectSingleOrigin always set a non-null config; read it back so the backend targets the exact
-      // origin + empty token the store chose (token-free → the REST backend omits the Authorization header).
-      launch(useSyncStore.getState().config as SyncConfig)
-    },
+    connectSingleOrigin,
     resume() {
       const config = useSyncStore.getState().config
       if (config === null) return // local-only — nothing to resume
@@ -138,6 +159,28 @@ export function createSyncController(deps: SyncControllerDeps = {}): SyncControl
         useSyncStore.getState().disconnect() // revert to local-only (local domain data is kept)
       }
       return purged
+    },
+    async maybeAutoConnect() {
+      // Build a token-free single-origin probe backend via the injectable factory (L3) and check if the
+      // served origin is a token-free single-origin sync server. The probe backend is LOCAL — it never
+      // becomes the controller's active backend (only launch() assigns that).
+      const probe = createBackend({ serverUrl: window.location.origin, token: '' })
+      const eligible = await detectAutoSyncEligibility({ pull: probe.pull })
+      // Re-check AFTER the await (Gate-2 M4): a manual connect (config !== null) or a decision
+      // (autoSyncPrompt !== 'unseen') during the in-flight probe must not be clobbered. Read fresh.
+      const s = useSyncStore.getState()
+      if (eligible && s.config === null && s.autoSyncPrompt === 'unseen') {
+        s.setShowAutoPrompt(true) // surface the one-time consent; do NOT connect yet (rule 65 §6)
+      }
+    },
+    acceptAutoSync() {
+      connectSingleOrigin() // "Sync to my server" — token-free single-origin connect + seed + start syncing
+      useSyncStore.getState().setAutoSyncPrompt('accepted') // durable: remembered across reloads/disconnect
+      useSyncStore.getState().setShowAutoPrompt(false) // dismiss the prompt
+    },
+    declineAutoSync() {
+      useSyncStore.getState().setAutoSyncPrompt('declined') // "Keep local-only" — never re-asked
+      useSyncStore.getState().setShowAutoPrompt(false) // dismiss the prompt; no connect
     },
   }
 }
