@@ -4,7 +4,8 @@ import type { SyncBackend, BackendResult } from './backend'
 import { useSyncStore } from '@/stores/syncStore'
 import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useGlossaryStore } from '@/stores/glossaryStore'
-import { okBackend, errBackend, deferredPullBackend, term, tick, resetSyncStores } from '@/test/orchestratorHarness'
+import { useStarredStore } from '@/stores/starredStore'
+import { okBackend, errBackend, deferredPullBackend, term, starredItem, tick, resetSyncStores } from '@/test/orchestratorHarness'
 
 const CONFIG = { serverUrl: 'https://lucid.example', token: 'tok-1' }
 
@@ -42,6 +43,17 @@ describe('createSyncController', () => {
 
     await tick() // the orchestrator's initial cycle runs
     expect(be.pull).toHaveBeenCalledOnce()
+    await ctrl.disconnect()
+  })
+
+  it('connect() seeds a pre-existing starred item into the queue (else the initial seed never uploads it)', async () => {
+    useStarredStore.setState({ items: [starredItem('st1', 'cat')] })
+    const be = okBackend()
+    const ctrl = makeController(be)
+    ctrl.connect(CONFIG)
+    const op = useSyncQueueStore.getState().entries.find((e) => e.op.id === 'st1')?.op
+    expect(op).toMatchObject({ type: 'starred', id: 'st1', baseRev: 0, payload: { source: 'cat' } })
+    await tick()
     await ctrl.disconnect()
   })
 

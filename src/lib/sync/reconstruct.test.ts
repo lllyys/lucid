@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { entityToSession, entityToTask, entityToTerm, entityToKeyword } from './reconstruct'
+import { entityToSession, entityToTask, entityToTerm, entityToKeyword, entityToStarred } from './reconstruct'
 import { keywordId } from '@/lib/keywordId'
 import type { SyncEntity } from './types'
 
@@ -88,5 +88,40 @@ describe('entityToKeyword', () => {
     { desc: 'id that does not match keywordId(value) (breaks convergence)', e: ent('keyword', { value: 'inference' }, { id: 'kw_wrong' }) },
   ])('returns null for $desc', ({ e }) => {
     expect(entityToKeyword(e)).toBeNull()
+  })
+})
+
+describe('entityToStarred', () => {
+  const valid = { kind: 'word', source: 'cat', translation: 'gato', sourceLang: 'en', targetLang: 'es', createdAt: 5 }
+  it('reconstructs a StarredItem (envelope from the entity, content from the payload; no id-derivation)', () => {
+    expect(entityToStarred(ent('starred', valid, { id: 'st1', updatedAt: 7, deletedAt: 9 }))).toEqual({
+      id: 'st1',
+      kind: 'word',
+      source: 'cat',
+      translation: 'gato',
+      sourceLang: 'en',
+      targetLang: 'es',
+      createdAt: 5,
+      updatedAt: 7,
+      deletedAt: 9,
+    })
+  })
+  it('accepts the sentence kind and carries optional ipa/meaning/context when present', () => {
+    const r = entityToStarred(ent('starred', { ...valid, kind: 'sentence', ipa: 'kæt', meaning: 'a feline', context: 'The cat sat.' }))
+    expect(r).toMatchObject({ kind: 'sentence', ipa: 'kæt', meaning: 'a feline', context: 'The cat sat.' })
+  })
+  it.each([
+    { desc: 'invalid kind', p: { ...valid, kind: 'phrase' } },
+    { desc: 'non-string source', p: { ...valid, source: 1 } },
+    { desc: 'non-string translation', p: { ...valid, translation: 2 } },
+    { desc: 'non-string sourceLang', p: { ...valid, sourceLang: null } },
+    { desc: 'non-string targetLang', p: { ...valid, targetLang: 3 } },
+    { desc: 'non-number createdAt', p: { ...valid, createdAt: 'x' } },
+    { desc: 'non-finite createdAt (Infinity from JSON)', p: { ...valid, createdAt: Infinity } },
+    { desc: 'non-string ipa when present', p: { ...valid, ipa: 4 } },
+    { desc: 'non-string meaning when present', p: { ...valid, meaning: 5 } },
+    { desc: 'non-string context when present', p: { ...valid, context: 6 } },
+  ])('returns null for a malformed payload: $desc', ({ p }) => {
+    expect(entityToStarred(ent('starred', p))).toBeNull()
   })
 })

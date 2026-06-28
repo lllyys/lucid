@@ -1,7 +1,7 @@
 # Self-hosted sync server
 
 The lucid sync server (`server/`) is a single-binary HTTP service the lucid web client
-syncs its workspace against (sessions, tasks, terms, keywords). It is **single-tenant by
+syncs its workspace against (sessions, tasks, terms, keywords, starred translations). It is **single-tenant by
 design**: one server holds exactly one human's data — there is no per-user partitioning,
 no accounts, just one bearer token that gates the whole API. Run one box per person.
 

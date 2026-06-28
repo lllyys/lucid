@@ -12,9 +12,21 @@ import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useGlossaryStore, type Term } from '@/stores/glossaryStore'
 import { useSessionStore } from '@/stores/sessionStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
+import { useStarredStore, type StarredItem } from '@/stores/starredStore'
 
 export const NOW = 5000
 export const term = (id: string, label: string): Term => ({ id, label, createdAt: 1, updatedAt: 1, deletedAt: null })
+export const starredItem = (id: string, source: string): StarredItem => ({
+  id,
+  kind: 'word',
+  source,
+  translation: `${source}-x`,
+  sourceLang: 'en',
+  targetLang: 'es',
+  createdAt: 1,
+  updatedAt: 1,
+  deletedAt: null,
+})
 
 export const okBackend = (): SyncBackend => ({
   pull: vi.fn(() => Promise.resolve<BackendResult<PullResult>>({ ok: true, value: { changes: [], maxRev: 0 } })),
@@ -75,6 +87,7 @@ export const resetSyncStores = (): void => {
   useSessionStore.getState().reset()
   useGlossaryStore.getState().reset()
   usePolishKeywordsStore.getState().reset()
+  useStarredStore.getState().reset()
   useSyncStore.getState().reset()
   useSyncQueueStore.getState().reset()
 }

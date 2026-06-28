@@ -67,7 +67,7 @@ const SCHEMA = `
   );
 `
 
-const VALID_TYPES: ReadonlySet<string> = new Set<EntityType>(['session', 'task', 'term', 'keyword'])
+const VALID_TYPES: ReadonlySet<string> = new Set<EntityType>(['session', 'task', 'term', 'keyword', 'starred'])
 
 /** Non-negative safe integer — mirrors the client's wire guard (src/lib/sync/guards.ts isNonNegInt). */
 function isNonNegInt(value: unknown): boolean {

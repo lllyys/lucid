@@ -8,7 +8,7 @@
  * The kinds of entity that sync. The server never branches on this value — it is stored and echoed
  * verbatim alongside the opaque payload.
  */
-export type EntityType = 'session' | 'task' | 'term' | 'keyword'
+export type EntityType = 'session' | 'task' | 'term' | 'keyword' | 'starred'
 
 /**
  * A syncable entity as stored on the server and returned to the client. `rev` is the server-assigned

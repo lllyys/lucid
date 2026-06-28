@@ -7,7 +7,7 @@
 import { isRecord, isNonNegInt } from '@/lib/guards'
 import type { EntityType, PullResult, PushOp, PushResult, SyncEntity } from './types'
 
-const ENTITY_TYPES: readonly EntityType[] = ['session', 'task', 'term', 'keyword']
+const ENTITY_TYPES: readonly EntityType[] = ['session', 'task', 'term', 'keyword', 'starred']
 
 // Envelope numbers are integers, not arbitrary floats. Timestamps + the cursor use the shared
 // `isNonNegInt` (0 valid — the legacy `updatedAt` sentinel + the initial pull cursor). A SERVER-

@@ -101,7 +101,7 @@ sync-wire/network change → **mock-backend slice verification** (rule 47 networ
   partialize; migrate never throws on corrupt/oversized.
 - `src/lib/sync` — starred: `collectLocal`/`flattenLocal` emit ops; `reconstruct` round-trips a `StarredItem`
   (safe-int ts); `reconcile` upsert + delete-wins; `seed` `baseRev:0`; `guards` rejects malformed; **editTracker
-  starred-edit→enqueue; runSyncCycle pulled-starred→committed+counted; syncController seed-includes-starred**.
+  starred-edit→enqueue; runSyncCycle pulled-starred→committed (NOT counted, per r2-L1); syncController seed-includes-starred**.
 - `server` — `db.test.ts`/`app.test.ts`: a `'starred'` op is accepted (was 400), pulled back with a server rev.
 - No-regression: existing 4-entity sync tests green; WI-1/WI-2 add no app-load behavior (nothing emits a
   starred op until WI-3).

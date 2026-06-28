@@ -6,8 +6,20 @@ import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useGlossaryStore, type Term } from '@/stores/glossaryStore'
 import { useSessionStore } from '@/stores/sessionStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
+import { useStarredStore, type StarredItem } from '@/stores/starredStore'
 
 const term = (id: string, label: string): Term => ({ id, label, createdAt: 1, updatedAt: 1, deletedAt: null })
+const starred = (id: string, source: string): StarredItem => ({
+  id,
+  kind: 'word',
+  source,
+  translation: `${source}-x`,
+  sourceLang: 'en',
+  targetLang: 'es',
+  createdAt: 1,
+  updatedAt: 1,
+  deletedAt: null,
+})
 const NOW = 1000
 
 let stop: (() => void) | undefined
@@ -19,6 +31,7 @@ beforeEach(() => {
   useSessionStore.getState().reset()
   useGlossaryStore.getState().reset()
   usePolishKeywordsStore.getState().reset()
+  useStarredStore.getState().reset()
   useSyncStore.getState().reset()
   useSyncQueueStore.getState().reset()
   onEdit = vi.fn<() => void>()
@@ -77,6 +90,24 @@ describe('startEditTracking', () => {
     start()
     usePolishKeywordsStore.setState({ keywords: [{ id: 'k1', value: 'kw', updatedAt: 1, deletedAt: null }] })
     expect(useSyncQueueStore.getState().entries.map((e) => e.op.id)).toEqual(['k1'])
+  })
+
+  // Mandatory (Gate-2 H2): the starred store's subscription is NOT backstopped by the coverage gate —
+  // omitting it leaves outbound sync silently broken yet 100% covered. This test is the only guard.
+  it('enqueues a PushOp when a local starred item is added (outbound starred sync)', () => {
+    start()
+    useStarredStore.setState({ items: [starred('st1', 'cat')] })
+    expect(useSyncQueueStore.getState().entries.map((e) => e.op.id)).toEqual(['st1'])
+    expect(useSyncQueueStore.getState().entries[0].op).toMatchObject({ type: 'starred', id: 'st1', baseRev: 0, payload: { source: 'cat' } })
+    expect(onEdit).toHaveBeenCalledOnce()
+  })
+
+  it('synthesizes a tombstone op when a local starred item is unstarred (hard-removed)', () => {
+    useStarredStore.setState({ items: [starred('st1', 'cat')] })
+    useSyncStore.setState({ revs: { st1: 4 } })
+    start()
+    useStarredStore.setState({ items: [] }) // unstar st1
+    expect(useSyncQueueStore.getState().entries[0].op).toMatchObject({ id: 'st1', type: 'starred', deletedAt: NOW, baseRev: 4 })
   })
 
   it('stop() unsubscribes — later edits are not tracked', () => {

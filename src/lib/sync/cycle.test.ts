@@ -25,7 +25,7 @@ const termOp = (id: string, baseRev = 0): PushOp => ({
   baseRev,
 })
 
-const snap = (terms: Term[] = []) => ({ sessions: [], terms, keywords: [] })
+const snap = (terms: Term[] = []) => ({ sessions: [], terms, keywords: [], starred: [] })
 const queueOf = (...ops: PushOp[]): PushQueue => ops.reduce((q, o) => enqueue(q, o), emptyQueue())
 
 // A backend with a fixed pull + push result; purge is unused by runCycle.

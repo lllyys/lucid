@@ -29,7 +29,7 @@ const task = (id: string, title: string): Session['tasks'][number] => ({
   deletedAt: null,
 })
 
-const snap = (over: Partial<LocalSnapshot> = {}): LocalSnapshot => ({ sessions: [], terms: [], keywords: [], ...over })
+const snap = (over: Partial<LocalSnapshot> = {}): LocalSnapshot => ({ sessions: [], terms: [], keywords: [], starred: [], ...over })
 
 describe('diffToOps', () => {
   it('no change → no ops', () => {

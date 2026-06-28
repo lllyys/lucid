@@ -21,7 +21,7 @@ const backendWith = (result: BackendResult<PullResult>): SyncBackend => ({
   purge: vi.fn(),
 })
 
-const snapshot = (terms: Term[] = []) => ({ sessions: [], terms, keywords: [] })
+const snapshot = (terms: Term[] = []) => ({ sessions: [], terms, keywords: [], starred: [] })
 const NO_REVS: ReadonlyMap<string, number> = new Map()
 const NONE: ReadonlySet<string> = new Set()
 
