@@ -36,8 +36,9 @@ export function isArmed({ mode, textNonEmpty, typing, streaming, composing }: Ar
 /**
  * Deterministic mode transition. altDown arms the transient 'alt' (a standing 'latched' wins);
  * altUp drops 'alt' → 'off' but leaves a 'latched' standing; toggle flips 'latched' ↔ 'off' (and
- * latches from 'alt'); exit (Esc / window blur / visibility loss) and editKey (the first edit key
- * / an Alt+other-key shortcut) always return to 'off'.
+ * latches from 'alt'); exit (Esc / window blur / visibility loss) and editKey (an Alt+other-key
+ * shortcut fired while peeking — plain typing stays latched and disarms via the typing debounce
+ * instead) always return to 'off'.
  */
 export function nextMode(mode: LookupMode, event: LookupEvent): LookupMode {
   switch (event) {
