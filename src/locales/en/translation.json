@@ -323,6 +323,7 @@
   "sync.conflict.entityTask": "Task",
   "sync.conflict.entityTerm": "Glossary term",
   "sync.conflict.entityKeyword": "Polish keyword",
+  "sync.conflict.entityStarred": "Starred translation",
   "error.syncUnreachable": "Can't reach your sync server — changes are queued locally and will sync once it's back.",
   "error.syncAuth": "Sync token rejected — paste a fresh token to resume syncing.",
   "error.syncConflict": "An edit was superseded — a newer change from another device won.",

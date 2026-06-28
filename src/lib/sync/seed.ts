@@ -13,12 +13,14 @@
 import type { Session } from '@/stores/sessionStore'
 import type { Term } from '@/stores/glossaryStore'
 import type { Keyword } from '@/stores/polishKeywordsStore'
+import type { StarredItem } from '@/stores/starredStore'
 import type { PushOp, SyncEntity } from './types'
 
 export interface LocalSnapshot {
   sessions: readonly Session[]
   terms: readonly Term[]
   keywords: readonly Keyword[]
+  starred: readonly StarredItem[]
 }
 
 /** The shared core of a projected entity — a SyncEntity without the `rev`/`baseRev` wrapper. */
@@ -62,6 +64,25 @@ export function flattenLocal(snapshot: LocalSnapshot): FlatEntity[] {
   }
   for (const k of snapshot.keywords) {
     out.push({ type: 'keyword', id: k.id, payload: { value: k.value }, updatedAt: k.updatedAt, deletedAt: k.deletedAt })
+  }
+  for (const item of snapshot.starred) {
+    out.push({
+      type: 'starred',
+      id: item.id,
+      payload: {
+        kind: item.kind,
+        source: item.source,
+        translation: item.translation,
+        ipa: item.ipa,
+        meaning: item.meaning,
+        sourceLang: item.sourceLang,
+        targetLang: item.targetLang,
+        context: item.context,
+        createdAt: item.createdAt,
+      },
+      updatedAt: item.updatedAt,
+      deletedAt: item.deletedAt,
+    })
   }
   return out
 }

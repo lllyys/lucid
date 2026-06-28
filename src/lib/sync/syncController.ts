@@ -44,6 +44,7 @@ import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useGlossaryStore } from '@/stores/glossaryStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
+import { useStarredStore } from '@/stores/starredStore'
 
 type OrchestratorTuning = Omit<SyncOrchestratorDeps, 'backend'>
 
@@ -90,6 +91,7 @@ const snapshot = () => ({
   sessions: useSessionStore.getState().sessions,
   terms: useGlossaryStore.getState().terms,
   keywords: usePolishKeywordsStore.getState().keywords,
+  starred: useStarredStore.getState().items,
 })
 
 export function createSyncController(deps: SyncControllerDeps = {}): SyncController {

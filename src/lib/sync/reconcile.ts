@@ -10,20 +10,22 @@
 // (the session payload carries none; tasks sync as their own entities); a task whose session is absent
 // (never synced, or tombstoned in pass 1) is dropped, never orphaned.
 
-import { entityToSession, entityToTask, entityToTerm, entityToKeyword } from './reconstruct'
+import { entityToSession, entityToTask, entityToTerm, entityToKeyword, entityToStarred } from './reconstruct'
 import type { LocalSnapshot } from './seed'
 import type { Session } from '@/stores/sessionStore'
 import type { Term } from '@/stores/glossaryStore'
 import type { Keyword } from '@/stores/polishKeywordsStore'
+import type { StarredItem } from '@/stores/starredStore'
 import type { SyncEntity } from './types'
 
 export function reconcileStores(
   current: LocalSnapshot,
   resolved: readonly SyncEntity[],
-): { sessions: Session[]; terms: Term[]; keywords: Keyword[] } {
+): { sessions: Session[]; terms: Term[]; keywords: Keyword[]; starred: StarredItem[] } {
   const sessions = new Map<string, Session>(current.sessions.map((s) => [s.id, { ...s, tasks: [...s.tasks] }]))
   const terms = new Map<string, Term>(current.terms.map((t) => [t.id, t]))
   const keywords = new Map<string, Keyword>(current.keywords.map((k) => [k.id, k]))
+  const starred = new Map<string, StarredItem>(current.starred.map((i) => [i.id, i]))
 
   for (const e of resolved) {
     if (e.type === 'session') {
@@ -49,6 +51,13 @@ export function reconcileStores(
       }
       const k = entityToKeyword(e)
       if (k !== null) keywords.set(e.id, k)
+    } else if (e.type === 'starred') {
+      if (e.deletedAt !== null) {
+        starred.delete(e.id)
+        continue
+      }
+      const item = entityToStarred(e)
+      if (item !== null) starred.set(e.id, item)
     }
   }
 
@@ -70,5 +79,10 @@ export function reconcileStores(
     sessions.set(r.sessionId, { ...parent, tasks: [...parent.tasks.filter((t) => t.id !== e.id), r.task] })
   }
 
-  return { sessions: [...sessions.values()], terms: [...terms.values()], keywords: [...keywords.values()] }
+  return {
+    sessions: [...sessions.values()],
+    terms: [...terms.values()],
+    keywords: [...keywords.values()],
+    starred: [...starred.values()],
+  }
 }

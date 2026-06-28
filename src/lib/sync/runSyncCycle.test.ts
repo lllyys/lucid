@@ -8,12 +8,21 @@ import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useGlossaryStore, type Term } from '@/stores/glossaryStore'
 import { useSessionStore } from '@/stores/sessionStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
+import { useStarredStore } from '@/stores/starredStore'
 
 const term = (id: string, label: string): Term => ({ id, label, createdAt: 1, updatedAt: 1, deletedAt: null })
 const remoteTerm = (id: string, label: string, rev: number): SyncEntity => ({
   type: 'term',
   id,
   payload: { label, createdAt: 1 },
+  updatedAt: 1,
+  deletedAt: null,
+  rev,
+})
+const remoteStarred = (id: string, source: string, rev: number): SyncEntity => ({
+  type: 'starred',
+  id,
+  payload: { kind: 'word', source, translation: `${source}-x`, sourceLang: 'en', targetLang: 'es', createdAt: 1 },
   updatedAt: 1,
   deletedAt: null,
   rev,
@@ -30,6 +39,7 @@ beforeEach(() => {
   useSessionStore.getState().reset()
   useGlossaryStore.getState().reset()
   usePolishKeywordsStore.getState().reset()
+  useStarredStore.getState().reset()
   useSyncStore.getState().reset()
   useSyncQueueStore.getState().reset()
 })
@@ -69,6 +79,13 @@ describe('runSyncCycle', () => {
     expect(useSyncStore.getState().counts).toEqual({ sessions: 1, tasks: 1, terms: 2, keywords: 0 })
     expect(useSyncStore.getState().status).toBe('idle')
     expect(statuses).toContain('syncing') // entered the syncing state before settling
+  })
+
+  it('commits a pulled starred entity into the starredStore (else inbound starred sync is dropped)', async () => {
+    await runSyncCycle(backend({ ok: true, value: { changes: [remoteStarred('st1', 'cat', 4)], maxRev: 4 } }, { ok: true, value: [] }))
+    expect(useStarredStore.getState().items.map((i) => i.id)).toEqual(['st1'])
+    expect(useStarredStore.getState().items[0]).toMatchObject({ source: 'cat', translation: 'cat-x', sourceLang: 'en', targetLang: 'es' })
+    expect(useSyncStore.getState().revs).toEqual({ st1: 4 }) // pulled rev folded in
   })
 
   it('maps an auth failure to auth-error and commits nothing else', async () => {

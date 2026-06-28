@@ -173,6 +173,14 @@ describe('createSyncStore.applyOps — input validation (untrusted server bounda
     expect(store.changesSince(0)).toEqual({ changes: [], maxRev: 0 }) // batch rejected, nothing persisted
   })
 
+  it('accepts a starred op (feature #22 — now a valid type) → applied + round-trips with a server rev', () => {
+    store = createSyncStore()
+    const r = store.applyOps([op({ id: 'st1', type: 'starred', payload: { kind: 'word', source: 'cat' } })])
+    expect(r).toEqual([{ status: 'applied', id: 'st1', rev: 1 }])
+    const pull = store.changesSince(0)
+    expect(pull.changes[0]).toMatchObject({ type: 'starred', id: 'st1', payload: { kind: 'word', source: 'cat' }, rev: 1 })
+  })
+
   it('accepts the boundary values updatedAt 0 and deletedAt 0 (isNonNegInt(0) is valid)', () => {
     store = createSyncStore()
     const r = store.applyOps([op({ id: 'z', updatedAt: 0, deletedAt: 0, baseRev: 0 })])

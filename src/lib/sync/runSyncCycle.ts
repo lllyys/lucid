@@ -21,6 +21,7 @@ import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useGlossaryStore } from '@/stores/glossaryStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
+import { useStarredStore } from '@/stores/starredStore'
 
 const toMap = (entries: readonly QueueEntry[]): PushQueue => new Map(entries.map((e) => [e.op.id, e]))
 
@@ -28,6 +29,7 @@ const readSnapshot = () => ({
   sessions: useSessionStore.getState().sessions,
   terms: useGlossaryStore.getState().terms,
   keywords: usePolishKeywordsStore.getState().keywords,
+  starred: useStarredStore.getState().items,
 })
 
 /** Map a transport SyncError to the design's status. (`offline` is navigator-offline, set by the lifecycle.) */
@@ -70,6 +72,7 @@ export async function runSyncCycle(backend: SyncBackend, shouldCommit: () => boo
     useSessionStore.setState({ sessions: next.sessions })
     useGlossaryStore.setState({ terms: next.terms })
     usePolishKeywordsStore.setState({ keywords: next.keywords })
+    useStarredStore.setState({ items: next.starred })
   })
 
   const sync = useSyncStore.getState()

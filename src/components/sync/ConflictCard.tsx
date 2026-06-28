@@ -13,6 +13,7 @@ const ENTITY_LABEL_KEY: Record<EntityType, string> = {
   task: 'sync.conflict.entityTask',
   term: 'sync.conflict.entityTerm',
   keyword: 'sync.conflict.entityKeyword',
+  starred: 'sync.conflict.entityStarred',
 }
 
 export interface ConflictCardProps {

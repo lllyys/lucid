@@ -23,13 +23,14 @@ import type { Conflict, SyncEntity, SyncError } from './types'
 import type { Session } from '@/stores/sessionStore'
 import type { Term } from '@/stores/glossaryStore'
 import type { Keyword } from '@/stores/polishKeywordsStore'
+import type { StarredItem } from '@/stores/starredStore'
 
 export type PullOutcome =
   | {
       ok: true
       cursor: number
       conflicts: Conflict[]
-      snapshot: { sessions: Session[]; terms: Term[]; keywords: Keyword[] }
+      snapshot: { sessions: Session[]; terms: Term[]; keywords: Keyword[]; starred: StarredItem[] }
       // The raw merge output (server-authoritative reconciled entities, pre-reconstruction). The cycle
       // engine (WI-7b-vi-c) applies a SUBSET of this against the LIVE store at commit — excluding ids
       // still dirty after ack — so a mid-cycle edit isn't clobbered. `snapshot` is the convenience

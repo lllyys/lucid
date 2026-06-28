@@ -9,7 +9,7 @@
  * The kinds of entity that sync. Tasks sync as their OWN entities (their payload carries `sessionId`)
  * rather than embedded in a session blob, so a task edit never triggers whole-session LWW.
  */
-export type EntityType = 'session' | 'task' | 'term' | 'keyword'
+export type EntityType = 'session' | 'task' | 'term' | 'keyword' | 'starred'
 
 /**
  * A syncable entity in transit (and as stored on the server). `rev` is the server-assigned monotonic

@@ -309,6 +309,19 @@ describe('POST /sync/changes', () => {
     await expect(res.json()).resolves.toEqual([])
   })
 
+  it('accepts a starred op (feature #22 — a new valid entity type, was 400) → 200 applied + pulls back', async () => {
+    const res = await authed('/sync/changes', {
+      method: 'POST',
+      body: JSON.stringify([op({ id: 'st1', type: 'starred', payload: { kind: 'word', source: 'cat' } })]),
+    })
+    expect(res.status).toBe(200)
+    const results = (await res.json()) as PushResult[]
+    expect(results[0]).toMatchObject({ status: 'applied', id: 'st1' })
+    const pulled = await authed('/sync/changes?since=0')
+    const body = (await pulled.json()) as PullResult
+    expect(body.changes.find((c) => c.id === 'st1')).toMatchObject({ type: 'starred', payload: { kind: 'word', source: 'cat' } })
+  })
+
   it('rejects a body that is an object (not array) → 400', async () => {
     const res = await authed('/sync/changes', { method: 'POST', body: JSON.stringify({}) })
     expect(res.status).toBe(400)

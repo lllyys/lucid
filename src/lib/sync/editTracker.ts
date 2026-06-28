@@ -17,6 +17,7 @@ import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useGlossaryStore } from '@/stores/glossaryStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
+import { useStarredStore } from '@/stores/starredStore'
 
 export interface EditTrackerOptions {
   /** Clock for synthesized-tombstone timestamps (injected for deterministic tests). */
@@ -29,6 +30,7 @@ const snapshot = (): LocalSnapshot => ({
   sessions: useSessionStore.getState().sessions,
   terms: useGlossaryStore.getState().terms,
   keywords: usePolishKeywordsStore.getState().keywords,
+  starred: useStarredStore.getState().items,
 })
 
 export function startEditTracking(opts: EditTrackerOptions): () => void {
@@ -53,6 +55,7 @@ export function startEditTracking(opts: EditTrackerOptions): () => void {
     useSessionStore.subscribe(handle),
     useGlossaryStore.subscribe(handle),
     usePolishKeywordsStore.subscribe(handle),
+    useStarredStore.subscribe(handle),
   ]
   return () => unsubs.forEach((u) => u())
 }

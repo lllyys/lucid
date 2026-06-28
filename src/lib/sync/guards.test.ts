@@ -12,10 +12,10 @@ const entity: SyncEntity = {
 }
 
 describe('isEntityType', () => {
-  it.each(['session', 'task', 'term', 'keyword'])('accepts %s', (t) => {
+  it.each(['session', 'task', 'term', 'keyword', 'starred'])('accepts %s', (t) => {
     expect(isEntityType(t)).toBe(true)
   })
-  it.each(['', 'sessions', 42, null, undefined])('rejects %s', (t) => {
+  it.each(['', 'sessions', 'star', 42, null, undefined])('rejects %s', (t) => {
     expect(isEntityType(t)).toBe(false)
   })
 })
@@ -24,6 +24,9 @@ describe('isSyncEntity', () => {
   it('accepts a well-formed entity (live and tombstoned)', () => {
     expect(isSyncEntity(entity)).toBe(true)
     expect(isSyncEntity({ ...entity, deletedAt: 99 })).toBe(true)
+  })
+  it('accepts a starred entity (the guard validates the envelope, not the domain payload)', () => {
+    expect(isSyncEntity({ ...entity, type: 'starred', id: 'st1', payload: { kind: 'word', source: 'cat' } })).toBe(true)
   })
   it.each([
     { desc: 'not a record', v: null },

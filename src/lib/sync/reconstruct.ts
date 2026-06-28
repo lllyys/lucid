@@ -9,9 +9,12 @@
 import type { Session, Task } from '@/stores/sessionStore'
 import type { Term } from '@/stores/glossaryStore'
 import type { Keyword } from '@/stores/polishKeywordsStore'
+import type { StarredItem } from '@/stores/starredStore'
 import { keywordId } from '@/lib/keywordId'
 import { isNonNegInt } from '@/lib/guards'
 import type { SyncEntity } from './types'
+
+const isOptString = (v: unknown): v is string | undefined => v === undefined || typeof v === 'string'
 
 /** Session with no tasks — the caller (reconcileStores) re-nests task entities by sessionId. */
 export function entityToSession(e: SyncEntity): Session | null {
@@ -56,6 +59,44 @@ export function entityToTerm(e: SyncEntity): Term | null {
   // server data). createdAt is validated as a real timestamp.
   if (typeof p.label !== 'string' || !isNonNegInt(p.createdAt)) return null
   return { id: e.id, label: p.label, createdAt: p.createdAt, updatedAt: e.updatedAt, deletedAt: e.deletedAt }
+}
+
+/**
+ * Reconstruct a StarredItem (feature #22). Follows the TERM path — NOT the keyword path: the id is a
+ * random uuid (content-scan dedupe in the store), so there is NO id-derivation check here. Required
+ * fields (kind/source/translation/langs/createdAt) are validated; the optional ipa/meaning/context must
+ * each be a string when present (a non-string would survive into the store and could later crash a
+ * `.toLowerCase()` search). Envelope (updatedAt/deletedAt) rides from the entity.
+ */
+export function entityToStarred(e: SyncEntity): StarredItem | null {
+  const p = e.payload
+  if (
+    (p.kind !== 'word' && p.kind !== 'sentence') ||
+    typeof p.source !== 'string' ||
+    typeof p.translation !== 'string' ||
+    typeof p.sourceLang !== 'string' ||
+    typeof p.targetLang !== 'string' ||
+    !isNonNegInt(p.createdAt) ||
+    !isOptString(p.ipa) ||
+    !isOptString(p.meaning) ||
+    !isOptString(p.context)
+  ) {
+    return null
+  }
+  return {
+    id: e.id,
+    kind: p.kind,
+    source: p.source,
+    translation: p.translation,
+    ipa: p.ipa,
+    meaning: p.meaning,
+    sourceLang: p.sourceLang,
+    targetLang: p.targetLang,
+    context: p.context,
+    createdAt: p.createdAt,
+    updatedAt: e.updatedAt,
+    deletedAt: e.deletedAt,
+  }
 }
 
 export function entityToKeyword(e: SyncEntity): Keyword | null {
