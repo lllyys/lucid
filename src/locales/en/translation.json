@@ -473,5 +473,9 @@
   "lookup.senseInContext": "sense {{n}} · in context",
   "lookup.sense": "sense {{n}}",
   "lookup.tapHint": "tap a word ⌕",
-  "lookup.dragHandle": "Dismiss"
+  "lookup.dragHandle": "Dismiss",
+  "lookup.editable.toggle": "Lookup",
+  "lookup.editable.toggleOn": "Lookup on",
+  "lookup.editable.toggleAria": "Toggle word lookup",
+  "lookup.editable.toggleAriaOn": "Word lookup on — tap a word to look it up"
 }
