@@ -432,6 +432,30 @@ describe('createSyncController', () => {
       expect(createBackend).not.toHaveBeenCalled() // no connect → no backend built
       expect(be.pull).not.toHaveBeenCalled()
     })
+
+    // WI-3 Gate-4 Low — the load-path probe is threaded an AbortSignal so an unmount (the Workspace
+    // effect cleanup) aborts the in-flight probe and surfaces nothing stale.
+    it('maybeAutoConnect surfaces NOTHING when its AbortSignal fires during the in-flight probe (unmount)', async () => {
+      const probe = deferredPullBackend()
+      const createBackend = vi.fn(() => probe.backend)
+      const ctrl = createSyncController({ createBackend, isOnline: () => true, subscribeConnectivity: () => () => {} })
+      const ac = new AbortController()
+      const p = ctrl.maybeAutoConnect(ac.signal) // probe pull pending
+      ac.abort() // the host unmounted mid-probe → cleanup aborts
+      probe.resolve({ ok: true, value: { changes: [], maxRev: 0 } }) // probe resolves eligible…
+      await p
+      expect(useSyncStore.getState().showAutoPrompt).toBe(false) // …but the aborted probe raises no prompt
+      expect(useSyncStore.getState().config).toBeNull()
+    })
+
+    it('maybeAutoConnect still surfaces the prompt when given a live (non-aborted) AbortSignal', async () => {
+      const be = okBackend() // pull(0) → ok → eligible
+      const ctrl = makeController(be)
+      const ac = new AbortController()
+      await ctrl.maybeAutoConnect(ac.signal)
+      expect(useSyncStore.getState().showAutoPrompt).toBe(true) // consent surfaced — the signal is alive
+      expect(useSyncStore.getState().config).toBeNull()
+    })
   })
 })
 
