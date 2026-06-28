@@ -26,11 +26,6 @@ const CLONE_PROPS = [
   'paddingRight',
   'paddingBottom',
   'paddingLeft',
-  'borderTopWidth',
-  'borderRightWidth',
-  'borderBottomWidth',
-  'borderLeftWidth',
-  'boxSizing',
   'tabSize',
 ] as const
 
@@ -46,13 +41,27 @@ function applyClone(textarea: HTMLTextAreaElement, mirror: HTMLDivElement): void
   mirror.style.whiteSpace = 'pre-wrap'
   mirror.style.overflowWrap = 'break-word'
   mirror.style.wordBreak = cs.wordBreak || 'normal'
-  // The mirror's border is geometry-only (transparent) so it never double-paints the field's border.
-  mirror.style.borderStyle = 'solid'
+  // Box: size to the textarea's scrollbar-EXCLUDED client box and sit just inside its border, so
+  // the mirror wraps at the exact width the textarea content wraps. A scrolling textarea reserves
+  // a vertical scrollbar gutter, so its content is narrower than the border box — `inset:0` would
+  // wrap wider and drift glyphs right of their spans on every wrapped line. The mirror carries no
+  // border of its own (it lives inside the field's border); padding is cloned above.
+  const borderTop = parseFloat(cs.borderTopWidth) || 0
+  const borderLeft = parseFloat(cs.borderLeftWidth) || 0
+  mirror.style.boxSizing = 'border-box'
+  mirror.style.borderStyle = 'none'
+  mirror.style.borderWidth = '0'
   mirror.style.borderColor = 'transparent'
-  // Direction + bidi: clone the computed value, and reflect the textarea's dir attribute so RTL
-  // propagates even where jsdom's getComputedStyle does not resolve inherited direction.
+  mirror.style.width = `${textarea.clientWidth}px`
+  mirror.style.height = `${textarea.clientHeight}px`
+  mirror.style.top = `${textarea.offsetTop + borderTop}px`
+  mirror.style.left = `${textarea.offsetLeft + borderLeft}px`
+  // Direction + bidi: clone the textarea's ACTUAL computed direction/unicode-bidi (default normal),
+  // and reflect its dir attribute so RTL propagates even where jsdom's getComputedStyle does not
+  // resolve inherited direction. NEVER force `plaintext` — it re-resolves base direction per
+  // paragraph from the first strong char, ignoring `dir`, and would reorder a mixed-direction line.
   if (cs.direction) mirror.style.direction = cs.direction
-  mirror.style.unicodeBidi = cs.unicodeBidi && cs.unicodeBidi !== 'normal' ? cs.unicodeBidi : 'plaintext'
+  mirror.style.unicodeBidi = cs.unicodeBidi || 'normal'
   mirror.dir = textarea.dir
 }
 

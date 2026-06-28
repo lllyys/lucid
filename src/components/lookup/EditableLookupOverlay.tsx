@@ -87,11 +87,10 @@ export function EditableLookupOverlay({
   let cursor = 0
   for (const seg of segments) {
     if (seg.start > cursor) children.push(text.slice(cursor, seg.start))
+    // Active only on the EXACT clicked instance (offset match — parity with #20's active.offset),
+    // so a repeated word never lights up every occurrence while one is open.
     const isActive =
-      storeOpen &&
-      storeOwner === owner &&
-      storeWord === seg.text &&
-      (activeStart === null || activeStart === seg.start)
+      storeOpen && storeOwner === owner && storeWord === seg.text && activeStart === seg.start
 
     if (armed) {
       children.push(
@@ -107,13 +106,21 @@ export function EditableLookupOverlay({
               onWordClick(seg, e.currentTarget)
             }
           }}
-          className="cursor-help rounded-[4px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ink)] hover:bg-[var(--accent-tint,var(--accent-subtle))] hover:[text-decoration-color:var(--accent-border)] hover:[text-decoration-line:underline] hover:[text-decoration-style:dotted]"
+          // Hover (design §C): faint tint + dotted accent underline + accent-ink GLYPH (so the
+          // transparent mirror text paints visibly over its own chip — matches #20's ClickableText).
+          className="cursor-help rounded-[4px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ink)] hover:bg-[var(--accent-subtle)] hover:text-[var(--accent-ink)] hover:[text-decoration-color:var(--accent-border)] hover:[text-decoration-line:underline] hover:[text-decoration-style:dotted]"
           // pointer-events is set inline (not via a Tailwind class) so the armed word captures
           // clicks even where compiled CSS is absent; the root stays none so gaps fall through.
+          // Active chip matches #20 exactly: --accent-subtle fill + --accent-ink glyph + underline
+          // (color set so the glyph paints over the otherwise-transparent mirror — it stays legible).
           style={{
             pointerEvents: 'auto',
             ...(isActive
-              ? { background: 'var(--accent-bg)', boxShadow: 'inset 0 -1.5px 0 var(--accent-ink)' }
+              ? {
+                  background: 'var(--accent-subtle)',
+                  color: 'var(--accent-ink)',
+                  boxShadow: 'inset 0 -1.5px 0 var(--accent-ink)',
+                }
               : {}),
           }}
         >
@@ -140,9 +147,10 @@ export function EditableLookupOverlay({
         // a11y). When armed, the word spans are interactive controls (role=button, focusable) and
         // MUST be exposed, so the root is no longer hidden.
         aria-hidden={armed ? undefined : true}
+        // position only — useMirrorSync owns the box geometry (top/left/width/height sized to the
+        // textarea's scrollbar-excluded client box) so glyphs never drift on wrapped lines.
         style={{
           position: 'absolute',
-          inset: 0,
           margin: 0,
           overflow: 'hidden',
           background: 'transparent',

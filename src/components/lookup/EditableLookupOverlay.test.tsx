@@ -153,17 +153,34 @@ describe('EditableLookupOverlay — owner-gated host', () => {
 })
 
 describe('EditableLookupOverlay — active chip', () => {
-  it('marks the span matching the store word + owner as active', () => {
+  it('marks the clicked span matching the store word + owner, with a legible accent glyph', async () => {
     render(<Harness text="hello world" armed owner="translateSource" />)
+    await userEvent.click(screen.getByRole('button', { name: 'world' }))
     openStore({ owner: 'translateSource', word: 'world' })
-    expect(screen.getByRole('button', { name: 'world' })).toHaveAttribute('aria-current', 'true')
+    const active = screen.getByRole('button', { name: 'world' })
+    expect(active).toHaveAttribute('aria-current', 'true')
+    // M1: the chip must paint a visible glyph over its own fill (the mirror is color:transparent).
+    expect(active.style.color).toBe('var(--accent-ink)')
+    expect(active.style.background).toBe('var(--accent-subtle)')
     expect(screen.getByRole('button', { name: 'hello' })).not.toHaveAttribute('aria-current')
   })
 
-  it('does not mark a chip when the active lookup belongs to another owner', () => {
+  it('does not mark a chip when the active lookup belongs to another owner', async () => {
     render(<Harness text="hello world" armed owner="translateSource" />)
+    await userEvent.click(screen.getByRole('button', { name: 'world' }))
     openStore({ owner: 'polishDraft', word: 'world' })
     expect(screen.getByRole('button', { name: 'world' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('lights up only the clicked instance of a repeated word (exact offset, not every match)', async () => {
+    render(<Harness text="the the" armed owner="translateSource" />)
+    const before = screen.getAllByRole('button', { name: 'the' })
+    expect(before).toHaveLength(2)
+    await userEvent.click(before[0]) // click the FIRST "the" (offset 0)
+    openStore({ owner: 'translateSource', word: 'the' })
+    const after = screen.getAllByRole('button', { name: 'the' })
+    expect(after[0]).toHaveAttribute('aria-current', 'true')
+    expect(after[1]).not.toHaveAttribute('aria-current') // the second "the" (offset 4) stays idle
   })
 })
 
@@ -196,5 +213,27 @@ describe('EditableLookupOverlay — scroll sync', () => {
     fireEvent.scroll(textarea)
     expect(mirror.scrollTop).toBe(42)
     expect(mirror.scrollLeft).toBe(7)
+  })
+})
+
+describe('EditableLookupOverlay — mirror clone contract (Low-3 + Low-5)', () => {
+  it('sizes to the scrollbar-excluded clientWidth and clones the wrap-safe defaults', () => {
+    const { rerender } = render(<Harness text="hi" armed />)
+    const textarea = screen.getByLabelText('field') as HTMLTextAreaElement
+    // jsdom reports 0 for client metrics — pin them so the size clone is observable.
+    Object.defineProperty(textarea, 'clientWidth', { configurable: true, value: 240 })
+    Object.defineProperty(textarea, 'clientHeight', { configurable: true, value: 96 })
+    // Re-trigger the clone (the layout effect re-runs on text change).
+    rerender(<Harness text="hi there" armed />)
+    const mirror = screen.getByTestId('lookup-mirror')
+    // Sized to the textarea's scrollbar-EXCLUDED client box (M2).
+    expect(mirror.style.width).toBe('240px')
+    expect(mirror.style.height).toBe('96px')
+    // Unconditional wrap-safe clone outputs are locked.
+    expect(mirror.style.whiteSpace).toBe('pre-wrap')
+    expect(mirror.style.borderColor).toBe('transparent')
+    // Low-3: never force `plaintext` — clone the textarea's actual unicode-bidi (default normal).
+    expect(mirror.style.unicodeBidi).not.toBe('plaintext')
+    expect(mirror.style.unicodeBidi).toBe('normal')
   })
 })
