@@ -72,6 +72,7 @@ function setStore(over: Partial<StoreShape>) {
   act(() => {
     useLookupStore.setState({
       open: true,
+      owner: 'translateResult',
       word: 'stutter',
       ipa: '/ˈstʌtər/',
       partOfSpeech: 'noun',
@@ -92,19 +93,19 @@ const dialog = () => screen.getByRole('dialog')
 
 describe('WordLookupPopover — WI-7 states', () => {
   it('does not render a dialog while the store is closed', () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('loading: shows the looking-up status and a disabled play button', () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({ status: 'streaming', translations: [], meaning: '' })
     expect(within(dialog()).getByText(/looking up/i)).toBeInTheDocument()
     expect(within(dialog()).getByRole('button', { name: /speak word/i })).toBeDisabled()
   })
 
   it('loaded: shows word, IPA, translation, meaning and an enabled play button', () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     const d = dialog()
     expect(within(d).getByText('stutter')).toBeInTheDocument()
@@ -115,7 +116,7 @@ describe('WordLookupPopover — WI-7 states', () => {
   })
 
   it('play: clicking Speak calls speak then exposes a Stop control', async () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     await userEvent.click(within(dialog()).getByRole('button', { name: /speak word/i }))
     expect(speechMock.api.speak).toHaveBeenCalledTimes(1)
@@ -125,7 +126,7 @@ describe('WordLookupPopover — WI-7 states', () => {
   })
 
   it('stop: clicking Stop while speaking calls cancel', async () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     await userEvent.click(within(dialog()).getByRole('button', { name: /speak word/i }))
     await userEvent.click(within(dialog()).getByRole('button', { name: /stop/i }))
@@ -134,14 +135,14 @@ describe('WordLookupPopover — WI-7 states', () => {
 
   it('no-voice (voicesReady && !hasVoiceFor): play is disabled with a note', () => {
     speechMock.api.__state.voiceLangs = [] // no voices match
-    render(<WordLookupPopover text="卡顿" done />)
+    render(<WordLookupPopover text="卡顿" done owner="translateResult" />)
     setStore({ word: '卡顿', sourceLang: 'zh', targetLang: 'en' })
     expect(within(dialog()).getByRole('button', { name: /no voice/i })).toBeDisabled()
   })
 
   it('voice-race: play is transiently disabled while !voicesReady, re-enables on voiceschanged', () => {
     speechMock.api.__state.voicesReady = false
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     expect(within(dialog()).getByRole('button', { name: /speak word/i })).toBeDisabled()
     // voices load asynchronously → voicesReady flips, hasVoiceFor('en') true
@@ -153,7 +154,7 @@ describe('WordLookupPopover — WI-7 states', () => {
   })
 
   it('error: shows the no-definition message with Retry and Providers', () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({ status: 'error', error: { kind: 'refusal', messageKey: 'error.refusal', retryable: false } })
     const d = dialog()
     expect(within(d).getByText(/no definition/i)).toBeInTheDocument()
@@ -162,7 +163,7 @@ describe('WordLookupPopover — WI-7 states', () => {
   })
 
   it('error: clicking Providers opens Settings and dismisses (error recovery)', async () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({ status: 'error', error: { kind: 'refusal', messageKey: 'error.refusal', retryable: false } })
     const opened = vi.fn()
     window.addEventListener('lucid:open-settings', opened)
@@ -172,8 +173,18 @@ describe('WordLookupPopover — WI-7 states', () => {
     expect(lookupMock.close).toHaveBeenCalled()
   })
 
+  it('error retry with a cleared targetLang falls back to the pane target (no dead Retry)', async () => {
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
+    // config-error path clears targetLang; Retry must still re-issue using the pane's fallback (tgtCode).
+    setStore({ status: 'error', error: { kind: 'invalidKey', messageKey: 'error.invalidKey', retryable: false }, targetLang: undefined })
+    await userEvent.click(within(dialog()).getByRole('button', { name: /retry/i }))
+    expect(lookupMock.lookup).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: 'translateResult', targetLang: expect.any(String) }),
+    )
+  })
+
   it('long / multi-sense: renders each sense', () => {
-    render(<WordLookupPopover text="Hello render" done />)
+    render(<WordLookupPopover text="Hello render" done owner="translateResult" />)
     setStore({
       word: 'render',
       senses: [
@@ -189,27 +200,27 @@ describe('WordLookupPopover — WI-7 states', () => {
 
 describe('WordLookupPopover — WI-7 a11y, lifecycle, RTL, responsive', () => {
   it('the dialog is labelled with the word', () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     expect(screen.getByRole('dialog')).toHaveAccessibleName(/stutter/)
   })
 
   it('the meaning is an aria-live=polite region', () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     const live = within(dialog()).getByText('a brief judder')
     expect(live.closest('[aria-live="polite"]')).not.toBeNull()
   })
 
   it('clicking Close dismisses via the lookup store', async () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     await userEvent.click(within(dialog()).getByRole('button', { name: /close/i }))
     expect(lookupMock.close).toHaveBeenCalled()
   })
 
   it('Retry re-issues the lookup for the same word', async () => {
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({ status: 'error', error: { kind: 'refusal', messageKey: 'error.refusal', retryable: false } })
     await userEvent.click(within(dialog()).getByRole('button', { name: /retry/i }))
     expect(lookupMock.lookup).toHaveBeenCalledTimes(1)
@@ -217,7 +228,7 @@ describe('WordLookupPopover — WI-7 a11y, lifecycle, RTL, responsive', () => {
   })
 
   it('cancels in-flight speech on unmount (M4)', async () => {
-    const { unmount } = render(<WordLookupPopover text="Hello stutter" done />)
+    const { unmount } = render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     await userEvent.click(within(dialog()).getByRole('button', { name: /speak word/i }))
     speechMock.api.cancel.mockClear()
@@ -226,7 +237,7 @@ describe('WordLookupPopover — WI-7 a11y, lifecycle, RTL, responsive', () => {
   })
 
   it('cancels prior speech when the active word changes (M4)', async () => {
-    render(<WordLookupPopover text="Hello stutter render" done />)
+    render(<WordLookupPopover text="Hello stutter render" done owner="translateResult" />)
     setStore({})
     await userEvent.click(within(dialog()).getByRole('button', { name: /speak word/i }))
     speechMock.api.cancel.mockClear()
@@ -235,19 +246,46 @@ describe('WordLookupPopover — WI-7 a11y, lifecycle, RTL, responsive', () => {
   })
 
   it('renders dir=rtl for an Arabic word', () => {
-    render(<WordLookupPopover text="إطار" done />)
+    render(<WordLookupPopover text="إطار" done owner="translateResult" />)
     setStore({ word: 'إطار', sourceLang: 'ar', targetLang: 'en' })
     expect(dialog().getAttribute('dir')).toBe('rtl')
   })
 
   it('phone: renders the bottom sheet instead of the popover', () => {
     tierMock.value = 'phone'
-    render(<WordLookupPopover text="Hello stutter" done />)
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({})
     // The sheet content is still a dialog labelled with the word; the desktop popover would carry
     // a context line ("ctx") that the sheet omits — assert the sheet's drag handle is present.
     const d = dialog()
     expect(d).toHaveAccessibleName(/stutter/)
     expect(within(d).queryByText('ctx')).toBeNull()
+  })
+})
+
+describe('WordLookupPopover — owner gating (#169 WI-1)', () => {
+  it('opens only for its own owner (a different host stays closed)', () => {
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
+    // The active lookup belongs to ANOTHER host (e.g. the polish result pane).
+    setStore({ owner: 'polishResult' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('still opens when the active lookup belongs to this owner', () => {
+    render(<WordLookupPopover text="Hello stutter" done owner="polishResult" />)
+    setStore({ owner: 'polishResult' })
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(/stutter/)
+  })
+
+  it('clears the active-word chip once the active lookup moves to a different owner', async () => {
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
+    setStore({})
+    // Click the rendered word so this host tracks it as active and paints the chip.
+    await userEvent.click(screen.getByRole('button', { name: 'stutter' }))
+    expect(screen.getByRole('button', { name: 'stutter' })).toHaveAttribute('aria-current', 'true')
+    // The active lookup migrates to another host (e.g. the source overlay) without closing —
+    // the same word text must NOT keep painting a spurious chip here.
+    act(() => useLookupStore.setState({ owner: 'translateSource' }))
+    expect(screen.getByRole('button', { name: 'stutter' })).not.toHaveAttribute('aria-current')
   })
 })

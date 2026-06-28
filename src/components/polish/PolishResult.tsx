@@ -172,7 +172,7 @@ export function PolishResult({
           renderCompare()
         ) : (
           <>
-            <WordLookupPopover text={text} done={isDone} />
+            <WordLookupPopover text={text} done={isDone} owner="polishResult" />
             {op.status === 'streaming' && (
               <span className="ml-px inline-block h-[0.95em] w-0.5 translate-y-0.5 bg-[var(--accent-primary)] [animation:lucid-caret_1s_steps(1)_infinite]" />
             )}

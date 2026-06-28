@@ -23,7 +23,12 @@ export function useWordLookup(): {
     const store = useLookupStore.getState()
     if (!cfg.isReady()) {
       store.close()
-      useLookupStore.setState({ status: 'error', error: makeProviderError('invalidKey'), open: true })
+      useLookupStore.setState({
+        status: 'error',
+        error: makeProviderError('invalidKey'),
+        open: true,
+        owner: payload.owner, // stamp the clicked host so the error opens there, not a stale owner
+      })
       return
     }
     let provider
@@ -35,6 +40,7 @@ export function useWordLookup(): {
         status: 'error',
         error: err instanceof ProviderException ? err.providerError : makeProviderError('unknown'),
         open: true,
+        owner: payload.owner, // stamp the clicked host (gating keys on open && owner === id)
       })
       return
     }

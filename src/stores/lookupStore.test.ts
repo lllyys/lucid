@@ -5,7 +5,13 @@ import { makeProviderError } from '@/providers/errors'
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0))
 
-const PAYLOAD = { word: 'stutter', sentence: 'the user will perceive stutter', sourceLang: 'en', targetLang: 'zh' }
+const PAYLOAD = {
+  word: 'stutter',
+  sentence: 'the user will perceive stutter',
+  sourceLang: 'en',
+  targetLang: 'zh',
+  owner: 'translateResult' as const,
+}
 
 const FULL = JSON.stringify({
   word: 'stutter',
@@ -93,6 +99,19 @@ describe('lookupStore', () => {
     expect(s.sentence).toBe(PAYLOAD.sentence)
     expect(s.targetLang).toBe('zh')
     expect(s.sourceLang).toBe('en')
+  })
+
+  it('stamps the owner from the payload so each lookup host can gate its surface', async () => {
+    await useLookupStore
+      .getState()
+      .lookup({ ...PAYLOAD, owner: 'polishDraft' }, provider([FULL], { status: 'done', text: FULL }))
+    expect(useLookupStore.getState().owner).toBe('polishDraft')
+  })
+
+  it('exposes a defined initial owner while closed (gating keys on open && owner)', () => {
+    // close() in beforeEach leaves a defined owner; the value is irrelevant while open===false.
+    expect(useLookupStore.getState().owner).toBeDefined()
+    expect(useLookupStore.getState().open).toBe(false)
   })
 
   it('transitions idle → streaming → done, filling parsed fields', async () => {
