@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --ink:#1E1C19; --border:#E9E6E0; --border-strong:#E2DFD8; --fill-muted:#F0EDE7;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-border:#DDDCFB; --hover:#F5F3EF;
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --ink:#F2EFE9; --border:#322E27; --border-strong:#3C3830; --fill-muted:#2A2720;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --accent-ink:#AEA7F7; --hover:#2C2922;
+    }
+    html,body{background:var(--canvas);} *{box-sizing:border-box;} body{margin:0;}
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--canvas);color:var(--ink);font-family:Geist,-apple-system,sans-serif;padding:48px 40px 64px;">
+  <div style="max-width:1120px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+      <span style="font-size:19px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-ink);text-transform:uppercase;background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:6px;padding:3px 8px;">issue #199 · refs #23</span>
+    </div>
+    <h1 style="margin:0 0 12px;font-size:29px;font-weight:600;letter-spacing:-0.022em;max-width:30ch;">Clear button on the polish input pane</h1>
+    <p style="margin:0 0 28px;font-size:13.5px;line-height:1.65;color:var(--t2);max-width:70ch;">A small <strong style="color:var(--t1);">Clear</strong> control in the polish <strong style="color:var(--t1);">Original</strong> (input) pane header — leading the right-side control group, before the lookup toggle and language picker. Mirrors the translate <em>source</em> Clear exactly: a plain text button, <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">--t5</code> resting, hover to <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">--ink</code>, focus-visible ring <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">--accent-ink</code>. Clicking it wipes the Original and resets the dependent draft / polish state, then refocuses the textarea.</p>
+
+    <!--
+      NOTE: faithful reproduction imported via the DesignSync MCP from the claude.ai/design project "lucid"
+      (22b34402-6cc0-4011-8089-b2832b9356ec) on 2026-06-29. The full board depicts 7 states — default
+      (text present → Clear shown) · empty (Clear hidden, lookup toggle disabled) · hover (→ --ink) · focus
+      (ring --accent-ink) · dark · RTL (مسح, header mirrors) · phone portrait (single-row header, ≥44px hit area).
+      The README distills the implementable spec; this committed depiction is the rule-51 authority.
+    -->
+
+    <!-- IMPLEMENTATION SPEC (verbatim from the design board) -->
+    <div style="border:1px solid var(--border);background:var(--surface);border-radius:14px;padding:22px 24px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent-ink);display:block;margin-bottom:16px;">implementation spec</span>
+      <div style="display:grid;grid-template-columns:140px 1fr;gap:11px 20px;font-size:13px;line-height:1.6;">
+        <span style="color:var(--t4);font-weight:500;">Placement</span><span style="color:var(--t1);">In <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">OriginalCard</code> header, leading the right-side control group — before the <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">LookupToggle</code> and <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">LanguagePicker</code>.</span>
+        <span style="color:var(--t4);font-weight:500;">Appearance</span><span style="color:var(--t1);">Borderless text button, Geist 12px. Resting <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">--t5</code> → hover <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">--ink</code>. Focus-visible ring <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">--accent-ink</code> — identical to the translate source Clear (<code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">TranslatePanel.tsx</code>).</span>
+        <span style="color:var(--t4);font-weight:500;">Visibility</span><span style="color:var(--t1);">Shown only when <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">value.trim()</code> is non-empty; hidden when empty (the lookup toggle goes disabled alongside, same as today). Disabled-at-40% is an acceptable alternative if hiding causes header reflow.</span>
+        <span style="color:var(--t4);font-weight:500;">Behavior</span><span style="color:var(--t1);">Wipes the Original input, then resets the dependent draft / polish operation state (parity with <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">clear()</code> in the translate source). Returns focus to the Original textarea.</span>
+        <span style="color:var(--t4);font-weight:500;">Copy</span><span style="color:var(--t1);">New i18n key <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">polish.clear</code> (reuse the <code style="font-family:'Geist Mono',monospace;color:var(--accent-ink);">translate.clear</code> string). Localized + mirrored under RTL.</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
