@@ -315,12 +315,12 @@ describe('WordLookupPopover — star control (feature #22, WI-3)', () => {
   it('does NOT show the Star control while the lookup is still streaming (not done)', () => {
     render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({ status: 'streaming', translations: [], meaning: '' })
-    expect(within(dialog()).queryByRole('button', { name: /^starred?$/i })).toBeNull()
+    expect(within(dialog()).queryByRole('button', { name: /^star(red)?$/i })).toBeNull()
   })
 
   it('does NOT show the Star control in the error state', () => {
     render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
     setStore({ status: 'error', error: { kind: 'refusal', messageKey: 'error.refusal', retryable: false } })
-    expect(within(dialog()).queryByRole('button', { name: /^starred?$/i })).toBeNull()
+    expect(within(dialog()).queryByRole('button', { name: /^star(red)?$/i })).toBeNull()
   })
 })

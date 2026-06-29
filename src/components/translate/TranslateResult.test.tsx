@@ -97,6 +97,6 @@ describe('TranslateResult — sentence star (feature #22, WI-3)', () => {
       translate: { status: 'streaming', text: 'Hello', startedAt: 0, elapsedMs: 1, runId: 1, isAuto: false },
     })
     renderWithStar()
-    expect(screen.queryByRole('button', { name: /^starred?$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^star(red)?$/i })).toBeNull()
   })
 })

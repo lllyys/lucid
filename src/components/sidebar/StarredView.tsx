@@ -140,6 +140,11 @@ function Detail({ item, onBack }: { item: StarredItem; onBack: () => void }) {
             <p className="m-0 text-[12.5px] leading-[1.62] text-[var(--text-secondary)]">{item.meaning}</p>
           </Shelf>
         )}
+        {isWord && item.context && (
+          <Shelf label={t('starred.from')}>
+            <p className="m-0 truncate font-serif text-[12.5px] leading-[1.6] text-[var(--text-tertiary)]">{item.context}</p>
+          </Shelf>
+        )}
       </div>
 
       <div className="flex-0 border-t px-3 py-2.5">

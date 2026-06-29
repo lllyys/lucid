@@ -190,7 +190,7 @@ describe('PolishResult — sentence star (feature #22, WI-3)', () => {
   it('does NOT show the sentence star while streaming', () => {
     useOperationStore.setState({ polish: { status: 'streaming', text: 'the', startedAt: 0, elapsedMs: 1, runId: 1, isAuto: false } })
     renderResult({ lang: 'en' })
-    expect(screen.queryByRole('button', { name: /^starred?$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^star(red)?$/i })).toBeNull()
   })
 })
 

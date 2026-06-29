@@ -90,6 +90,23 @@ describe('StarredView (WI-4 — the review surface)', () => {
     expect(screen.getByText('2 starred')).toBeInTheDocument()
   })
 
+  it('shows the "From" context line in the word detail (the looked-up sentence)', async () => {
+    seed()
+    render(<StarredView />)
+    await userEvent.click(screen.getByText('stutter'))
+    expect(screen.getByText(/^from$/i)).toBeInTheDocument()
+    expect(screen.getByText('the user will perceive stutter')).toBeInTheDocument()
+  })
+
+  it('omits the "From" line when a word has no stored context', async () => {
+    useStarredStore.getState().star({
+      kind: 'word', source: 'token', translation: '词元', sourceLang: 'en', targetLang: 'zh',
+    })
+    render(<StarredView />)
+    await userEvent.click(screen.getByText('token'))
+    expect(screen.queryByText(/^from$/i)).toBeNull()
+  })
+
   it('opens a sentence detail showing the source → result pair', async () => {
     seed()
     render(<StarredView />)
