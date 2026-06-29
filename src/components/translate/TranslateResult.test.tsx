@@ -10,6 +10,7 @@ vi.mock('@/hooks/useWordLookup', () => ({ useWordLookup: () => lookupMock }))
 import { TranslateResult } from './TranslateResult'
 import { useOperationStore } from '@/stores/operationStore'
 import { useLookupStore } from '@/stores/lookupStore'
+import { useStarredStore } from '@/stores/starredStore'
 
 const renderResult = () =>
   render(<TranslateResult accepted={false} onAccept={vi.fn()} onRetry={vi.fn()} />)
@@ -18,6 +19,7 @@ beforeEach(() => {
   lookupMock.lookup.mockReset()
   useOperationStore.getState().reset('translate')
   useLookupStore.getState().close()
+  useStarredStore.getState().reset()
 })
 
 describe('TranslateResult — word-lookup wiring (feature #20)', () => {
@@ -56,5 +58,45 @@ describe('TranslateResult — word-lookup wiring (feature #20)', () => {
     renderResult()
     expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /accept/i })).toBeInTheDocument()
+  })
+})
+
+describe('TranslateResult — sentence star (feature #22, WI-3)', () => {
+  const renderWithStar = () =>
+    render(
+      <TranslateResult
+        accepted={false}
+        onAccept={vi.fn()}
+        onRetry={vi.fn()}
+        source="你好世界"
+        sourceLang="zh"
+        targetLang="en"
+      />,
+    )
+
+  it('stars the whole sentence pair (source → result + direction) at done', async () => {
+    useOperationStore.setState({
+      translate: { status: 'done', text: 'Hello world', startedAt: 0, elapsedMs: 1, runId: 1, isAuto: false },
+    })
+    renderWithStar()
+    await userEvent.click(screen.getByRole('button', { name: 'Star' }))
+    const items = useStarredStore.getState().items
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      kind: 'sentence',
+      source: '你好世界',
+      translation: 'Hello world',
+      sourceLang: 'zh',
+      targetLang: 'en',
+    })
+    expect(screen.getByRole('button', { name: 'Starred' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('does NOT show the sentence star while streaming (only at done)', () => {
+    useOperationStore.setState({
+      translate: { status: 'streaming', text: 'Hello', startedAt: 0, elapsedMs: 1, runId: 1, isAuto: false },
+    })
+    renderWithStar()
+    expect(screen.queryByRole('button', { name: /^starred?$/i })).toBeNull()
   })
 })

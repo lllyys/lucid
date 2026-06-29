@@ -183,6 +183,8 @@
   "glossary.useAria": "Use {{term}} as a keyword",
   "glossary.removeTerm": "Remove {{term}}",
   "glossary.suggested": "Suggested",
+  "starred.star": "Star",
+  "starred.starred": "Starred",
   "error.rateLimited": "You've hit the rate limit — please wait a moment and try again.",
   "error.providerDown": "The provider is temporarily unavailable — try again or switch providers.",
   "error.invalidKey": "Your API key is missing or invalid.",

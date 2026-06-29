@@ -6,6 +6,8 @@ import { useViewportTier } from '@/hooks/useViewportTier'
 import { createSpeech } from '@/lib/speech/speak'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { StarButton } from '@/components/starred/StarButton'
+import type { StarredInput } from '@/stores/starredStore'
 import { LookupCard, type LookupCardData, type PlayState } from './LookupCard'
 
 /** RTL source languages — drives the card's `dir` + logical layout (rule 66 §3). */
@@ -126,6 +128,24 @@ export function LookupCardHost({
   const dir = sourceLang && RTL_LANGS.has(sourceLang) ? 'rtl' : undefined
   const label = t('lookup.dialogLabel', { word: storeWord })
 
+  // Star the WORD (feature #22, WI-3) — only once the lookup is `done` with data, so a star is
+  // never built from a half-streamed or errored card. The same input feeds the desktop popover
+  // and the phone sheet (shared `card`). Both this host's consumers (the rendered-pane
+  // WordLookupPopover AND the editable-pane EditableLookupOverlay) inherit the control.
+  const wordStar: StarredInput | null =
+    status === 'done'
+      ? {
+          kind: 'word',
+          source: storeWord,
+          translation: translations.join(' · '),
+          ipa: ipa || undefined,
+          meaning: meaning || undefined,
+          sourceLang: sourceLang ?? '',
+          targetLang: targetLang ?? '',
+          context: sentence || undefined,
+        }
+      : null
+
   const card = (showContext: boolean) => (
     <LookupCard
       data={data}
@@ -136,6 +156,7 @@ export function LookupCardHost({
       showContext={showContext}
       voicesReady={voicesReady}
       hasVoice={hasVoice}
+      star={wordStar ? <StarButton variant="icon" input={wordStar} /> : undefined}
     />
   )
 

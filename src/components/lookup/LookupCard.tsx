@@ -108,6 +108,7 @@ export function LookupCard({
   showContext,
   voicesReady,
   hasVoice,
+  star,
 }: {
   data: LookupCardData
   play: PlayState
@@ -117,6 +118,9 @@ export function LookupCard({
   showContext: boolean
   voicesReady: boolean
   hasVoice: boolean
+  /** The star toggle slot (feature #22, WI-3 — design Section B). The host fills it with a
+   *  StarButton built from the lookup fields, only at `done`; absent while loading/error. */
+  star?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const pair = `${langLabel(data.sourceLang)} → ${langLabel(data.targetLang)}`
@@ -204,6 +208,7 @@ export function LookupCard({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {star}
           <PlayButton play={play} lang={data.sourceLang} />
           {CloseBtn}
         </div>
