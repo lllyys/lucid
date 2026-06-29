@@ -5,13 +5,15 @@ Committed handoff from the `claude.ai/design` project **lucid**
 (GH #198) — a Clear button on the polish input pane. Resolves needs-design #199.
 
 `project/...dc.html` is the committed depiction (header + the verbatim implementation-spec table); this README
-distills the spec. A parity element — it mirrors the translate **source** Clear exactly.
+distills the spec. A parity element — it mirrors the translate **source** Clear's resting/hover tokens, and
+*adds* a focus ring, post-click refocus, and leading placement (which the translate Clear does not have).
 
 ## Implementation spec (from the design board)
 - **Placement** — in the `OriginalCard` header, **leading the right-side control group** (before the
   `LookupToggle` and the `LanguagePicker`).
-- **Appearance** — a borderless text button, Geist 12px. Resting `--t5` → hover `--ink`; focus-visible ring
-  `--accent-ink`. **Identical to the translate source Clear** (`TranslatePanel.tsx`).
+- **Appearance** — a borderless text button, Geist 12px. Resting `--t5` → hover `--ink` (mirrors the translate
+  source Clear's tokens); the design *adds* a focus-visible ring `--accent-ink` + post-click refocus + leading
+  placement that translate's Clear (`TranslatePanel.tsx`) lacks.
 - **Visibility** — shown only when `value.trim()` is non-empty; hidden when empty (the `LookupToggle` goes
   disabled alongside, as today). Disabled-at-40% is an acceptable alternative if hiding causes header reflow.
 - **Behavior** — wipes the Original input, then **resets the dependent draft / polish operation state** (parity
