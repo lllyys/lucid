@@ -226,6 +226,9 @@ export function TranslatePanel() {
             accepted={op.status === 'done' && acceptedText === op.text}
             onAccept={onAccept}
             onRetry={runNow}
+            source={source}
+            sourceLang={labels.srcCode}
+            targetLang={labels.tgtCode}
           />
         </section>
       </div>

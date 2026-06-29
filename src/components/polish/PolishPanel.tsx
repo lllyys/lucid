@@ -276,7 +276,7 @@ export function PolishPanel() {
             </span>
             {polishOp.status !== 'idle' && <AutoTag isAuto={polishOp.isAuto} />}
           </div>
-          <PolishResult draft={draft} onAccept={onAccept} onRegenerate={onPolish} onReject={onReject} />
+          <PolishResult draft={draft} onAccept={onAccept} onRegenerate={onPolish} onReject={onReject} lang={tgtLang} />
         </section>
       </div>
 

@@ -3,14 +3,16 @@ import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
 import { ResultBanner } from '@/components/workspace/ResultBanner'
 import { WordLookupPopover } from '@/components/lookup/WordLookupPopover'
+import { StarButton } from '@/components/starred/StarButton'
 
 /**
  * Translate result pane (feature #2, WI-8; error/cancelled banner added feature #4, WI-5; word
- * lookup added feature #20, WI-6). States: idle (italic placeholder), streaming (text + live
- * caret), done (text + Copy/Accept), error/cancelled (partial text kept — rule 65 §3 — plus a
- * localized ResultBanner #14). The done result text renders through WordLookupPopover so each word
- * is a clickable dictionary lookup; words are interactive only at `done` so a stale offset can
- * never be clicked while the text still grows.
+ * lookup added feature #20, WI-6; sentence star added feature #22, WI-3). States: idle (italic
+ * placeholder), streaming (text + live caret), done (text + Star/Copy/Accept), error/cancelled
+ * (partial text kept — rule 65 §3 — plus a localized ResultBanner #14). The done result text
+ * renders through WordLookupPopover so each word is a clickable dictionary lookup; words are
+ * interactive only at `done` so a stale offset can never be clicked while the text still grows.
+ * The Star saves the whole sentence pair (source → result + direction) to the Starred review list.
  *
  * Accept COMMITS the result to the panel (via onAccept) — it is not a bare toast (rule 66 §2);
  * the panel owns the accepted working translation and shows the "accepted" state here.
@@ -19,10 +21,17 @@ export function TranslateResult({
   accepted,
   onAccept,
   onRetry,
+  source = '',
+  sourceLang = '',
+  targetLang = '',
 }: {
   accepted: boolean
   onAccept: (text: string) => void
   onRetry: () => void
+  /** The source text + direction, for the sentence star (feature #22). Empty → no star. */
+  source?: string
+  sourceLang?: string
+  targetLang?: string
 }) {
   const { t } = useTranslation()
   const op = useOperationStore((s) => s.translate)
@@ -60,6 +69,12 @@ export function TranslateResult({
       </div>
       {op.status === 'done' && (
         <div className="mt-3 flex items-center gap-2">
+          {source.trim() !== '' && (
+            <StarButton
+              variant="pill"
+              input={{ kind: 'sentence', source, translation: op.text, sourceLang, targetLang }}
+            />
+          )}
           <button
             type="button"
             onClick={copy}

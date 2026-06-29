@@ -7,6 +7,7 @@ import { cleanPolishOutput } from '@/lib/polish/cleanPolishOutput'
 import { ResultBanner } from '@/components/workspace/ResultBanner'
 import { useViewportTier } from '@/hooks/useViewportTier'
 import { WordLookupPopover } from '@/components/lookup/WordLookupPopover'
+import { StarButton } from '@/components/starred/StarButton'
 
 const wd = createWordDiff()
 
@@ -29,11 +30,14 @@ export function PolishResult({
   onAccept,
   onRegenerate,
   onReject,
+  lang = '',
 }: {
   draft: string
   onAccept: (text: string) => void
   onRegenerate: () => void
   onReject: () => void
+  /** The polish (target) language, for the sentence star (feature #22 — draft → polished pair). */
+  lang?: string
 }) {
   const { t } = useTranslation()
   const op = useOperationStore((s) => s.polish)
@@ -198,6 +202,12 @@ export function PolishResult({
             <button type="button" onClick={onRegenerate} className="text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-color)]">
               {t('polish.regenerate')}
             </button>
+            {draft.trim() !== '' && (
+              <StarButton
+                variant="pill"
+                input={{ kind: 'sentence', source: draft, translation: text, sourceLang: lang, targetLang: lang }}
+              />
+            )}
             <button
               type="button"
               onClick={copy}

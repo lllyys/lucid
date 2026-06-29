@@ -51,6 +51,7 @@ vi.mock('@/lib/speech/speak', () => ({ createSpeech: () => speechMock.api }))
 
 import { WordLookupPopover } from './WordLookupPopover'
 import { useLookupStore } from '@/stores/lookupStore'
+import { useStarredStore } from '@/stores/starredStore'
 import type { DefineSense } from '@/lib/lookup/parseDefine'
 
 beforeEach(() => {
@@ -62,6 +63,7 @@ beforeEach(() => {
   speechMock.api.__state.voicesReady = true
   speechMock.api.__state.voiceLangs = ['en', 'zh']
   useLookupStore.getState().close()
+  useStarredStore.getState().reset()
 })
 afterEach(() => {
   tierMock.value = 'desktop'
@@ -287,5 +289,38 @@ describe('WordLookupPopover — owner gating (#169 WI-1)', () => {
     // the same word text must NOT keep painting a spurious chip here.
     act(() => useLookupStore.setState({ owner: 'translateSource' }))
     expect(screen.getByRole('button', { name: 'stutter' })).not.toHaveAttribute('aria-current')
+  })
+})
+
+describe('WordLookupPopover — star control (feature #22, WI-3)', () => {
+  it('a done lookup shows a Star control that saves a kind:word entry', async () => {
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
+    setStore({})
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Star' }))
+    const items = useStarredStore.getState().items
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      kind: 'word',
+      source: 'stutter',
+      ipa: '/ˈstʌtər/',
+      meaning: 'a brief judder',
+      sourceLang: 'en',
+      targetLang: 'zh',
+      context: 'the user will perceive stutter',
+    })
+    // the control reflects the starred state after the click
+    expect(within(dialog()).getByRole('button', { name: 'Starred' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('does NOT show the Star control while the lookup is still streaming (not done)', () => {
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
+    setStore({ status: 'streaming', translations: [], meaning: '' })
+    expect(within(dialog()).queryByRole('button', { name: /^star(red)?$/i })).toBeNull()
+  })
+
+  it('does NOT show the Star control in the error state', () => {
+    render(<WordLookupPopover text="Hello stutter" done owner="translateResult" />)
+    setStore({ status: 'error', error: { kind: 'refusal', messageKey: 'error.refusal', retryable: false } })
+    expect(within(dialog()).queryByRole('button', { name: /^star(red)?$/i })).toBeNull()
   })
 })

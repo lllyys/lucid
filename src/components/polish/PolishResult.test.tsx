@@ -15,6 +15,7 @@ vi.mock('@/hooks/useViewportTier', () => ({ useViewportTier: () => tierMock.valu
 const lookupMock = vi.hoisted(() => ({ lookup: vi.fn(), close: vi.fn() }))
 vi.mock('@/hooks/useWordLookup', () => ({ useWordLookup: () => lookupMock }))
 import { useLookupStore } from '@/stores/lookupStore'
+import { useStarredStore } from '@/stores/starredStore'
 
 // draft "the cat sat" vs result "the dog sat" → exactly one change hunk (cat → dog).
 const DRAFT = 'the cat sat'
@@ -25,6 +26,7 @@ beforeEach(() => {
   useOperationStore.getState().reset('polish')
   lookupMock.lookup.mockReset()
   useLookupStore.getState().close()
+  useStarredStore.getState().reset()
 })
 
 afterEach(() => {
@@ -158,6 +160,37 @@ describe('PolishResult word-lookup wiring (feature #20, WI-6)', () => {
     // Compare exposes hunk toggles + view/action chrome, never word-lookup buttons
     expect(screen.queryByRole('button', { name: 'dog' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'sat' })).not.toBeInTheDocument()
+  })
+})
+
+describe('PolishResult — sentence star (feature #22, WI-3)', () => {
+  it('stars the draft → polished pair at done (kind:sentence, cleaned result)', async () => {
+    setDone('the dog sat')
+    renderResult({ lang: 'en' })
+    await userEvent.click(screen.getByRole('button', { name: 'Star' }))
+    const items = useStarredStore.getState().items
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      kind: 'sentence',
+      source: DRAFT,
+      translation: 'the dog sat',
+      sourceLang: 'en',
+      targetLang: 'en',
+    })
+    expect(screen.getByRole('button', { name: 'Starred' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('stores the CLEANED result, not the raw model prose', async () => {
+    setDone('Here is the improved sentence:\n\n"the dog sat"\n\nChanges made:\n- cat → dog')
+    renderResult({ lang: 'en' })
+    await userEvent.click(screen.getByRole('button', { name: 'Star' }))
+    expect(useStarredStore.getState().items[0].translation).toBe('the dog sat')
+  })
+
+  it('does NOT show the sentence star while streaming', () => {
+    useOperationStore.setState({ polish: { status: 'streaming', text: 'the', startedAt: 0, elapsedMs: 1, runId: 1, isAuto: false } })
+    renderResult({ lang: 'en' })
+    expect(screen.queryByRole('button', { name: /^star(red)?$/i })).toBeNull()
   })
 })
 
