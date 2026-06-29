@@ -120,6 +120,17 @@ export function PolishPanel() {
   }
   const onStopTranslate = () => abort('draftTranslate')
 
+  // Clear (feature #23): wipe the Original + reset the dependent ops — a dedicated NON-arming handler.
+  // It deliberately does NOT route through onOriginal/armPolish: that would schedule a debounced LLM
+  // re-polish on Clear under auto-run (the draft is still present). Mirrors the translate source clear()
+  // (which never arms). Cancel any pending auto-run so its chip dismisses immediately (runId guard
+  // already neutralizes the stale timer; this is the cosmetic dismissal).
+  const clearOriginal = () => {
+    setOriginal('')
+    resetForInput()
+    debounce.cancel()
+  }
+
   const onTranslateOriginal = () => {
     if (!original.trim()) return
     // A fresh translation produces a new draft, so any polish result on screen is now stale —
@@ -245,6 +256,7 @@ export function PolishPanel() {
           <OriginalCard
             value={original}
             onChange={onOriginal}
+            onClear={clearOriginal}
             lang={srcLang}
             onLang={onSrcLang}
             // The Original is in the source language → look words up src→tgt.

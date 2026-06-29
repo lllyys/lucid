@@ -282,6 +282,60 @@ describe('PolishPanel', () => {
   })
 })
 
+// WI-1 (feature #23): the Clear button on the polish Original pane — a dedicated NON-ARMING handler
+// that wipes the Original + resets the dependent polish/draftTranslate ops, and (M1) must NOT schedule
+// an auto-polish even when auto-run is armed (parity with the translate source clear(), which never arms).
+describe('PolishPanel — Clear (feature #23)', () => {
+  it('wipes the Original and resets the dependent polish + draftTranslate ops', async () => {
+    mockCreate.mockReturnValue(smartProvider())
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Original' }), '原文')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /translate original/i }))
+      await tick()
+    })
+    // The draftTranslate op completed (mirrored into the draft) — a non-idle op to prove the reset.
+    expect(useOperationStore.getState().draftTranslate.status).toBe('done')
+    expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('translated draft')
+
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+
+    expect(screen.getByRole('textbox', { name: 'Original' })).toHaveValue('')
+    expect(useOperationStore.getState().draftTranslate.status).toBe('idle')
+    expect(useOperationStore.getState().polish.status).toBe('idle')
+  })
+
+  it('does NOT arm an auto-polish on Clear even when auto-run is armed (M1 guard)', async () => {
+    vi.useFakeTimers()
+    try {
+      act(() => useProviderStore.getState().setVendor('ollama'))
+      useAutoRunStore.getState().setEnabled('polish', true)
+      mockCreate.mockReturnValue(smartProvider())
+      render(<PolishPanel />)
+      // A non-empty draft makes the polish request schedulable; editing the Original then arms a pending
+      // auto-polish (it would re-polish the existing draft) — exactly what Clear must NOT do.
+      fireEvent.change(screen.getByRole('textbox', { name: 'Draft to polish' }), { target: { value: 'rough draft' } })
+      fireEvent.change(screen.getByRole('textbox', { name: 'Original' }), { target: { value: '原文' } })
+      expect(screen.getByText(/auto-run in 1\.5s/i)).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+      // Clear cancels the pending auto-run and never re-arms — the chip dismisses immediately.
+      expect(screen.queryByText(/auto-run in 1\.5s/i)).toBeNull()
+
+      await act(async () => {
+        vi.advanceTimersByTime(1500)
+        await Promise.resolve()
+      })
+      // No auto-polish fired; the Original is wiped.
+      expect(useOperationStore.getState().polish.status).toBe('idle')
+      expect(screen.getByRole('textbox', { name: 'Original' })).toHaveValue('')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 // WI-2 (feature #11): auto-run toggle / "Run now" / pending / AUTO tag / draftTranslate-mirror guard.
 describe('PolishPanel — auto-run', () => {
   it('switches the primary button to "Run now" once auto-run is on (local, no cost gate)', async () => {

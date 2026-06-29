@@ -117,6 +117,7 @@
   "toast.translateAccepted": "Translation accepted",
   "toast.polishAccepted": "Polished text accepted",
   "polish.label": "Polish",
+  "polish.clear": "Clear",
   "polish.run": "Polish",
   "polish.stop": "Stop",
   "polish.subtitle": "refine a draft against its meaning & domain",

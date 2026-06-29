@@ -17,6 +17,7 @@ import { LanguagePicker } from './LanguagePicker'
 export function OriginalCard({
   value,
   onChange,
+  onClear,
   lang,
   onLang,
   targetLang,
@@ -26,6 +27,8 @@ export function OriginalCard({
 }: {
   value: string
   onChange: (v: string) => void
+  /** Wipe the Original + reset the dependent ops (feature #23) — a NON-arming action, not an edit. */
+  onClear: () => void
   lang: string
   onLang: (code: string) => void
   /** The lookup meaning language (polish target lang, threaded from PolishPanel). */
@@ -36,6 +39,11 @@ export function OriginalCard({
 }) {
   const { t } = useTranslation()
   const lookup = usePaneLookup({ text: value, owner: 'polishOriginal', sourceLang: lang, targetLang })
+  // Clear (feature #23): wipe the input then return focus to the textarea (design-specified refocus).
+  const handleClear = () => {
+    onClear()
+    lookup.textareaRef.current?.focus()
+  }
   return (
     <div className="flex min-h-[130px] shrink-0 flex-col overflow-hidden rounded-[14px] border bg-[var(--bg-color)]">
       <div className="flex items-center justify-between border-b px-4 py-2.5">
@@ -46,6 +54,15 @@ export function OriginalCard({
           <span className="text-[11.5px] text-[var(--text-disabled)]">{t('polish.originalHint')}</span>
         </div>
         <div className="flex items-center gap-2">
+          {value.trim() !== '' && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="rounded-[4px] text-[12px] text-[var(--text-tertiary)] outline-none hover:text-[var(--text-color)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ink)]"
+            >
+              {t('polish.clear')}
+            </button>
+          )}
           <LookupToggle active={lookup.mode === 'latched'} disabled={!value.trim()} onToggle={lookup.toggle} />
           <LanguagePicker value={lang} onChange={onLang} label={`${t('polish.original')} language`} />
         </div>
