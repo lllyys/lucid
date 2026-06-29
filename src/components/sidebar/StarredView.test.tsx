@@ -1,6 +1,29 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+
+// Mock the speech boundary (feature #24) — one shared speak/cancel pair across SpeakButton mounts,
+// with mutable voice state so the novoice path is exercised.
+const speechMock = vi.hoisted(() => {
+  const speak = vi.fn()
+  const cancel = vi.fn()
+  const state = { voicesReady: true, hasVoice: true, speaking: false }
+  const create = () => ({
+    get voicesReady() {
+      return state.voicesReady
+    },
+    speak,
+    cancel,
+    isSpeaking: () => state.speaking,
+    hasVoiceFor: () => state.hasVoice,
+    subscribe: () => () => {},
+  })
+  return { speak, cancel, state, create }
+})
+vi.mock('@/lib/speech/speak', () => ({ createSpeech: speechMock.create }))
+
+const loadMock = vi.hoisted(() => ({ load: vi.fn() }))
+vi.mock('@/lib/workspace/loadSource', () => ({ loadSourceIntoWorkspace: loadMock.load }))
 
 import '@/i18n'
 import { StarredView } from './StarredView'
@@ -29,6 +52,12 @@ const seed = () => {
 
 beforeEach(() => {
   useStarredStore.getState().reset()
+  speechMock.speak.mockClear()
+  speechMock.cancel.mockClear()
+  speechMock.state.voicesReady = true
+  speechMock.state.hasVoice = true
+  speechMock.state.speaking = false
+  loadMock.load.mockClear()
 })
 
 describe('StarredView (WI-4 — the review surface)', () => {
@@ -138,5 +167,65 @@ describe('StarredView (WI-4 — the review surface)', () => {
     expect(useStarredStore.getState().items).toHaveLength(1)
     expect(screen.getByText('1 starred')).toBeInTheDocument()
     expect(screen.queryByText('stutter')).toBeNull()
+  })
+})
+
+// WI-1 (feature #24) — the two starred-detail affordances: Speak (word only) + Open in workspace.
+describe('StarredView — detail affordances (feature #24)', () => {
+  it('word detail shows BOTH Speak and Open in workspace', async () => {
+    seed()
+    render(<StarredView />)
+    await userEvent.click(screen.getByText('stutter'))
+    expect(screen.getByRole('button', { name: /speak word/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open in workspace/i })).toBeInTheDocument()
+  })
+
+  it('sentence detail shows Open in workspace but NOT Speak (word-only)', async () => {
+    seed()
+    render(<StarredView />)
+    await userEvent.click(screen.getByText('渲染管线的每一帧都必须在十六毫秒内完成'))
+    expect(screen.getByRole('button', { name: /open in workspace/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /speak word/i })).toBeNull()
+  })
+
+  it('Open in workspace loads the item source via loadSourceIntoWorkspace', async () => {
+    seed()
+    render(<StarredView />)
+    await userEvent.click(screen.getByText('stutter'))
+    await userEvent.click(screen.getByRole('button', { name: /open in workspace/i }))
+    expect(loadMock.load).toHaveBeenCalledTimes(1)
+    expect(loadMock.load).toHaveBeenCalledWith('stutter')
+  })
+
+  it('Open in workspace on a sentence loads its source text', async () => {
+    seed()
+    render(<StarredView />)
+    await userEvent.click(screen.getByText('渲染管线的每一帧都必须在十六毫秒内完成'))
+    await userEvent.click(screen.getByRole('button', { name: /open in workspace/i }))
+    expect(loadMock.load).toHaveBeenCalledWith('渲染管线的每一帧都必须在十六毫秒内完成')
+  })
+
+  it('Speak calls createSpeech.speak with the word source and language', async () => {
+    seed()
+    render(<StarredView />)
+    await userEvent.click(screen.getByText('stutter'))
+    await userEvent.click(screen.getByRole('button', { name: /speak word/i }))
+    expect(speechMock.speak).toHaveBeenCalledWith('stutter', 'en')
+  })
+
+  it('Speak is rendered but DISABLED when no voice matches (novoice, not hidden)', async () => {
+    speechMock.state.hasVoice = false // voices loaded, none match → permanent novoice
+    seed()
+    render(<StarredView />)
+    await userEvent.click(screen.getByText('stutter'))
+    expect(screen.getByRole('button', { name: /speak word/i })).toBeDisabled()
+  })
+
+  it('cancels in-flight speech when the word detail unmounts (no audio leak)', async () => {
+    seed()
+    const { unmount } = render(<StarredView />)
+    await userEvent.click(screen.getByText('stutter'))
+    unmount()
+    expect(speechMock.cancel).toHaveBeenCalled()
   })
 })

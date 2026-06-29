@@ -1,11 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useStarredStore, searchStarred, type StarredItem } from '@/stores/starredStore'
+import { createSpeech } from '@/lib/speech/speak'
+import { loadSourceIntoWorkspace } from '@/lib/workspace/loadSource'
 
 /**
  * Starred review tab (feature #22, WI-4 — designed Section C/D). A searchable list of starred
  * word- and sentence-translations (the personal review list; NOT the Glossary), each opening a
- * per-item detail with an Unstar action. Mirrors SessionsView's list/search/detail/empty chrome.
+ * per-item detail. The detail offers an Unstar action, an "Open in workspace" action that loads the
+ * item's source into the translate editor (feature #24, via loadSourceIntoWorkspace), and — for a
+ * word — an IPA "Speak word" control (feature #24, reusing the #20 speech engine). Mirrors
+ * SessionsView's list/search/detail/empty chrome.
  * Search matches BOTH halves (source + translation, CJK-safe via the store's `searchStarred`).
  * Pure store interactions — consumes the shipped, sync-wired starredStore via selectors; never
  * mutates it beyond star()/unstar(). RTL-aware (per-item `dir`); CJK rows ellipsize on the
@@ -115,15 +120,24 @@ function Detail({ item, onBack }: { item: StarredItem; onBack: () => void }) {
         >
           ‹ {t('starred.allStarred')}
         </button>
-        <div className="flex items-baseline gap-2">
-          <span className={`min-w-0 truncate ${isWord ? 'font-serif text-[20px] font-semibold' : 'text-[13px] font-semibold'} text-[var(--text-color)]`}>
-            {isWord ? item.source : t('starred.sentenceType')}
-          </span>
-          {isWord && item.ipa && <span className="font-mono text-[12px] text-[var(--accent-ink)]">{item.ipa}</span>}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex items-baseline gap-2">
+              <span className={`min-w-0 truncate ${isWord ? 'font-serif text-[20px] font-semibold' : 'text-[13px] font-semibold'} text-[var(--text-color)]`}>
+                {isWord ? item.source : t('starred.sentenceType')}
+              </span>
+              {isWord && item.ipa && <span className="font-mono text-[12px] text-[var(--accent-ink)]">{item.ipa}</span>}
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-[var(--text-tertiary)]">
+              {full(item.sourceLang)} → {full(item.targetLang)}
+            </span>
+          </div>
+          {isWord && (
+            <div className="flex shrink-0 items-center gap-1.5">
+              <SpeakButton text={item.source} lang={item.sourceLang} />
+            </div>
+          )}
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-[var(--text-tertiary)]">
-          {full(item.sourceLang)} → {full(item.targetLang)}
-        </span>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-3 pb-3">
@@ -147,7 +161,7 @@ function Detail({ item, onBack }: { item: StarredItem; onBack: () => void }) {
         )}
       </div>
 
-      <div className="flex-0 border-t px-3 py-2.5">
+      <div className="flex flex-0 gap-2 border-t px-3 py-2.5">
         <button
           type="button"
           onClick={unstar}
@@ -156,8 +170,64 @@ function Detail({ item, onBack }: { item: StarredItem; onBack: () => void }) {
           <span aria-hidden className="text-[13px] text-[var(--accent-ink)]">★</span>
           {t('starred.unstar')}
         </button>
+        <button
+          type="button"
+          onClick={() => loadSourceIntoWorkspace(item.source)}
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[9px] border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-[12px] font-medium text-[var(--accent-ink)] hover:bg-[var(--accent-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-ink)]"
+        >
+          {t('starred.openInWorkspace')}
+        </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * IPA "Speak word" control for a starred WORD detail (feature #24). Reuses the feature-#20 speech
+ * engine (`createSpeech`): subscribes to its voiceschanged/speaking tick, speaks the word in its
+ * own language, and cancels any in-flight utterance on unmount (no audio leak after ‹ All starred /
+ * Unstar). Mirrors the #20 play/stop/novoice mapping but without streaming/error source states (a
+ * starred item is already `done`): disabled while voices load or when no voice matches (shown
+ * disabled, never hidden — rule 51 / the design's right cluster).
+ */
+function SpeakButton({ text, lang }: { text: string; lang: string }) {
+  const { t } = useTranslation()
+  const speech = useMemo(() => createSpeech(), [])
+  const [, tick] = useState(0)
+  // Re-derive on voiceschanged + speaking-state changes (voices may load after first paint).
+  useEffect(() => speech.subscribe(() => tick((n) => n + 1)), [speech])
+  // Cancel in-flight speech on unmount (safe no-op when SpeechSynthesis is unavailable — jsdom).
+  useEffect(() => () => speech.cancel(), [speech])
+
+  const speaking = speech.isSpeaking()
+  const disabled = !speaking && (!speech.voicesReady || !speech.hasVoiceFor(lang))
+
+  const onToggle = () => {
+    if (speech.isSpeaking()) speech.cancel()
+    else speech.speak(text, lang)
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={speaking ? t('lookup.stop') : t('starred.speak')}
+      aria-pressed={speaking}
+      disabled={disabled}
+      onClick={onToggle}
+      className={`flex size-[30px] shrink-0 items-center justify-center rounded-[9px] border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-ink)] ${
+        disabled
+          ? 'cursor-not-allowed border-[var(--border-strong)] bg-[var(--bg-tertiary)] text-[var(--text-disabled)]'
+          : speaking
+            ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--on-accent)]'
+            : 'border-[var(--accent-border)] bg-[var(--accent-subtle)] text-[var(--accent-ink)]'
+      }`}
+    >
+      {speaking ? (
+        <span aria-hidden className="size-[9px] rounded-[2px] bg-current" />
+      ) : (
+        <span aria-hidden className="ml-[2px] size-0 border-y-[6px] border-l-[9px] border-y-transparent border-l-current" />
+      )}
+    </button>
   )
 }
 

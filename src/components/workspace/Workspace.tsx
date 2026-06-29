@@ -12,6 +12,7 @@ import { PolishPanel } from '@/components/polish/PolishPanel'
 import { SyncErrorBanner } from '@/components/sync/SyncErrorBanner'
 import { AutoSyncConsentPrompt } from '@/components/sync/AutoSyncConsentPrompt'
 import { createSyncController } from '@/lib/sync/syncController'
+import { onLoadSource } from '@/lib/workspace/loadSource'
 import { useViewportTier } from '@/hooks/useViewportTier'
 
 /**
@@ -28,6 +29,8 @@ import { useViewportTier } from '@/hooks/useViewportTier'
  *    auto-run) survives a Translate↔Polish switch (audit C1).
  * The shell owns the single sync controller, the Settings · Sync open state (so the auth/conflict
  * banners can open it), the drawer-open + active-pane state, and re-attaches a persisted connection.
+ * It also listens for a starred "Open in workspace" load (feature #24) to close the drawer + switch
+ * to the translate pane (TranslatePanel owns loading the text).
  */
 export function Workspace() {
   const controller = useMemo(() => createSyncController(), [])
@@ -47,6 +50,18 @@ export function Workspace() {
     void controller.maybeAutoConnect(probeAbort.signal)
     return () => probeAbort.abort()
   }, [controller])
+
+  // "Open in workspace" from a starred item (feature #24): TranslatePanel owns the text; the shell
+  // owns the chrome — close the off-canvas drawer and surface the translate pane on phone. Stable
+  // setters → no stale closure; the listener unsubscribes on unmount.
+  useEffect(
+    () =>
+      onLoadSource(() => {
+        setDrawerOpen(false)
+        setActivePane('translate')
+      }),
+    [],
+  )
 
   const drawer = !isDesktop ? <SidebarDrawer open={drawerOpen} onOpenChange={setDrawerOpen} /> : null
 

@@ -8,6 +8,7 @@ import { createProvider } from '@/providers'
 import { notify } from '@/components/workspace/notify'
 import '@/i18n'
 import { TranslatePanel } from './TranslatePanel'
+import { LOAD_SOURCE_EVENT, loadSourceIntoWorkspace } from '@/lib/workspace/loadSource'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
 import { useAutoRunStore } from '@/stores/autoRunStore'
@@ -259,5 +260,74 @@ describe('TranslatePanel — auto-run', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+// WI-1 (feature #24) — the "Open in workspace" load: a LOAD_SOURCE_EVENT routes the starred source
+// through onSourceChange (reset + auto-run re-arm) via a ref so the FRESH armed state is read.
+describe('TranslatePanel — load source (feature #24)', () => {
+  it('replaces the source AND resets the prior (done) result on a load request', async () => {
+    useProviderStore.getState().setApiKey('sk-test') // anthropic, auto off by default
+    mockCreate.mockReturnValue(okProvider('Hola mundo'))
+    const user = userEvent.setup()
+    render(<TranslatePanel />)
+    await user.type(screen.getByLabelText('Source'), 'Hello world')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^translate$/i }))
+      await tick()
+    })
+    expect(useOperationStore.getState().translate.status).toBe('done')
+    expect(screen.getByRole('button', { name: 'mundo' })).toBeInTheDocument()
+
+    // Load a starred source — the editor takes the new text and the stale result is cleared.
+    act(() => loadSourceIntoWorkspace('Bonjour le monde'))
+    expect(screen.getByLabelText('Source')).toHaveValue('Bonjour le monde')
+    expect(useOperationStore.getState().translate.status).toBe('idle') // reset, not 'done'
+    expect(screen.queryByRole('button', { name: 'mundo' })).toBeNull() // stale result gone
+  })
+
+  it('SCHEDULES an auto-run when auto is armed AFTER mount (ref reads the fresh armed state)', async () => {
+    vi.useFakeTimers()
+    try {
+      useProviderStore.getState().setVendor('ollama') // local → no cost gate
+      render(<TranslatePanel />)
+      // Arm auto-run AFTER mount — the mount-time listener must read THIS state, not a stale closure.
+      act(() => fireEvent.click(screen.getByRole('switch')))
+      expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true')
+      act(() => loadSourceIntoWorkspace('Hello'))
+      expect(screen.getByText(/auto-run in 1\.5s/i)).toBeInTheDocument() // scheduled
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does NOT schedule when auto is disarmed AFTER mount (no stale auto-translate)', async () => {
+    vi.useFakeTimers()
+    try {
+      useProviderStore.getState().setVendor('ollama')
+      useAutoRunStore.getState().setEnabled('translate', true) // start armed
+      mockCreate.mockReturnValue(okProvider('Hola'))
+      render(<TranslatePanel />)
+      // Disarm AFTER mount.
+      act(() => fireEvent.click(screen.getByRole('switch')))
+      expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
+      act(() => loadSourceIntoWorkspace('Hello'))
+      expect(screen.queryByText(/auto-run in 1\.5s/i)).toBeNull() // nothing scheduled
+      await act(async () => {
+        vi.advanceTimersByTime(2000)
+        await Promise.resolve()
+      })
+      expect(useOperationStore.getState().translate.status).toBe('idle') // no run fired
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('removes its load-source listener on unmount', () => {
+    const removeSpy = vi.spyOn(window, 'removeEventListener')
+    const { unmount } = render(<TranslatePanel />)
+    unmount()
+    expect(removeSpy).toHaveBeenCalledWith(LOAD_SOURCE_EVENT, expect.any(Function))
+    removeSpy.mockRestore()
   })
 })

@@ -200,6 +200,8 @@
   "starred.meaningLabel": "Meaning in context",
   "starred.sentenceType": "Sentence",
   "starred.from": "From",
+  "starred.speak": "Speak word",
+  "starred.openInWorkspace": "Open in workspace ›",
   "error.rateLimited": "You've hit the rate limit — please wait a moment and try again.",
   "error.providerDown": "The provider is temporarily unavailable — try again or switch providers.",
   "error.invalidKey": "Your API key is missing or invalid.",
