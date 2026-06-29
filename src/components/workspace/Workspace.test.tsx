@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@/i18n'
 import { Workspace } from './Workspace'
 import type { ViewportTier } from '@/hooks/useViewportTier'
 import { useOperationStore } from '@/stores/operationStore'
+import { loadSourceIntoWorkspace } from '@/lib/workspace/loadSource'
 
 // Drive the responsive tier by mocking the hook (the plan's M5 — mock the hook, not matchMedia, for
 // component/integration tests). Default = desktop so the existing no-regression assertions hold.
@@ -68,6 +69,16 @@ describe('Workspace reflow (feature #16)', () => {
     expect(screen.queryByText(/to run/i)).toBeNull()
     expect(screen.getByText('Lucid')).toBeInTheDocument()
   })
+
+  it('closes an open sidebar drawer on a load-source request (feature #24)', async () => {
+    tierMock.value = 'tablet'
+    const user = userEvent.setup()
+    render(<Workspace />)
+    await user.click(screen.getByRole('button', { name: /open menu/i }))
+    expect(await screen.findByRole('tab', { name: 'Sessions' })).toBeInTheDocument()
+    act(() => loadSourceIntoWorkspace('hola'))
+    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Sessions' })).toBeNull())
+  })
 })
 
 // WI-3 — phone single-pane via the PaneSwitcher + visibility toggle (both panels MOUNTED). The C1
@@ -103,6 +114,21 @@ describe('Workspace single-pane (phone, feature #16)', () => {
     expect(isHidden(screen.getByLabelText('Source'))).toBe(true)
     expect(isHidden(screen.getByLabelText('Draft to polish'))).toBe(false)
     expect(container).toBeTruthy()
+  })
+
+  it('a load-source request switches the active pane back to Translate (feature #24)', async () => {
+    const user = userEvent.setup()
+    render(<Workspace />)
+    await user.click(screen.getByRole('radio', { name: 'Polish' }))
+    expect(screen.getByRole('radio', { name: 'Polish' })).toHaveAttribute('aria-checked', 'true')
+    act(() => loadSourceIntoWorkspace('hola mundo'))
+    expect(screen.getByRole('radio', { name: 'Translate' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('a load-source request also carries the text into the translate source editor', () => {
+    render(<Workspace />)
+    act(() => loadSourceIntoWorkspace('cargado'))
+    expect(screen.getByLabelText('Source')).toHaveValue('cargado')
   })
 
   it('preserves the typed source AND a partially-rejected polish diff across a Translate↔Polish round-trip', async () => {

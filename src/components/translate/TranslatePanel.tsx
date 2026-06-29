@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useOperationStore } from '@/stores/operationStore'
+import { onLoadSource } from '@/lib/workspace/loadSource'
 import { usePanelRun } from '@/hooks/usePanelRun'
 import { useAutoRunDebounce } from '@/hooks/useAutoRunDebounce'
 import { useAutoRunPanel } from '@/hooks/useAutoRunPanel'
@@ -32,6 +33,8 @@ const AUTORUN_DEBOUNCE_MS = 1500
  * the op (stale-input guard). Auto-run (feature #11, opt-in via the header toggle) debounces a run
  * after typing settles — IME-safe, cost-gated on hosted providers, paused when the provider is
  * unready; a manual Run now / ⌘↵ cancels the pending timer and fires immediately (no AUTO tag).
+ * A starred "Open in workspace" (#24) loads text via the LOAD_SOURCE_EVENT bridge: it routes through
+ * onSourceChange (reset + re-arm) using a ref-to-latest handler, then defers focus to the editor.
  */
 export function TranslatePanel() {
   const { t } = useTranslation()
@@ -78,6 +81,28 @@ export function TranslatePanel() {
     useOperationStore.getState().reset('translate')
     if (auto.armed) debounce.scheduleRun(buildRequest(value))
   }
+  // "Open in workspace" from a starred item (feature #24): route the loaded text through
+  // onSourceChange (so the stale result resets + auto-run re-arms exactly per the CURRENT armed
+  // state). onSourceChange is recreated each render — subscribe once via a ref to the latest handler
+  // so the load reads the FRESH auto.armed/debounce (never a stale auto-translate). Focus is deferred
+  // to a loadNonce effect (a phone pane-switch unhides the source field after this tick).
+  const handlerRef = useRef(onSourceChange)
+  handlerRef.current = onSourceChange
+  const [loadNonce, setLoadNonce] = useState(0)
+  const sourceRef = lookup.textareaRef
+  useEffect(
+    () =>
+      onLoadSource((text) => {
+        handlerRef.current(text)
+        setLoadNonce((n) => n + 1)
+      }),
+    [],
+  )
+  useEffect(() => {
+    if (loadNonce === 0) return
+    const raf = requestAnimationFrame(() => sourceRef.current?.focus())
+    return () => cancelAnimationFrame(raf)
+  }, [loadNonce, sourceRef])
   const onSourceKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (isRunNowShortcut(e.nativeEvent, isMacPlatform())) {
       e.preventDefault()
