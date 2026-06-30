@@ -78,6 +78,33 @@ describe('sessionStore', () => {
     expect(useSessionStore.getState().sessions).toHaveLength(0)
   })
 
+  it('addTask stores the optional read-view metadata when provided (feature #25)', () => {
+    useSessionStore.getState().newSession()
+    useSessionStore.getState().addTask({
+      kind: 'translate',
+      title: 'Hi',
+      sourceText: 'Hi',
+      resultText: '你好',
+      sourceLang: 'en',
+      targetLang: 'zh',
+      durationMs: 1500,
+      keywords: ['inference', 'latency'],
+    })
+    const task = useSessionStore.getState().sessions[0].tasks[0]
+    expect(task).toMatchObject({ sourceLang: 'en', targetLang: 'zh', durationMs: 1500, keywords: ['inference', 'latency'] })
+  })
+
+  it('addTask omits the optional metadata cleanly when not provided (old tasks degrade)', () => {
+    useSessionStore.getState().newSession()
+    useSessionStore.getState().addTask({ kind: 'translate', title: 'Hi', sourceText: 'Hi', resultText: '你好' })
+    const task = useSessionStore.getState().sessions[0].tasks[0]
+    expect(task.sourceLang).toBeUndefined()
+    expect(task.targetLang).toBeUndefined()
+    expect(task.durationMs).toBeUndefined()
+    expect(task.keywords).toBeUndefined()
+    expect('sourceLang' in task).toBe(false) // omitted, not present-as-undefined
+  })
+
   it('caps sessions at MAX_SESSIONS (drops the oldest)', () => {
     for (let i = 0; i < MAX_SESSIONS + 3; i++) useSessionStore.getState().newSession()
     expect(useSessionStore.getState().sessions.length).toBe(MAX_SESSIONS)

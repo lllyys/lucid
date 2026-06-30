@@ -129,7 +129,9 @@ describe('TranslatePanel', () => {
     const sessions = useSessionStore.getState().sessions
     expect(sessions).toHaveLength(1)
     expect(sessions[0].tasks).toHaveLength(1)
-    expect(sessions[0].tasks[0]).toMatchObject({ kind: 'translate', resultText: 'Hola mundo' })
+    // feature #25: the task carries the detected direction (en→zh for "Hello world") + a numeric latency.
+    expect(sessions[0].tasks[0]).toMatchObject({ kind: 'translate', resultText: 'Hola mundo', sourceLang: 'en', targetLang: 'zh' })
+    expect(typeof sessions[0].tasks[0].durationMs).toBe('number')
   })
 
   // WI-4: the direction override changes the source editor's visual dir (never the request).

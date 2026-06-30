@@ -51,7 +51,8 @@ export function PolishPanel() {
   const auto = useAutoRunPanel('polish')
   const debounce = useAutoRunDebounce('polish', { debounceMs: AUTORUN_DEBOUNCE_MS })
   // feature #14 — auto-save each completed polish run; store the CLEANED result (feature #96), not prose.
-  useAutoRecordTask('polish', 'polish', draft, cleanPolishOutput)
+  // feature #25 — carry the "keywords kept" the run was told to preserve onto the task for the read view.
+  useAutoRecordTask('polish', 'polish', draft, cleanPolishOutput, { keywords: keywordValues })
 
   const translating = dt.status === 'streaming'
   const isPolishing = polishOp.status === 'streaming'

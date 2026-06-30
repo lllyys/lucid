@@ -9,6 +9,10 @@ import type { PanelId, PanelOp } from '@/stores/operationStore'
 import type { Task } from '@/stores/sessionStore'
 import { recordTask } from './recordTask'
 
+/** The read-view metadata (feature #25) a panel threads through `useAutoRecordTask`: translate langs and
+ *  polish keywords. `durationMs` is NOT here — it is captured locally from the frozen `op.elapsedMs`. */
+export type AutoRecordMeta = Pick<Task, 'sourceLang' | 'targetLang' | 'keywords'>
+
 // Last-recorded runId per panel. runId is monotonic per panel (bumped by run/reset/abort/fail), so a
 // key never repeats → this is a collision-free once-per-run guard.
 const lastRecorded = new Map<PanelId, number>()
@@ -22,7 +26,8 @@ export function __resetAutoRecord(): void {
  * Record a completed run once per (panel, runId). Returns true iff it recorded. Records ONLY on a `done`
  * op (the `op.status !== 'done'` early-return narrows the union so `op.text` is available); skips a
  * repeat runId, an empty/whitespace source, and an empty (optionally cleaned) result. `cleanResult` lets
- * polish store the cleaned text (feature #96) rather than the raw model output.
+ * polish store the cleaned text (feature #96) rather than the raw model output. `meta` carries the
+ * read-view langs/keywords (feature #25); `durationMs` is captured here from the frozen `op.elapsedMs`.
  */
 export function recordRunIfNew(
   panelId: PanelId,
@@ -30,6 +35,7 @@ export function recordRunIfNew(
   kind: Task['kind'],
   sourceText: string,
   cleanResult?: (raw: string) => string,
+  meta?: AutoRecordMeta,
 ): boolean {
   if (op.status !== 'done') return false
   if (lastRecorded.get(panelId) === op.runId) return false
@@ -37,6 +43,7 @@ export function recordRunIfNew(
   const result = cleanResult ? cleanResult(op.text) : op.text
   if (result.trim() === '') return false
   lastRecorded.set(panelId, op.runId)
-  recordTask(kind, sourceText, result)
+  // op.elapsedMs is frozen at the `done` transition (operationStore); null (no timing) → undefined.
+  recordTask(kind, sourceText, result, { ...meta, durationMs: op.elapsedMs ?? undefined })
   return true
 }

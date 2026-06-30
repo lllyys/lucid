@@ -26,6 +26,13 @@ export interface Task {
   createdAt: number
   updatedAt: number
   deletedAt: number | null
+  // Optional read-view metadata (feature #25), captured at the panel call site and surfaced in the
+  // task detail. All optional + additive — old/synced tasks (and runs that don't pass them) omit them,
+  // so NO persist-version bump is needed (absent === undefined is already structurally valid).
+  sourceLang?: string // translate direction source code (e.g. 'en')
+  targetLang?: string // translate direction target code (e.g. 'zh')
+  durationMs?: number // run latency, frozen from operationStore op.elapsedMs at the `done` transition
+  keywords?: string[] // polish "keywords kept" — the domain keywords the run was told to preserve
 }
 export interface Session {
   id: string

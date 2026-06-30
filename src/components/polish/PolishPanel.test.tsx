@@ -252,6 +252,19 @@ describe('PolishPanel', () => {
     expect(sessions[0].tasks[0]).toMatchObject({ kind: 'polish', resultText: 'polished result' })
   })
 
+  it('records the "keywords kept" onto the polished task (feature #25)', async () => {
+    mockCreate.mockReturnValue(smartProvider())
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'add keyword' }), 'inference{Enter}')
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'rough draft text')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^polish$/i }))
+      await tick()
+    })
+    expect(useSessionStore.getState().sessions[0].tasks[0]).toMatchObject({ kind: 'polish', keywords: ['inference'] })
+  })
+
   it('auto-saves the CLEANED full polish result, not the model prose (feature #14 + #96)', async () => {
     const prose = 'Here is the improved sentence:\n\n"polished result"\n\nChanges made:\n- tidied it up'
     const proseStream = () =>
