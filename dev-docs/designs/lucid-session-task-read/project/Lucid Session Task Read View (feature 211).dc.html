@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Noto+Naskh+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --board:#ECE8E1; --ink:#1E1C19; --on-accent:#FFFFFF;
+      --border:#E9E6E0; --border-strong:#E2DFD8; --border-dashed:#CFCAC1; --fill-muted:#F0EDE7; --dot-idle:#C9C4BB;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7; --faint:#C4BFB5;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-tint:#F3F2FE; --accent-border:#DDDCFB; --accent-dash:#B9B4F0; --accent-mid:#8A83E0;
+      --hover:#F5F3EF;
+      --ok:#2F7D5B; --ok-soft:#E8F3EC;
+      --warn:#B8801F; --warn-soft:#FBF1DC; --warn-border:#EDD6A2;
+      --danger:#B23A48; --danger-soft:#FBEAEC; --danger-border:#F0CDD2;
+      --shadow-c1:rgba(30,28,25,0.13); --shadow-c2:rgba(30,28,25,0.06); --shadow-c3:rgba(30,28,25,0.22);
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --board:#100F0C; --ink:#F2EFE9; --on-accent:#FFFFFF;
+      --border:#322E27; --border-strong:#3C3830; --border-dashed:#454037; --fill-muted:#2A2720; --dot-idle:#4A453C;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t3:#A6A199; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --t7:#726D65; --faint:#5E5A51;
+      --accent:#6E66DE; --accent-ink:#AEA7F7; --accent-soft:#2A2649; --accent-tint:#221F40; --accent-border:#3C3768; --accent-dash:#564F94; --accent-mid:#847DCB;
+      --hover:#2C2922;
+      --ok:#5FBE90; --ok-soft:#16291E;
+      --warn:#D7A648; --warn-soft:#2A2113; --warn-border:#4A3A1C;
+      --danger:#E27182; --danger-soft:#2E1A1D; --danger-border:#4A2A2F;
+      --shadow-c1:rgba(0,0,0,0.55); --shadow-c2:rgba(0,0,0,0.4); --shadow-c3:rgba(0,0,0,0.65);
+    }
+    html,body{background:var(--board);}
+    *{box-sizing:border-box;}
+    body{margin:0;}
+  </style>
+</helmet>
+
+<div ref="{{ boardRef }}" data-theme="{{ themeAttr }}" style="min-height:100vh;background:var(--board);color:var(--ink);font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:44px 48px 80px;">
+
+  <!-- ===== BOARD HEADER ===== -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;max-width:1340px;margin:0 auto 8px;flex-wrap:wrap;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="position:relative;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span></span>
+        <span style="font-size:19px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--accent-ink);text-transform:uppercase;background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 7px;border-radius:6px;">Feature&nbsp;#211 · task read view</span>
+      </div>
+      <h1 style="margin:0;font-size:29px;font-weight:600;letter-spacing:-0.022em;line-height:1.1;max-width:34ch;">Read a recorded task — its full source and result</h1>
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:var(--t2);max-width:72ch;">Today a session's tasks are truncated titles in a non-interactive <code style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--accent-ink);">TaskRow</code> — the stored <code style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--accent-ink);">sourceText</code> + <code style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--accent-ink);">resultText</code> are unreadable. This bundle makes the row open a <strong style="font-weight:600;color:var(--t1);">read-only task detail</strong> (mirrors the Starred detail, #22) showing the full original and translated/polished text, with a per-row <strong style="font-weight:600;color:var(--t1);">Open-in-workspace</strong> affordance that reuses #24's <code style="font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--accent-ink);">loadSource</code>. Tapping the row reads; the trailing action loads it back into the editor — non-destructive vs. destructive, separated.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">
+      <span>refs #211 · reuses #24 loadSource · #3 sidebar chrome</span>
+      <span>tokens from #2 / #16 · rule 51 bundle</span>
+      <span>WI — read view · row affordance</span>
+    </div>
+  </div>
+
+  <div style="max-width:1340px;margin:0 auto;display:flex;flex-direction:column;gap:8px;">
+
+    <!-- ============================ SECTION A — the task row ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:30px 0 16px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">A</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">The task row — now interactive</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">resting · hover · focus · the Open-in-workspace affordance · two task types</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start;">
+      <!-- state matrix -->
+      <div style="flex:1;min-width:540px;display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);padding:20px 22px;">
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t5);">row · 268px · in the session detail list — click body to read, ↗ to load</span>
+
+        <!-- resting -->
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;align-items:center;gap:10px;width:100%;max-width:268px;padding:8px 9px;border-radius:10px;background:transparent;">
+            <span style="width:26px;height:26px;flex:0 0 auto;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;">⇄</span>
+            <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:12.5px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">请在推理阶段重新计算每个词元…</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">Translate · 中→EN · 1.5s · 20m</span></span>
+            <span style="color:var(--faint);font-size:13px;flex:0 0 auto;">›</span>
+          </div>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);flex:0 0 auto;">resting</span>
+        </div>
+
+        <!-- hover -->
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;align-items:center;gap:10px;width:100%;max-width:268px;padding:8px 9px;border-radius:10px;background:var(--hover);">
+            <span style="width:26px;height:26px;flex:0 0 auto;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;">⇄</span>
+            <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:12.5px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">请在推理阶段重新计算每个词元…</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">Translate · 中→EN · 1.5s · 20m</span></span>
+            <span title="Open in workspace" style="width:24px;height:24px;flex:0 0 auto;border-radius:7px;border:1px solid var(--accent-border);background:var(--accent-tint);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:12px;">↗</span>
+            <span style="color:var(--t4);font-size:13px;flex:0 0 auto;">›</span>
+          </div>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);flex:0 0 auto;">hover — ↗ appears</span>
+        </div>
+
+        <!-- focus -->
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;align-items:center;gap:10px;width:100%;max-width:268px;padding:8px 9px;border-radius:10px;background:var(--accent-tint);box-shadow:0 0 0 2px var(--accent);">
+            <span style="width:26px;height:26px;flex:0 0 auto;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;">⇄</span>
+            <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:12.5px;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">请在推理阶段重新计算每个词元…</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-ink);">Translate · 中→EN · 1.5s · 20m</span></span>
+            <span title="Open in workspace" style="width:24px;height:24px;flex:0 0 auto;border-radius:7px;border:1px solid var(--accent-border);background:var(--accent-tint);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:12px;">↗</span>
+            <span style="color:var(--accent-ink);font-size:13px;flex:0 0 auto;">›</span>
+          </div>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);flex:0 0 auto;">keyboard focus</span>
+        </div>
+
+        <div style="height:1px;background:var(--fill-muted);"></div>
+
+        <!-- polish row resting -->
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;align-items:center;gap:10px;width:100%;max-width:268px;padding:8px 9px;border-radius:10px;background:transparent;">
+            <span style="width:26px;height:26px;flex:0 0 auto;border-radius:8px;background:var(--accent-tint);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;">✦</span>
+            <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:12.5px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">During inference, the model uses the attention…</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">Polish · 2.1s · 2m</span></span>
+            <span style="color:var(--faint);font-size:13px;flex:0 0 auto;">›</span>
+          </div>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);flex:0 0 auto;">polish · resting</span>
+        </div>
+
+        <!-- selected (open in read view) -->
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;align-items:center;gap:10px;width:100%;max-width:268px;padding:8px 9px;border-radius:10px;background:var(--accent-tint);">
+            <span style="width:26px;height:26px;flex:0 0 auto;border-radius:8px;background:var(--accent-tint);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;border:1px solid var(--accent-border);">✦</span>
+            <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:12.5px;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">During inference, the model uses the attention…</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-ink);">Polish · 2.1s · 2m</span></span>
+            <span title="Open in workspace" style="width:24px;height:24px;flex:0 0 auto;border-radius:7px;border:1px solid var(--accent-border);background:var(--surface);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:12px;">↗</span>
+            <span style="color:var(--accent-ink);font-size:13px;flex:0 0 auto;">›</span>
+          </div>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--accent-ink);flex:0 0 auto;">open in read view</span>
+        </div>
+      </div>
+
+      <!-- callouts -->
+      <div style="flex:0 0 300px;display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">›</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">The row reads, it no longer reloads.</strong> A trailing <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">›</code> signals “opens a detail”. Tapping the body opens the read view — never overwriting the editor.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">↗</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">One destructive action, gated.</strong> The ↗ Open-in-workspace button (reuses #24 <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">loadSource</code>) appears on hover / focus and stops row propagation — so a stray tap reads, never loads.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">⇄✦</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Same two badges as before.</strong> A ⇄ badge marks a translate task (carries direction), a ✦ marks a polish — unchanged from the existing list, so nothing relearns.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Whole row is one button; the ↗ is a nested button with <code style="color:var(--accent-ink);">stopPropagation</code>. Hit target ≥ 44px on touch — the ↗ keeps a transparent pad and is always present (not hover-gated) below 600px.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION B — the read view (translate) ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">B</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">The read view — a translate task</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">back link · header · scrolling source → result · sticky action row</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+      <!-- translate read view -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">read view · translate · 中→EN</div>
+        <aside data-screen-label="Read view · translate" style="width:268px;height:560px;flex:0 0 auto;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="padding:12px 12px 0;flex:0 0 auto;">
+            <button style="display:flex;align-items:center;gap:5px;border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;align-self:flex-start;">‹ Model card — EN localization</button>
+          </div>
+          <div style="padding:12px 14px;flex:0 0 auto;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--fill-muted);">
+            <span style="width:30px;height:30px;flex:0 0 auto;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:15px;">⇄</span>
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+              <span style="font-size:13.5px;font-weight:600;color:var(--ink);">Translation</span>
+              <div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:2px 6px;border-radius:5px;">中 → EN</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">1.5s · 20m ago</span></div>
+            </div>
+          </div>
+          <div style="flex:1;overflow:auto;display:flex;flex-direction:column;">
+            <div style="padding:14px;display:flex;flex-direction:column;gap:6px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Source · 中文</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:16px;line-height:1.75;color:var(--t1);">在推理阶段，模型会对上下文中的每个词元重新计算注意力权重，因此长文本的处理成本会随序列长度呈二次增长。</p>
+            </div>
+            <div style="padding:14px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex:1;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-ink);">Result · English</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:16px;line-height:1.75;color:var(--ink);">During inference, the model recomputes attention weights for every token in the context, so the cost of processing long text grows quadratically with sequence length.</p>
+            </div>
+          </div>
+          <div style="flex:0 0 auto;padding:11px 14px;border-top:1px solid var(--fill-muted);display:flex;gap:8px;">
+            <button title="Copy result" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;"><span style="font-size:12px;line-height:1;">⧉</span>Copy</button>
+            <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;">Open in workspace ›</button>
+          </div>
+        </aside>
+      </div>
+
+      <!-- anatomy callouts -->
+      <div style="flex:1;min-width:300px;max-width:380px;display:flex;flex-direction:column;gap:9px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">1</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Back to the session, not the editor.</strong> The ‹ link returns to the task list of the same session — the read view is a layer inside the Sessions sidebar, mirroring the Starred detail (#22).</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">2</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Source above, result below.</strong> Two labelled blocks — source on surface, result on the canvas tint — both full text in Newsreader, read-only. Direction, latency and age sit in the header.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">3</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Sticky action row.</strong> Copy the result, or Open in workspace (loads source + result back into the editor). The body scrolls between a pinned header and this row.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Read view is render-only: no edit affordances on the text. Editing happens after Open-in-workspace, in the editor proper. Copy uses the clipboard API; Open routes through #24 <code style="color:var(--accent-ink);">loadSource</code>.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION C — read view (polish) ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">C</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">The read view — a polish task</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">original → polished · the keywords that steered it</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">read view · polish · EN</div>
+        <aside data-screen-label="Read view · polish" style="width:268px;height:560px;flex:0 0 auto;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="padding:12px 12px 0;flex:0 0 auto;">
+            <button style="display:flex;align-items:center;gap:5px;border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;align-self:flex-start;">‹ Model card — EN localization</button>
+          </div>
+          <div style="padding:12px 14px;flex:0 0 auto;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--fill-muted);">
+            <span style="width:30px;height:30px;flex:0 0 auto;border-radius:9px;background:var(--accent-tint);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:15px;border:1px solid var(--accent-border);">✦</span>
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+              <span style="font-size:13.5px;font-weight:600;color:var(--ink);">Polished</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">2.1s · 2m ago</span>
+            </div>
+          </div>
+          <div style="flex:1;overflow:auto;display:flex;flex-direction:column;">
+            <div style="padding:14px;display:flex;flex-direction:column;gap:6px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Original</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:15px;line-height:1.7;color:var(--t2);">during inference the model use the attention thing to weigh each token again, so longer inputs cost alot more compute basicaly squared.</p>
+            </div>
+            <div style="padding:14px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-ink);">Polished</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:15px;line-height:1.7;color:var(--ink);">During inference, the model uses the attention mechanism to re-weigh each token, so longer inputs cost substantially more compute — roughly quadratic in length.</p>
+            </div>
+            <div style="padding:12px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Keywords kept</span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 8px;border-radius:6px;">inference</span>
+                <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 8px;border-radius:6px;">attention mechanism</span>
+                <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:3px 8px;border-radius:6px;">token</span>
+              </div>
+            </div>
+          </div>
+          <div style="flex:0 0 auto;padding:11px 14px;border-top:1px solid var(--fill-muted);display:flex;gap:8px;">
+            <button title="Copy result" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;"><span style="font-size:12px;line-height:1;">⧉</span>Copy</button>
+            <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;">Open in workspace ›</button>
+          </div>
+        </aside>
+      </div>
+
+      <div style="flex:1;min-width:300px;max-width:380px;display:flex;flex-direction:column;gap:9px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">✦</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Polish has three parts.</strong> The original draft, the polished result, and the keywords the run was told to preserve — the same trio the editor stored, now legible at a glance.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">≈</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Same skeleton as translate.</strong> Header badge swaps ⇄→✦, the “Source / Result” labels become “Original / Polished”, and a keyword block joins the body. Everything else — back link, scroll, action row — is identical.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">A diff toggle (original ↔ polished, inline highlights) is deliberately out of scope for the read view — it lives in the editor’s polish pane. Open-in-workspace is the path to it.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION D — long / scrolling & empty ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">D</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Long content &amp; the unavailable result</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">body scrolls under a pinned header &amp; action row · a task whose result wasn't saved</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+      <!-- long scrolling -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">long · mid-scroll</div>
+        <aside data-screen-label="Read view · long content" style="width:268px;height:560px;flex:0 0 auto;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="padding:10px 12px;flex:0 0 auto;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--fill-muted);box-shadow:0 1px 0 var(--fill-muted);">
+            <button style="border:none;background:transparent;color:var(--t5);font-size:14px;cursor:pointer;padding:0;flex:0 0 auto;">‹</button>
+            <span style="width:28px;height:28px;flex:0 0 auto;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:14px;">⇄</span>
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0;"><span style="font-size:13px;font-weight:600;color:var(--ink);">Translation</span><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--t5);">EN → 中 · 3.4s · 1h ago</span></div>
+          </div>
+          <div style="flex:1;overflow:auto;display:flex;flex-direction:column;">
+            <div style="padding:14px;display:flex;flex-direction:column;gap:6px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Source · English</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:15px;line-height:1.72;color:var(--t1);">The rendering pipeline must complete every frame within a sixteen-millisecond budget. When a frame overruns, the compositor drops it and the user perceives a stutter — a brief judder rather than a full freeze. To stay within budget, expensive work is moved off the main thread, batched across frames, or precomputed during idle time, and the scheduler prioritises whatever is visible in the current viewport.</p>
+            </div>
+            <div style="padding:14px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex:1;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-ink);">Result · 中文</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:15px;line-height:1.85;color:var(--ink);">渲染管线必须在十六毫秒的预算内完成每一帧。当某一帧超时，合成器会将其丢弃，用户便会察觉到卡顿——一种短暂的抖动，而非完全冻结。为了控制在预算之内，昂贵的运算会被移出主线程、跨帧分批处理，或在空闲时间预先计算，调度器会优先处理当前视口中可见的内容。</p>
+            </div>
+          </div>
+          <div style="flex:0 0 auto;padding:11px 14px;border-top:1px solid var(--border-strong);box-shadow:0 -1px 0 var(--fill-muted);display:flex;gap:8px;background:var(--surface);">
+            <button title="Copy result" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;"><span style="font-size:12px;line-height:1;">⧉</span>Copy</button>
+            <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;">Open in workspace ›</button>
+          </div>
+        </aside>
+      </div>
+
+      <!-- unavailable result -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">result not saved · interrupted run</div>
+        <aside data-screen-label="Read view · unavailable" style="width:268px;height:560px;flex:0 0 auto;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="padding:12px 12px 0;flex:0 0 auto;">
+            <button style="display:flex;align-items:center;gap:5px;border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;align-self:flex-start;">‹ Q2 investor update</button>
+          </div>
+          <div style="padding:12px 14px;flex:0 0 auto;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--fill-muted);">
+            <span style="width:30px;height:30px;flex:0 0 auto;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:15px;">⇄</span>
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0;"><span style="font-size:13.5px;font-weight:600;color:var(--ink);">Translation</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">EN → 中 · interrupted · 3h ago</span></div>
+          </div>
+          <div style="flex:1;overflow:auto;display:flex;flex-direction:column;">
+            <div style="padding:14px;display:flex;flex-direction:column;gap:6px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Source · English</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:16px;line-height:1.75;color:var(--t1);">Welcome aboard — your 14-day trial starts today.</p>
+            </div>
+            <div style="padding:14px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;align-items:flex-start;flex:1;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Result</span>
+              <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;width:100%;padding:14px;border:1px dashed var(--border-dashed);border-radius:11px;background:var(--surface);">
+                <span style="width:34px;height:34px;border-radius:10px;background:var(--fill-muted);display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:var(--faint);">⌀</span>
+                <span style="font-size:12.5px;font-weight:600;color:var(--t1);">Result wasn't saved</span>
+                <span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.6;color:var(--t5);">This run was interrupted before it finished. The source is intact — re-run it in the workspace.</span>
+              </div>
+            </div>
+          </div>
+          <div style="flex:0 0 auto;padding:11px 14px;border-top:1px solid var(--fill-muted);display:flex;gap:8px;">
+            <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;">Re-run in workspace ›</button>
+          </div>
+        </aside>
+      </div>
+
+      <div style="flex:1;min-width:260px;max-width:320px;display:flex;flex-direction:column;gap:9px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">↕</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Header &amp; actions pin.</strong> On long tasks the body scrolls; the compact header and the action row stay fixed with a hairline shadow, so Open-in-workspace is always one tap away.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">⌀</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">A missing result is honest.</strong> If only the source was stored, the result block says so and the action becomes Re-run — never a blank or a fake empty string.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">The session-level empty (“No tasks yet”) is unchanged from #3 — the read view only opens once a row exists, so it never needs its own empty list.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION E — RTL & CJK ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">E</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">RTL &amp; CJK — mirrored, no word spaces</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">per-block dir from the text · layout uses logical inline-start/-end</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;">
+      <!-- RTL read view -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">rtl · arabic source (dir=rtl)</div>
+        <aside dir="rtl" data-screen-label="Read view · RTL" style="width:268px;height:500px;flex:0 0 auto;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;font-family:'Noto Naskh Arabic',Geist,sans-serif;">
+          <div style="padding:12px 12px 0;flex:0 0 auto;">
+            <button style="display:flex;align-items:center;gap:5px;border:none;background:transparent;font-size:12px;color:var(--t5);cursor:pointer;padding:0;align-self:flex-start;">› الواجهة العربية</button>
+          </div>
+          <div style="padding:12px 14px;flex:0 0 auto;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--fill-muted);">
+            <span style="width:30px;height:30px;flex:0 0 auto;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:15px;">⇄</span>
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0;"><span style="font-size:13.5px;font-weight:600;color:var(--ink);">ترجمة</span><div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:2px 6px;border-radius:5px;">AR → EN</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">1.2s</span></div></div>
+          </div>
+          <div style="flex:1;overflow:auto;display:flex;flex-direction:column;">
+            <div style="padding:14px;display:flex;flex-direction:column;gap:6px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">المصدر · العربية</span>
+              <p style="margin:0;font-family:'Noto Naskh Arabic',serif;font-size:16px;line-height:1.9;color:var(--t1);">يجب أن يكتمل رسم كل إطار خلال ست عشرة مللي ثانية، وإلا سيلاحظ المستخدم تقطّعًا في الحركة.</p>
+            </div>
+            <div dir="ltr" style="padding:14px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex:1;text-align:left;">
+              <span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-ink);">Result · English</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:15px;line-height:1.72;color:var(--ink);">Each frame must finish rendering within sixteen milliseconds, or the user will notice a stutter in the motion.</p>
+            </div>
+          </div>
+          <div style="flex:0 0 auto;padding:11px 14px;border-top:1px solid var(--fill-muted);display:flex;gap:8px;">
+            <button title="نسخ" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px 12px;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;"><span style="font-size:12px;line-height:1;">⧉</span>نسخ</button>
+            <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px 12px;font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;">فتح في مساحة العمل ‹</button>
+          </div>
+        </aside>
+      </div>
+
+      <!-- CJK row truncation reminder -->
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">cjk source rows · char-level truncation</div>
+        <div style="width:300px;display:flex;flex-direction:column;gap:6px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px var(--shadow-c2);padding:10px 8px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:10px;background:var(--accent-tint);">
+            <span style="width:26px;height:26px;flex:0 0 auto;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;">⇄</span>
+            <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:12.5px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">在推理阶段，模型会对上下文中的每个词元重新计算权重</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">Translate · 中→EN · 1.5s · 20m</span></span>
+            <span style="color:var(--accent-ink);font-size:13px;flex:0 0 auto;">›</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:10px;background:transparent;">
+            <span style="width:26px;height:26px;flex:0 0 auto;border-radius:8px;background:var(--accent-tint);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:13px;">✦</span>
+            <span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;"><span style="font-size:12.5px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">注意力机制会在每一步重新分配权重</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">Polish · 1.8s · 40m</span></span>
+            <span style="color:var(--faint);font-size:13px;flex:0 0 auto;">›</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-width:260px;max-width:320px;display:flex;flex-direction:column;gap:9px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">⇄</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Each block carries its own dir.</strong> The Arabic source reads RTL; the English result block flips to <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">dir=ltr</code> so each half sets correctly. The chrome mirrors via logical properties.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">CJK rows ellipsize on the character with <code style="color:var(--accent-ink);">text-overflow:ellipsis</code> — never <code style="color:var(--accent-ink);">word-break</code>. In the open view CJK text wraps and the line-height opens to 1.85 for legibility.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION F — light + dark ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">F</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Light + dark — same tokens (#2 / #16)</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">canvas result block &amp; accent action read in both themes</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+      <div data-theme="dark" style="display:flex;flex-direction:column;gap:11px;padding:24px;border-radius:18px;background:#100F0C;border:1px solid #322E27;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);">dark · read view</div>
+        <aside style="width:268px;height:420px;flex:0 0 auto;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden;">
+          <div style="padding:12px 12px 0;flex:0 0 auto;"><button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;">‹ Model card — EN localization</button></div>
+          <div style="padding:12px 14px;flex:0 0 auto;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--fill-muted);">
+            <span style="width:30px;height:30px;flex:0 0 auto;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:15px;">⇄</span>
+            <div style="display:flex;flex-direction:column;gap:4px;"><span style="font-size:13.5px;font-weight:600;color:var(--ink);">Translation</span><div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:2px 6px;border-radius:5px;">中 → EN</span><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">1.5s · 20m</span></div></div>
+          </div>
+          <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+            <div style="padding:14px;display:flex;flex-direction:column;gap:6px;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Source · 中文</span><p style="margin:0;font-family:Newsreader,serif;font-size:15px;line-height:1.75;color:var(--t1);">在推理阶段，模型会对每个词元重新计算注意力权重。</p></div>
+            <div style="padding:14px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;flex:1;"><span style="font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-ink);">Result · English</span><p style="margin:0;font-family:Newsreader,serif;font-size:15px;line-height:1.72;color:var(--ink);">During inference, the model recomputes attention weights for every token.</p></div>
+          </div>
+          <div style="flex:0 0 auto;padding:11px 14px;border-top:1px solid var(--fill-muted);display:flex;gap:8px;">
+            <button style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;"><span style="font-size:12px;line-height:1;">⧉</span>Copy</button>
+            <button style="flex:1;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;">Open in workspace ›</button>
+          </div>
+        </aside>
+      </div>
+
+      <div style="flex:1;min-width:300px;display:flex;flex-direction:column;gap:14px;padding-top:30px;max-width:380px;">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;">
+          <div data-theme="light" style="display:flex;align-items:center;gap:10px;padding:16px 18px;border-radius:14px;background:#ECE8E1;border:1px solid var(--border-strong);">
+            <button style="border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;">Open in workspace ›</button>
+            <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">light</span>
+          </div>
+          <div data-theme="dark" style="display:flex;align-items:center;gap:10px;padding:16px 18px;border-radius:14px;background:#100F0C;border:1px solid #322E27;">
+            <button style="border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:9px;padding:8px 12px;font-family:Geist,sans-serif;font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;">Open in workspace ›</button>
+            <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">dark</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">◑</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);">Source sits on <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">--surface</code>, result on <code style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--accent-ink);">--canvas</code> — the same two-tone split as every other Lucid detail. The accent action holds AA on both grounds; no hardcoded colours.</span></div>
+      </div>
+    </div>
+
+    <!-- ============================ SECTION G — phone ============================ -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:42px 0 18px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;flex-wrap:wrap;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">G</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Responsive — phone (&lt;600px, reuses #16)</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">the read view pushes in full-height over the session list in the drawer</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">phone · read view over the drawer</div>
+        <div style="width:390px;flex:0 0 auto;background:var(--canvas);border:1px solid var(--border-strong);border-radius:34px;box-shadow:0 18px 44px var(--shadow-c2);padding:8px;">
+          <div data-screen-label="Phone · read view" style="position:relative;border-radius:27px;overflow:hidden;background:var(--canvas);border:1px solid var(--border);display:flex;flex-direction:column;height:740px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 22px 5px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);flex:0 0 auto;"><span>9:41</span><span style="display:flex;align-items:center;gap:5px;">⌖<span style="letter-spacing:1px;">▮▮▮</span>100%</span></div>
+            <div style="position:absolute;inset:0;background:rgba(18,16,12,0.38);"></div>
+            <div style="position:absolute;left:0;top:0;bottom:0;width:330px;background:var(--surface);border-right:1px solid var(--border-strong);box-shadow:14px 0 40px var(--shadow-c3);display:flex;flex-direction:column;">
+              <div style="display:flex;align-items:center;gap:10px;padding:14px 16px 10px;flex:0 0 auto;border-bottom:1px solid var(--fill-muted);">
+                <button style="border:none;background:transparent;color:var(--t5);font-size:15px;cursor:pointer;padding:0;flex:0 0 auto;">‹</button>
+                <span style="width:32px;height:32px;flex:0 0 auto;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:16px;">⇄</span>
+                <div style="display:flex;flex-direction:column;gap:3px;min-width:0;"><span style="font-size:15px;font-weight:600;color:var(--ink);">Translation</span><div style="display:flex;align-items:center;gap:7px;"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:2px 6px;border-radius:5px;">中 → EN</span><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">1.5s · 20m</span></div></div>
+              </div>
+              <div style="flex:1;overflow:auto;display:flex;flex-direction:column;">
+                <div style="padding:16px;display:flex;flex-direction:column;gap:7px;"><span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--t5);">Source · 中文</span><p style="margin:0;font-family:Newsreader,serif;font-size:17px;line-height:1.8;color:var(--t1);">在推理阶段，模型会对上下文中的每个词元重新计算注意力权重。</p></div>
+                <div style="padding:16px;background:var(--canvas);border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;flex:1;"><span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent-ink);">Result · English</span><p style="margin:0;font-family:Newsreader,serif;font-size:17px;line-height:1.78;color:var(--ink);">During inference, the model recomputes attention weights for every token in the context.</p></div>
+              </div>
+              <div style="flex:0 0 auto;padding:12px 16px;border-top:1px solid var(--fill-muted);display:flex;gap:9px;">
+                <button style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);border-radius:10px;padding:11px 14px;font-family:Geist,sans-serif;font-size:13px;font-weight:500;color:var(--t2);cursor:pointer;"><span style="font-size:13px;line-height:1;">⧉</span></button>
+                <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--accent-border);background:var(--accent-tint);border-radius:10px;padding:11px 14px;font-family:Geist,sans-serif;font-size:13px;font-weight:600;color:var(--accent-ink);cursor:pointer;">Open in workspace ›</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-width:280px;max-width:360px;display:flex;flex-direction:column;gap:10px;padding-top:26px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">1</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Full-height push, not a new screen.</strong> The read view slides over the session list inside the same drawer (#16); the ‹ back returns to the list. The scrim &amp; workspace edge stay behind it.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">2</span><span style="font-size:11.5px;line-height:1.6;color:var(--t2);"><strong style="color:var(--ink);font-weight:600;">Bigger targets.</strong> Rows and the action row grow to 44px+; Copy collapses to its icon to keep Open-in-workspace the dominant, full-width primary.</span></div>
+        <div style="display:flex;align-items:flex-start;gap:9px;padding:13px 15px;border:1px dashed var(--border-dashed);border-radius:12px;background:var(--canvas);"><span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--accent-ink);flex:0 0 auto;margin-top:1px;">i</span><span style="font-family:'Geist Mono',monospace;font-size:10px;line-height:1.65;color:var(--t4);">Open-in-workspace also closes the drawer, returning focus to the editor with the task loaded — one tap from reading to editing.</span></div>
+      </div>
+    </div>
+
+    <!-- footer -->
+    <div style="margin-top:46px;padding-top:18px;border-top:1px solid var(--border-strong);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t5);">
+      <span>Lucid · feature #211 · session task read view + row affordance · matches workspace tokens (light + dark)</span>
+      <span>row reads · ↗ loads · translate + polish · long-scroll · unavailable · RTL · CJK · phone</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1480,&quot;height&quot;:1024},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;light&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#574FD6&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  boardRef = React.createRef();
+  applyAccent() {
+    const a = this.props.accent;
+    if (a && this.boardRef.current) this.boardRef.current.style.setProperty('--accent', a);
+  }
+  componentDidMount() { this.applyAccent(); }
+  componentDidUpdate() { this.applyAccent(); }
+  renderVals() {
+    return {
+      themeAttr: this.props.theme ?? 'light',
+      boardRef: this.boardRef,
+    };
+  }
+}
+</script>
+</body>
+</html>
