@@ -39,4 +39,18 @@ describe('recordTask', () => {
     recordTask('polish', '   \n  ', 'result')
     expect(useSessionStore.getState().sessions[0].tasks[0].title).toBe('')
   })
+
+  it('forwards the optional read-view metadata to addTask (feature #25)', () => {
+    recordTask('translate', 'Hello', '你好', { sourceLang: 'en', targetLang: 'zh', durationMs: 900, keywords: ['api'] })
+    const task = useSessionStore.getState().sessions[0].tasks[0]
+    expect(task).toMatchObject({ sourceLang: 'en', targetLang: 'zh', durationMs: 900, keywords: ['api'] })
+  })
+
+  it('records no metadata keys when none is passed (old call sites degrade)', () => {
+    recordTask('translate', 'Hello', '你好')
+    const task = useSessionStore.getState().sessions[0].tasks[0]
+    expect('sourceLang' in task).toBe(false)
+    expect('durationMs' in task).toBe(false)
+    expect('keywords' in task).toBe(false)
+  })
 })

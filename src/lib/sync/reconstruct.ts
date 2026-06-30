@@ -15,6 +15,11 @@ import { isNonNegInt } from '@/lib/guards'
 import type { SyncEntity } from './types'
 
 const isOptString = (v: unknown): v is string | undefined => v === undefined || typeof v === 'string'
+// feature #25 task metadata guards: durationMs is a non-negative safe int (like a timestamp — rejects
+// NaN/Infinity/negatives/fractions/>2^53); keywords is a string[]. Each is optional (undefined ok).
+const isOptNonNegInt = (v: unknown): v is number | undefined => v === undefined || isNonNegInt(v)
+const isOptStringArray = (v: unknown): v is string[] | undefined =>
+  v === undefined || (Array.isArray(v) && v.every((x) => typeof x === 'string'))
 
 /** Session with no tasks — the caller (reconcileStores) re-nests task entities by sessionId. */
 export function entityToSession(e: SyncEntity): Session | null {
@@ -33,7 +38,12 @@ export function entityToTask(e: SyncEntity): { task: Task; sessionId: string } |
     typeof p.resultText !== 'string' ||
     typeof p.sessionId !== 'string' ||
     p.sessionId === '' || // a task must nest under a real session id
-    !isNonNegInt(p.createdAt)
+    !isNonNegInt(p.createdAt) ||
+    // Optional read-view metadata (feature #25): each must be the right type WHEN present; absent → undefined.
+    !isOptString(p.sourceLang) ||
+    !isOptString(p.targetLang) ||
+    !isOptNonNegInt(p.durationMs) ||
+    !isOptStringArray(p.keywords)
   ) {
     return null
   }
@@ -47,6 +57,10 @@ export function entityToTask(e: SyncEntity): { task: Task; sessionId: string } |
       createdAt: p.createdAt,
       updatedAt: e.updatedAt,
       deletedAt: e.deletedAt,
+      sourceLang: p.sourceLang,
+      targetLang: p.targetLang,
+      durationMs: p.durationMs,
+      keywords: p.keywords,
     },
     sessionId: p.sessionId,
   }

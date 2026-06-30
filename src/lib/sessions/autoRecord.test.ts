@@ -70,4 +70,27 @@ describe('recordRunIfNew (feature #14 — auto-save completed runs)', () => {
     expect(recordRunIfNew('translate', done('hola', 1), 'translate', 'hello')).toBe(true)
     expect(tasks()).toHaveLength(2)
   })
+
+  it('captures durationMs from the frozen op.elapsedMs (feature #25)', () => {
+    const op: PanelOp = { status: 'done', text: 'hola', startedAt: 0, elapsedMs: 1500, runId: 1, isAuto: false }
+    recordRunIfNew('translate', op, 'translate', 'hello')
+    expect(tasks()[0].durationMs).toBe(1500)
+  })
+
+  it('records durationMs undefined when op.elapsedMs is null (no timing captured)', () => {
+    const op = { status: 'done', text: 'hola', startedAt: 0, elapsedMs: null, runId: 1, isAuto: false } as PanelOp
+    recordRunIfNew('translate', op, 'translate', 'hello')
+    const task = tasks()[0]
+    expect(task.durationMs).toBeUndefined()
+  })
+
+  it('forwards the langs/keywords meta it receives (feature #25)', () => {
+    recordRunIfNew('translate', done('hola'), 'translate', 'hello', undefined, { sourceLang: 'en', targetLang: 'zh' })
+    expect(tasks()[0]).toMatchObject({ sourceLang: 'en', targetLang: 'zh' })
+  })
+
+  it('forwards polish keywords meta (feature #25)', () => {
+    recordRunIfNew('polish', done('polished'), 'polish', 'draft', undefined, { keywords: ['api', 'latency'] })
+    expect(tasks()[0].keywords).toEqual(['api', 'latency'])
+  })
 })

@@ -1,14 +1,77 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
+vi.mock('@/lib/workspace/loadSource', () => ({ loadSourceIntoWorkspace: vi.fn() }))
+vi.mock('@/hooks/useViewportTier', () => ({ useViewportTier: vi.fn(() => 'desktop') }))
 import '@/i18n'
 import { SessionsView } from './SessionsView'
+import { loadSourceIntoWorkspace } from '@/lib/workspace/loadSource'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
+
+const mockLoad = vi.mocked(loadSourceIntoWorkspace)
+const mockTier = vi.mocked(useViewportTier)
 
 beforeEach(() => {
   __resetSessionIds()
   useSessionStore.getState().reset()
+  mockLoad.mockReset()
+  mockTier.mockReset()
+  mockTier.mockReturnValue('desktop')
+})
+
+/** Seed one session holding one translate task, then open the session detail (list of tasks). */
+async function openSessionWithTask(user: ReturnType<typeof userEvent.setup>) {
+  useSessionStore.getState().newSession()
+  useSessionStore.getState().addTask({
+    kind: 'translate',
+    title: 'Greeting',
+    sourceText: 'Hello world',
+    resultText: 'Hola mundo',
+    sourceLang: 'en',
+    targetLang: 'zh',
+    durationMs: 1500,
+  })
+  render(<SessionsView />)
+  await user.click(screen.getByRole('button', { name: /Untitled session/i }))
+}
+
+describe('SessionsView task read view (feature #25, WI-4)', () => {
+  it('clicking the row body opens the read-only task detail (the task list is hidden)', async () => {
+    const user = userEvent.setup()
+    await openSessionWithTask(user)
+    await user.click(screen.getByRole('button', { name: /Greeting/i }))
+    // The read view shows its Open-in-workspace action + the full result text.
+    expect(screen.getByRole('button', { name: /open in workspace/i })).toBeInTheDocument()
+    expect(screen.getByText('Hola mundo')).toBeInTheDocument()
+  })
+
+  it('the ↗ button loads the source into the workspace WITHOUT opening the read view (stopPropagation)', async () => {
+    const user = userEvent.setup()
+    await openSessionWithTask(user)
+    await user.click(screen.getByRole('button', { name: /load into workspace/i }))
+    expect(mockLoad).toHaveBeenCalledWith('Hello world')
+    // Still in the task list — the read view's Open-in-workspace action did NOT appear.
+    expect(screen.queryByRole('button', { name: /open in workspace/i })).toBeNull()
+  })
+
+  it('the read view back link returns to the task list', async () => {
+    const user = userEvent.setup()
+    await openSessionWithTask(user)
+    await user.click(screen.getByRole('button', { name: /Greeting/i }))
+    await user.click(screen.getByRole('button', { name: /untitled session/i })) // ‹ {sessionName}
+    // Back in the list: the ↗ load affordance is present again; the read action is gone.
+    expect(screen.getByRole('button', { name: /load into workspace/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /open in workspace/i })).toBeNull()
+  })
+
+  it('renders the ↗ load affordance for every task row (always present below 600px)', async () => {
+    mockTier.mockReturnValue('phone')
+    const user = userEvent.setup()
+    await openSessionWithTask(user)
+    expect(screen.getByRole('button', { name: /load into workspace/i })).toBeInTheDocument()
+  })
 })
 
 describe('SessionsView (WI-5)', () => {

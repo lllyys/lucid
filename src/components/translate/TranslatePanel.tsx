@@ -45,9 +45,15 @@ export function TranslatePanel() {
   const { run, abort } = usePanelRun()
   const auto = useAutoRunPanel('translate')
   const debounce = useAutoRunDebounce('translate', { debounceMs: AUTORUN_DEBOUNCE_MS })
-  useAutoRecordTask('translate', 'translate', source) // feature #14 — auto-save each completed run to history
 
   const labels = directionLabels(detectDirection(source))
+  // feature #14 — auto-save each completed run to history; feature #25 — carry the detected direction
+  // (srcCode/tgtCode) onto the task so the read view can show "中 → EN".
+  useAutoRecordTask('translate', 'translate', source, undefined, {
+    sourceLang: labels.srcCode,
+    targetLang: labels.tgtCode,
+  })
+
   const isStreaming = op.status === 'streaming'
   const srcBidi = bidiAttrs(dirOverride)
   // Word lookup (feature #169, WI-4): the source is in the DETECTED source language → look words

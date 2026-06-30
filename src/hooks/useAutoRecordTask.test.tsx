@@ -41,4 +41,21 @@ describe('useAutoRecordTask', () => {
     act(() => setDone('hola', 1)) // a new op object, same runId → effect re-runs → deduped
     expect(tasks()).toHaveLength(1)
   })
+
+  it('threads the meta (langs/keywords) into the recorded task (feature #25)', () => {
+    renderHook(() => useAutoRecordTask('translate', 'translate', 'hello', undefined, { sourceLang: 'en', targetLang: 'zh' }))
+    act(() => setDone('hola', 1))
+    expect(tasks()[0]).toMatchObject({ sourceLang: 'en', targetLang: 'zh' })
+  })
+
+  it('records keywords once and does not double-record on a fresh keywords array reference (dep hygiene)', () => {
+    const { rerender } = renderHook(({ kw }) => useAutoRecordTask('translate', 'polish', 'draft', undefined, { keywords: kw }), {
+      initialProps: { kw: ['api'] },
+    })
+    act(() => setDone('polished', 1))
+    expect(tasks()).toHaveLength(1)
+    rerender({ kw: ['api'] }) // same values, fresh array reference — must not re-record (deduped anyway)
+    expect(tasks()).toHaveLength(1)
+    expect(tasks()[0].keywords).toEqual(['api'])
+  })
 })
