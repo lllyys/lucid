@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { entityToSession, entityToTask, entityToTerm, entityToKeyword, entityToStarred } from './reconstruct'
+import { flattenLocal } from './seed'
 import { keywordId } from '@/lib/keywordId'
+import type { Session, Task } from '@/stores/sessionStore'
 import type { SyncEntity } from './types'
 
 const ent = (type: SyncEntity['type'], payload: Record<string, unknown>, over: Partial<SyncEntity> = {}): SyncEntity => ({
@@ -40,6 +42,17 @@ describe('entityToTask', () => {
   it('accepts polish kind', () => {
     expect(entityToTask(ent('task', { ...valid, kind: 'polish' }))?.task.kind).toBe('polish')
   })
+  it('carries the optional read-view metadata when present (feature #25)', () => {
+    const r = entityToTask(ent('task', { ...valid, sourceLang: 'en', targetLang: 'zh', durationMs: 1500, keywords: ['api', 'latency'] }))
+    expect(r?.task).toMatchObject({ sourceLang: 'en', targetLang: 'zh', durationMs: 1500, keywords: ['api', 'latency'] })
+  })
+  it('reconstructs the optional metadata as undefined when absent (old/synced degrade, no clobber)', () => {
+    const r = entityToTask(ent('task', valid))
+    expect(r?.task.sourceLang).toBeUndefined()
+    expect(r?.task.targetLang).toBeUndefined()
+    expect(r?.task.durationMs).toBeUndefined()
+    expect(r?.task.keywords).toBeUndefined()
+  })
   it.each([
     { desc: 'invalid kind', p: { ...valid, kind: 'summarize' } },
     { desc: 'non-string title', p: { ...valid, title: 1 } },
@@ -49,8 +62,37 @@ describe('entityToTask', () => {
     { desc: 'empty sessionId (orphan task)', p: { ...valid, sessionId: '' } },
     { desc: 'non-number createdAt', p: { ...valid, createdAt: 'x' } },
     { desc: 'non-finite createdAt', p: { ...valid, createdAt: Infinity } },
+    { desc: 'non-string sourceLang when present', p: { ...valid, sourceLang: 1 } },
+    { desc: 'non-string targetLang when present', p: { ...valid, targetLang: 2 } },
+    { desc: 'non-number durationMs when present', p: { ...valid, durationMs: 'x' } },
+    { desc: 'negative durationMs', p: { ...valid, durationMs: -1 } },
+    { desc: 'non-finite durationMs (Infinity from JSON)', p: { ...valid, durationMs: Infinity } },
+    { desc: 'non-array keywords when present', p: { ...valid, keywords: 'api' } },
+    { desc: 'keywords array with a non-string element', p: { ...valid, keywords: ['api', 3] } },
   ])('returns null for a malformed payload: $desc', ({ p }) => {
     expect(entityToTask(ent('task', p))).toBeNull()
+  })
+})
+
+describe('task metadata sync round-trip (feature #25)', () => {
+  const sessionWith = (task: Task): Session => ({ id: 's1', name: 'Doc', createdAt: 10, updatedAt: 11, deletedAt: null, tasks: [task] })
+  const taskEntity = (task: Task): SyncEntity => {
+    const flat = flattenLocal({ sessions: [sessionWith(task)], terms: [], keywords: [], starred: [] }).find((e) => e.type === 'task')!
+    return { ...flat, rev: 0 }
+  }
+  const base: Task = { id: 't1', kind: 'translate', title: 'Hi', sourceText: 'Hi', resultText: '你好', createdAt: 11, updatedAt: 11, deletedAt: null }
+
+  it('a task WITH metadata survives flattenLocal → entityToTask intact', () => {
+    const r = entityToTask(taskEntity({ ...base, sourceLang: 'en', targetLang: 'zh', durationMs: 1500, keywords: ['api'] }))
+    expect(r?.task).toMatchObject({ sourceLang: 'en', targetLang: 'zh', durationMs: 1500, keywords: ['api'] })
+    expect(r?.sessionId).toBe('s1')
+  })
+  it('a task WITHOUT metadata reconstructs cleanly — fields stay undefined (no clobber)', () => {
+    const r = entityToTask(taskEntity(base))
+    expect(r).not.toBeNull()
+    expect(r?.task.sourceLang).toBeUndefined()
+    expect(r?.task.keywords).toBeUndefined()
+    expect(r?.task.durationMs).toBeUndefined()
   })
 })
 

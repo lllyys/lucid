@@ -62,6 +62,36 @@ describe('buildSeedFromLocal', () => {
     expect(ops.filter((o) => o.type === 'task')).toHaveLength(2)
   })
 
+  it('carries the optional read-view metadata in the task payload (feature #25)', () => {
+    const ops = buildSeedFromLocal({
+      sessions: [
+        session({
+          tasks: [
+            {
+              id: 't1',
+              kind: 'translate',
+              title: 'Hi',
+              sourceText: 'Hi',
+              resultText: '你好',
+              createdAt: 11,
+              updatedAt: 11,
+              deletedAt: null,
+              sourceLang: 'en',
+              targetLang: 'zh',
+              durationMs: 1500,
+              keywords: ['api', 'latency'],
+            },
+          ],
+        }),
+      ],
+      terms: [],
+      keywords: [],
+      starred: [],
+    })
+    const task = ops.find((o) => o.type === 'task')!
+    expect(task.payload).toMatchObject({ sourceLang: 'en', targetLang: 'zh', durationMs: 1500, keywords: ['api', 'latency'] })
+  })
+
   it('maps a glossary term to a term op {label, createdAt}', () => {
     const terms: Term[] = [{ id: 'g1', label: 'API', createdAt: 5, updatedAt: 5, deletedAt: null }]
     const ops = buildSeedFromLocal({ sessions: [], terms, keywords: [], starred: [] })

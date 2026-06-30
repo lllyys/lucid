@@ -47,6 +47,13 @@ export function flattenLocal(snapshot: LocalSnapshot): FlatEntity[] {
           resultText: t.resultText,
           sessionId: s.id,
           createdAt: t.createdAt,
+          // Optional read-view metadata (feature #25). Carry-or-omit: an absent field is `undefined`
+          // here and dropped by JSON serialization, so it never syncs and entityToTask restores it as
+          // undefined — old tasks round-trip cleanly, no clobber.
+          sourceLang: t.sourceLang,
+          targetLang: t.targetLang,
+          durationMs: t.durationMs,
+          keywords: t.keywords,
         },
         updatedAt: t.updatedAt,
         deletedAt: t.deletedAt,
