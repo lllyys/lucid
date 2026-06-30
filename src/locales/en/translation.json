@@ -214,7 +214,6 @@
   "task.read.openInWorkspace": "Open in workspace ›",
   "task.read.noResult": "Result wasn't saved",
   "task.read.ago": "{{value}} ago",
-  "task.read.openTask": "Open task",
   "task.read.loadIntoWorkspace": "Load into workspace",
   "error.rateLimited": "You've hit the rate limit — please wait a moment and try again.",
   "error.providerDown": "The provider is temporarily unavailable — try again or switch providers.",
