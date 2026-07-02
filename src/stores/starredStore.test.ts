@@ -71,10 +71,18 @@ describe('starredStore.star', () => {
     expect(items()[0].translation).toBe('gato') // first wins
   })
 
+  it('dedupes the same word looked up in a DIFFERENT context (bug #9)', () => {
+    // The same word from two different sentences must NOT duplicate — context is not part of the
+    // dedupe tuple (it was only surfacing per-context word "senses" as duplicate rows).
+    star({ ...base, context: 'The cat sat on the mat.', translation: 'gato' })
+    star({ ...base, context: 'A wild cat prowled.', translation: 'gato (context 2)' })
+    expect(items()).toHaveLength(1)
+    expect(items()[0].translation).toBe('gato') // first star wins; the second is a no-op
+  })
+
   it.each([
     { field: 'kind', over: { kind: 'sentence' as const } },
     { field: 'source', over: { source: 'dog' } },
-    { field: 'context', over: { context: 'an animal' } },
     { field: 'sourceLang', over: { sourceLang: 'fr' } },
     { field: 'targetLang', over: { targetLang: 'de' } },
   ])('treats an item differing only in $field as distinct (not deduped)', ({ over }) => {
