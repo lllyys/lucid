@@ -13,8 +13,33 @@ regressions). One row per bug; expanded repro/expected/actual below the table.
 | 6 | Glossary "Extract from current text" is mislabeled — it extracts from the whole active session, not the current editor text | FIXED | low | The Glossary button reads "✦ Extract from current text", but `GlossaryView.tsx:27-32`'s `extract()` runs `extractTerms` over the **active session's tasks** (`active.tasks.map(tk => sourceText + resultText).join(' ')`) — i.e. it already extracts from the whole session, which is what the user wants ("should extract from session"). The defect is the **label** (`glossary.extract` = "Extract from current text", `src/locales/en/translation.json:154`) misrepresenting the session-wide scope. Fix: relabel to match the session-wide behavior (a copy fix; no dedicated glossary design bundle exists, so not design-gated — but confirm against feature #3's intent). Secondary: verify at fix time that `extractTerms` actually surfaces terms over a real translated session — if clicking Extract over a populated session yields 0 suggestions, that's a separate extraction-heuristic bug. GH: #131 |
 | 8 | Config sync unlock doesn't restore API keys when the server rev equals the device's last-synced rev (the common refresh case) | FIXED | high | After a refresh, the user unlocks config sync with the correct passphrase but every saved API key stays empty. Root cause: `configSyncController.ts:419` (returning-device `unlock()`) gates the key-rehydrating `adopt()` on `res.value.rev > sync.readSyncedRev()` — **strictly greater**. But `syncedRev` is localStorage-persisted (`configSync.ts:24` `lucid.config-rev`, survives reload) while API keys are in-memory only (rule 65 §5, wiped on reload). So when the server blob rev == the persisted `syncedRev` (the normal case — config unchanged elsewhere), `rev > rev` is false → `adopt()`/`providerConfig.apply()` never runs → keys never rehydrate. Config sync only restores when the server rev is *strictly newer* — exactly not the case after a plain refresh. Fix: on the cold-start unlock path adopt whenever the server blob is non-null and not locally `dirty` (the reload already wiped the in-memory config, so the server is authoritative; `!dirty` still guards an edit made during the pull window); mid-session/409-conflict adopt paths unchanged. GH: #162 |
 | 7 | New custom provider form — MODEL and API KEY inputs not vertically aligned | FIXED | low | In Settings → + Add custom provider, the MODEL and API KEY inputs sit side-by-side, but the API KEY label ("API KEY · OPTIONAL — LEAVE BLANK FOR A KEYLESS ENDPOINT") wraps to **two lines** while MODEL's is one — and the row `CustomProviderForm.tsx:129` was `flex flex-wrap gap-3` with two independent `flex-1 flex-col` columns (each owning label+input), so the taller label pushed the API KEY input down off the MODEL input's baseline. The committed design (`dev-docs/designs/lucid-custom-providers`) bottom-aligns this row (`align-items:flex-end`); the implementation omitted it. **Fixed v0.13.1:** added `items-end` to the row so the inputs share a baseline regardless of label wrapping — restores the designed alignment (CSS/layout only; designed surface → not rule-51-gated; no test required per rule 10). Verified via headless-Chromium CDP (Settings → Add custom provider on a fresh-DB server, 2600px): side-by-side, box-top delta 5px (bottoms aligned; residual = the API-KEY box is ~5px taller), down from a full-line offset. GH: #141 |
+| 9 | Starred list shows the same word twice — dedup keys on `context`, so the same word looked up in different sentences isn't deduped | OPEN | low | The content-scan dedup tuple includes `context`: `sameContent` (`src/stores/starredStore.ts:73-80`) = `kind · source · context · sourceLang · targetLang`, mirrored by `matchesInput` (`src/components/starred/StarButton.tsx:17-23`). `context` was added for same-lookup idempotency (Gate-2 M3 of #22), but as a side effect the same **word** looked up in a different sentence has a different `context` → not deduped → a second entry (screenshot: "revenue" twice, 财政收入 vs 广告收入). **Fix (decide policy at fix time):** drop `context` from the tuple in both spots so words dedup by `kind·source·direction` (first star wins; later same-word stars are no-ops); `context` is word-only so sentences are unaffected; add a regression test. Pure logic — no new UI, not design-gated. Part of feature #22. GH: #221 |
 
 ## Open Bug Details
+
+### Bug #9 — starred list shows the same word twice (dedup keys on context)
+
+**Repro:** look up a word (e.g. "revenue") inside sentence A → star it; look up the same word inside a different
+sentence B (different surrounding context → the LLM returns a slightly different context-gloss/IPA) → star it;
+open ★ Starred → the same word appears **twice** (screenshot: revenue /ˈrɛvɪnjuː/ · 财政收入 AND
+/ˈrɛvəˌnju:/ · 广告收入, both EN→中).
+
+**Expected:** one entry per word (per direction) — a starred/vocabulary list shouldn't repeat a word.
+
+**Actual:** one entry per distinct context the word was looked up in.
+
+**Root cause:** the dedup tuple includes `context`. `sameContent` (`src/stores/starredStore.ts:73-80`) =
+`kind · source · context · sourceLang · targetLang`; `matchesInput` (`src/components/starred/StarButton.tsx:17-23`)
+mirrors it for the StarButton filled/unfilled state. `context` was added for **idempotency of the same lookup**
+(Gate-2 M3 of #22 — re-starring the *same* lookup in the *same* context is a no-op), but the side effect is that
+the same word from a different sentence has a different `context` and is stored again. Keeping per-context word
+"senses" was not an intended feature.
+
+**Fix (decide policy at fix time):** drop `context` from the tuple in **both** `sameContent` and `matchesInput`
+so words dedup by `kind · source · sourceLang · targetLang` (first star wins; later same-word stars are no-ops,
+consistent with the existing idempotency model). `context` is only populated for word lookups, so sentences are
+unaffected. Add a regression test (same word, two contexts → one entry; the StarButton reads "already starred"
+for the second). Pure logic change — no new UI surface, not rule-51 design-gated. Part of feature #22.
 
 ### Bug #8 — config sync unlock doesn't restore API keys (server rev == device's last-synced rev)
 
