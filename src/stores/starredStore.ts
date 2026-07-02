@@ -66,15 +66,19 @@ interface StarredState {
 const INITIAL: Pick<StarredState, 'items'> = { items: [] }
 
 /**
- * Content-scan dedupe key (Gate-2 M3): two stars are the SAME content iff this tuple matches. Mirrors
- * glossary's "random uuid + local content-scan" precedent (NOT a value-derived id) — so a re-star of
- * the same lookup in the same context/direction is idempotent without a multi-KB value-derived id.
+ * Content-scan dedupe key: two stars are the SAME content iff this tuple matches. Mirrors glossary's
+ * "random uuid + local content-scan" precedent (NOT a value-derived id) — so a re-star of the same
+ * word/sentence + direction is idempotent without a multi-KB value-derived id.
+ *
+ * `context` is deliberately NOT part of the key (bug #9): it's populated only for word lookups, and
+ * keying on it made the SAME word looked up in different sentences duplicate across the starred list
+ * (a vocabulary list should hold one entry per word + direction). The first star wins; a later star of
+ * the same word in another context is a no-op.
  */
 function sameContent(a: StarredInput, b: StarredItem): boolean {
   return (
     a.kind === b.kind &&
     a.source === b.source &&
-    a.context === b.context &&
     a.sourceLang === b.sourceLang &&
     a.targetLang === b.targetLang
   )

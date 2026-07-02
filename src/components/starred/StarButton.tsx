@@ -13,12 +13,11 @@ import { useStarredStore, type StarredInput, type StarredItem } from '@/stores/s
  */
 export type StarVariant = 'icon' | 'pill'
 
-/** Same tuple the store's `sameContent` dedupes on — kind + source + context + direction. */
+/** Same tuple the store's `sameContent` dedupes on — kind + source + direction (NOT context; bug #9). */
 function matchesInput(item: StarredItem, input: StarredInput): boolean {
   return (
     item.kind === input.kind &&
     item.source === input.source &&
-    item.context === input.context &&
     item.sourceLang === input.sourceLang &&
     item.targetLang === input.targetLang
   )
