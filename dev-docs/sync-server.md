@@ -86,6 +86,7 @@ docker run -d --name lucid-sync \
 | `PORT` | no | `8787` | Listen port, must be `1..65535`. |
 | `MAX_BODY_BYTES` | no | `5242880` (5 MiB) | Cap on the `POST /sync/changes` body. A normal push is a few KB; this is a resource-exhaustion guard. An over-cap body → `413`. |
 | `STATIC_DIR` | no | — | Path to the **built web app** (`dist/`) to serve at the same origin (#15 cross-device config sync). Set it to serve the app + the API from one origin (no CORS, no URL to type). Unset = API-only (the pre-#15 behavior). When set with no `SYNC_TOKEN` it ALSO authorizes the token-free `/sync` mode (#19) and must `stat` to a real readable directory. |
+| `PROXY_ALLOWED_UPSTREAMS` | no | — | Comma-separated **full base URLs** the same-origin LLM proxy (#28) may relay to (e.g. `http://100.80.151.31:8000/v1,http://localhost:11434/v1`). Unset/empty = the proxy is **disabled**. See "Same-origin LLM proxy" below. |
 
 ### The data volume (trust boundary)
 
@@ -148,6 +149,47 @@ Node 22.x it was experimental behind `--experimental-sqlite`. The image base is 
 rejected with HTTP `413` before the store sees it (nothing is persisted). The client maps
 `4xx` to a non-retryable `badRequest` — correct here, because a body that large is a client
 bug, not a transient fault. A normal push is a few KB, so the cap never bites real use.
+
+## Same-origin LLM proxy (`/proxy`, #28)
+
+A browser can't reach some **custom / local** LLM endpoints directly — `https://` page → `http://`
+endpoint (mixed content), a public/HTTPS origin → a private IP (Chrome Private Network Access), or a
+CORS-less server. When the server already serves the app single-origin (`STATIC_DIR`), it can **relay**
+the browser's chat request server-side: the browser call is same-origin (no browser restriction) and the
+**server** makes the `http://` / private-IP fetch.
+
+The proxy is **opt-in by the operator** and **direct-by-default** — it changes nothing unless you set an
+allow-list, and the client only proxies a custom provider whose base URL is on that list:
+
+- `GET /proxy` → `{ upstreams: string[] }` advertises the operator allow-list (the client fetches it once
+  on connect and caches it). Auth-gated exactly like `/sync` (open in the token-free single-origin
+  quadrant; bearer when a token is set).
+- `POST /proxy` relays to a listed upstream: the client sends header `x-lucid-proxy-upstream: <base URL>`
+  and the request body; the server appends the fixed `/chat/completions` path to the **listed** base URL
+  (never a client path) and streams the upstream response straight back (SSE token-by-token).
+
+**Enable it** by listing the full base URLs the server may relay to:
+
+```bash
+-e PROXY_ALLOWED_UPSTREAMS="http://100.80.151.31:8000/v1,http://localhost:11434/v1"
+```
+
+The server logs a LOUD startup line naming the allowed upstreams when the proxy is enabled.
+
+### SSRF / security
+
+- **Operator allow-list only.** `PROXY_ALLOWED_UPSTREAMS` bounds the destination set to full base URLs
+  you named. Unset/empty → `POST /proxy` `403`s and `GET /proxy` advertises `[]` (the client never
+  proxies). The client's `x-lucid-proxy-upstream` must **exactly** match a listed base URL (trailing
+  slash normalized); a mismatch fails safe to the client's direct path.
+- **No redirect hop.** The upstream fetch uses `redirect: 'error'`, so a `3xx` can't be auto-followed
+  past the allow-list check. An upstream that is down (or returns a redirect) → `502`.
+- **Key hygiene (rule 65 §5).** The client's `Authorization` (the custom provider's key) is forwarded to
+  the allowed upstream **only**; hop-by-hop headers + `Host` are stripped, and the header/body are
+  **never logged**. The token-free single-origin deploy is the proxy path (the browser sends the custom
+  key as `Authorization`); a **token-set** single-origin server keeps `/proxy` bearer-authed and the
+  client uses the **direct** path there (one `Authorization` header can't be both the server bearer and
+  the custom key).
 
 ## Cross-device config sync (`/config`, #15)
 

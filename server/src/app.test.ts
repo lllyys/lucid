@@ -7,7 +7,7 @@
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from './app.js'
 import { createSyncStore } from './db.js'
 import type { SyncStore } from './db.js'
@@ -286,6 +286,11 @@ describe('GET /sync/changes', () => {
 
   it('rejects an empty since (?since=) → 400', async () => {
     const res = await authed('/sync/changes?since=')
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects a since above MAX_SAFE_INTEGER (all-digits but not a safe int) → 400', async () => {
+    const res = await authed('/sync/changes?since=99999999999999999999')
     expect(res.status).toBe(400)
   })
 })
@@ -589,6 +594,214 @@ describe('request body-size limit', () => {
     expect(res.status).toBe(200)
     const results = (await res.json()) as PushResult[]
     expect(results[0]?.status).toBe('applied')
+  })
+})
+
+// Feature #28 — the same-origin LLM proxy. A custom/local endpoint the browser can't reach directly
+// (CORS-less, mixed-content, private-IP) is RELAYED server-side. `/proxy` is auth-gated on the EXACT
+// bare path (not `/proxy/*`), bounded by the operator env allow-list, streams the upstream body back,
+// forwards ONLY content-type + the client Authorization, uses redirect:'error' (SSRF), and 502s on an
+// upstream throw. The upstream fetch is mocked via a stubbed global fetch (no real network).
+const LISTED = 'http://100.80.151.31:8000/v1'
+
+/** A ReadableStream SSE body (bytes) that closes — the mocked upstream's streamed response. */
+function sseBody(text: string): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(new TextEncoder().encode(text))
+      c.close()
+    },
+  })
+}
+
+describe('GET /proxy — capability advertisement (#28)', () => {
+  let dir: string
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'lucid-proxy-'))
+    writeFileSync(join(dir, 'index.html'), '<!doctype html>')
+  })
+
+  it('advertises the operator allow-list (token-free single-origin → open)', async () => {
+    const a = createApp({ store, token: '', staticDir: dir, allowedUpstreams: [LISTED] })
+    const res = await a.request('/proxy')
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ upstreams: [LISTED] })
+  })
+
+  it('advertises [] when no allow-list is configured (default → proxy disabled)', async () => {
+    const a = createApp({ store, token: '', staticDir: dir })
+    await expect((await a.request('/proxy')).json()).resolves.toEqual({ upstreams: [] })
+  })
+
+  it('is auth-gated in the token-set quadrant (401 without a bearer)', async () => {
+    const a = createApp({ store, token: TOKEN, staticDir: dir, allowedUpstreams: [LISTED] })
+    expect((await a.request('/proxy')).status).toBe(401)
+  })
+
+  it('lets the correct bearer read the allow-list in the token-set quadrant → 200', async () => {
+    const a = createApp({ store, token: TOKEN, staticDir: dir, allowedUpstreams: [LISTED] })
+    const res = await a.request('/proxy', { headers: { Authorization: `Bearer ${TOKEN}` } })
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual({ upstreams: [LISTED] })
+  })
+})
+
+describe('POST /proxy — same-origin LLM relay (#28)', () => {
+  let dir: string
+  let tokenFreeApp: ReturnType<typeof createApp>
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'lucid-proxy-'))
+    writeFileSync(join(dir, 'index.html'), '<!doctype html>')
+    tokenFreeApp = createApp({ store, token: '', staticDir: dir, allowedUpstreams: [LISTED] })
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  function proxyPost(
+    app_: ReturnType<typeof createApp>,
+    headers: Record<string, string>,
+    body: string,
+  ): Response | Promise<Response> {
+    return app_.request('/proxy', { method: 'POST', headers, body })
+  }
+
+  it('relays an allowed upstream and streams the mocked SSE body back', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(sseBody('data: {"choices":[{"delta":{"content":"hi"}}]}\n\n'), {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await proxyPost(
+      tokenFreeApp,
+      { 'content-type': 'application/json', 'x-lucid-proxy-upstream': LISTED, Authorization: 'Bearer sk-user' },
+      JSON.stringify({ model: 'm', stream: true }),
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/event-stream')
+    expect(await res.text()).toContain('data: {"choices"')
+    // Appends the FIXED /chat/completions path to the LISTED base (never a client path).
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(`${LISTED}/chat/completions`)
+    expect(init.method).toBe('POST')
+  })
+
+  it('forwards ONLY content-type + the client Authorization (strips other/hop-by-hop headers)', async () => {
+    const fetchMock = vi.fn(async () => new Response(sseBody('data: x\n\n'), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await proxyPost(
+      tokenFreeApp,
+      {
+        'content-type': 'application/json',
+        'x-lucid-proxy-upstream': LISTED,
+        Authorization: 'Bearer sk-user',
+        Connection: 'keep-alive',
+        'x-evil': 'nope',
+      },
+      '{}',
+    )
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
+    const headers = init.headers as Record<string, string>
+    expect(headers['authorization']).toBe('Bearer sk-user')
+    expect(headers['content-type']).toBe('application/json')
+    expect(headers['connection']).toBeUndefined()
+    expect(headers['x-evil']).toBeUndefined()
+    expect(headers['x-lucid-proxy-upstream']).toBeUndefined()
+    expect(headers['host']).toBeUndefined()
+  })
+
+  it('relays with no forwarded content-type when the client sends none (omits the header)', async () => {
+    const fetchMock = vi.fn(async () => new Response(sseBody('data: x\n\n'), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    // A stream body carries no auto content-type (unlike a string body), so the request reaches the
+    // relay with an absent content-type header → the forwarded headers omit it.
+    const res = await tokenFreeApp.request('/proxy', {
+      method: 'POST',
+      headers: { 'x-lucid-proxy-upstream': LISTED },
+      body: sseBody('{}'),
+      duplex: 'half',
+    } as RequestInit)
+    expect(res.status).toBe(200)
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
+    expect((init.headers as Record<string, string>)['content-type']).toBeUndefined()
+  })
+
+  it('passes redirect:"error" and signal to the upstream fetch (no 3xx auto-follow — SSRF)', async () => {
+    const fetchMock = vi.fn(async () => new Response(sseBody('data: x\n\n'), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await proxyPost(tokenFreeApp, { 'content-type': 'application/json', 'x-lucid-proxy-upstream': LISTED }, '{}')
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
+    expect(init.redirect).toBe('error')
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('maps an upstream redirect (fetch throws under redirect:error) to 502', async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError('unexpected redirect')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await proxyPost(tokenFreeApp, { 'content-type': 'application/json', 'x-lucid-proxy-upstream': LISTED }, '{}')
+    expect(res.status).toBe(502)
+  })
+
+  it('maps any upstream fetch throw (network unreachable) to 502', async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error('ECONNREFUSED')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await proxyPost(tokenFreeApp, { 'content-type': 'application/json', 'x-lucid-proxy-upstream': LISTED }, '{}')
+    expect(res.status).toBe(502)
+  })
+
+  it('403s an upstream NOT on the allow-list (no target echo) — never fetches', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await proxyPost(
+      tokenFreeApp,
+      { 'content-type': 'application/json', 'x-lucid-proxy-upstream': 'http://evil.internal/v1' },
+      '{}',
+    )
+    expect(res.status).toBe(403)
+    expect(await res.text()).not.toContain('evil.internal')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('403s a missing x-lucid-proxy-upstream header — never fetches', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await proxyPost(tokenFreeApp, { 'content-type': 'application/json' }, '{}')
+    expect(res.status).toBe(403)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('403s every POST when the allow-list is empty (proxy disabled) — never fetches', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const emptyApp = createApp({ store, token: '', staticDir: dir })
+    const res = await proxyPost(emptyApp, { 'content-type': 'application/json', 'x-lucid-proxy-upstream': LISTED }, '{}')
+    expect(res.status).toBe(403)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('enforces the body-size cap (over-cap → 413) before relaying — never fetches', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const capped = createApp({ store, token: '', staticDir: dir, allowedUpstreams: [LISTED], maxBodyBytes: 16 })
+    const big = JSON.stringify({ blob: 'x'.repeat(500) })
+    const res = await proxyPost(capped, { 'content-type': 'application/json', 'x-lucid-proxy-upstream': LISTED }, big)
+    expect(res.status).toBe(413)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('is auth-gated on the EXACT bare /proxy path in the token-set quadrant (401 without a bearer)', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const tokenApp = createApp({ store, token: TOKEN, staticDir: dir, allowedUpstreams: [LISTED] })
+    const res = await proxyPost(tokenApp, { 'content-type': 'application/json', 'x-lucid-proxy-upstream': LISTED }, '{}')
+    expect(res.status).toBe(401)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })
 

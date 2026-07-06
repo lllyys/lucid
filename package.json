@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check:all": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
+    "test:coverage:server": "pnpm --filter @lucid/server test:coverage",
+    "check:all": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:coverage:server && pnpm build"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

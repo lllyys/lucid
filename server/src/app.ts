@@ -33,10 +33,11 @@
 // buffers, so we hash both sides to a fixed 32-byte digest first.
 
 import { createHash, timingSafeEqual } from 'node:crypto'
-import { Hono } from 'hono'
+import { Hono, type MiddlewareHandler } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { InvalidOpError, type SyncStore } from './db.js'
+import { isAllowedUpstream, normalizeUpstream } from './proxy.js'
 import type { PushOp } from './types.js'
 
 export interface AppDeps {
@@ -57,6 +58,13 @@ export interface AppDeps {
    * entry (index.ts) `stat`-validates this dir is a real readable directory before allowing that mode.
    */
   staticDir?: string
+  /**
+   * The operator's `PROXY_ALLOWED_UPSTREAMS` allow-list (#28), already parsed + normalized by the entry
+   * (index.ts → `parseAllowedUpstreams`). Bounds the same-origin LLM proxy's destination set to
+   * operator-named full base URLs. Omit / empty → the proxy is DISABLED (`POST /proxy` 403s and
+   * `GET /proxy` advertises `[]`, so the client stays direct-by-default).
+   */
+  allowedUpstreams?: string[]
 }
 
 const BEARER_PREFIX = 'Bearer '
@@ -89,7 +97,9 @@ function parseSince(raw: string | undefined): number | null {
   // '-1', '1.5', '0x1', '1e3', leading/trailing junk, and whitespace before Number() coercion lies.
   if (!/^\d+$/.test(raw)) return null
   const n = Number(raw)
-  return Number.isSafeInteger(n) && n >= 0 ? n : null
+  // The digits-only regex already guarantees non-negative, so only the safe-integer bound remains
+  // (an all-digits value above Number.MAX_SAFE_INTEGER → null → 400).
+  return Number.isSafeInteger(n) ? n : null
 }
 
 /** Type-only guard: the parsed JSON body is an array (the store re-validates each op's shape). */
@@ -133,23 +143,27 @@ export function createApp(deps: AppDeps): Hono {
   //      use tokenMatches against the empty token — digest('') would reject every real bearer.)
   //    - else → the constant-time bearer guard: missing header / wrong scheme / wrong token → 401; the
   //      body never reveals the token's length or value.
-  if (tokenFree) {
-    app.use('/sync/*', async (_c, next) => {
-      await next()
-    })
-  } else {
-    app.use('/sync/*', async (c, next) => {
-      const header = c.req.header('Authorization')
-      if (header === undefined || !header.startsWith(BEARER_PREFIX)) {
-        return c.json({ error: 'unauthorized' }, 401)
+  const guard: MiddlewareHandler = tokenFree
+    ? async (_c, next) => {
+        await next()
       }
-      const presented = header.slice(BEARER_PREFIX.length)
-      if (!tokenMatches(presented, deps.token)) {
-        return c.json({ error: 'unauthorized' }, 401)
+    : async (c, next) => {
+        const header = c.req.header('Authorization')
+        if (header === undefined || !header.startsWith(BEARER_PREFIX)) {
+          return c.json({ error: 'unauthorized' }, 401)
+        }
+        const presented = header.slice(BEARER_PREFIX.length)
+        if (!tokenMatches(presented, deps.token)) {
+          return c.json({ error: 'unauthorized' }, 401)
+        }
+        await next()
       }
-      await next()
-    })
-  }
+  app.use('/sync/*', guard)
+  // #28: gate the LLM proxy (below) on the EXACT bare path. `/sync/*` matches `/proxy/<seg>` but NOT
+  // bare `/proxy`, so copying that shape would leave the relay ungated — register the SAME tokenFree
+  // guard on `/proxy` itself (Hono matches it exactly). A token-set single-origin server keeps /proxy
+  // bearer-authed as defense, even though the client won't use the proxy path in that quadrant.
+  app.use('/proxy', guard)
 
   // 2. GET /sync/changes?since=<int> → 200 PullResult, or 400 on a bad/absent cursor.
   app.get('/sync/changes', (c) => {
@@ -225,16 +239,65 @@ export function createApp(deps: AppDeps): Hono {
     },
   )
 
-  // 7. Serve the built web app at the same origin (#15 WI-4), if a static dir was provided. Mounted
-  //    LAST so it never shadows the /sync + /config API routes (which are registered above and return
-  //    first); serveStatic passes through (next()) when no file matches, so an unknown non-API GET falls
-  //    to Hono's 404. lucid is a single-screen app with no client-side router, so `/` serves index.html
-  //    and no HTML5-history SPA fallback is needed. Public — auth is /sync-scoped (step 1).
+  // 7. #28 same-origin LLM proxy. `GET /proxy` advertises the operator allow-list (the client caches it
+  //    once on connect); `POST /proxy` RELAYS the browser's chat/completions request to a LISTED custom
+  //    endpoint the browser can't reach directly (CORS-less / mixed-content / private-IP). Auth-gated by
+  //    the step-1 guard on the exact `/proxy` path. SSRF is bounded by the allow-list: the FIXED
+  //    `/chat/completions` path is appended to a LISTED base URL (never a client path), `redirect:'error'`
+  //    blocks a 3xx hop past the pre-fetch check, and ONLY content-type + the client Authorization (the
+  //    custom provider's key) are forwarded — hop-by-hop + Host stripped — and NEVER logged (rule 65 §5).
+  //    The body cap runs first. The upstream body streams straight back (SSE token-by-token, no buffer);
+  //    an upstream throw (down, or a blocked redirect) → 502.
+  const allowedUpstreams = deps.allowedUpstreams ?? []
+
+  app.get('/proxy', (c) => c.json({ upstreams: allowedUpstreams }))
+
+  app.post(
+    '/proxy',
+    bodyLimit({ maxSize: maxBodyBytes, onError: (c) => c.json({ error: 'payload too large' }, 413) }),
+    async (c) => {
+      const rawTarget = c.req.header('x-lucid-proxy-upstream') ?? ''
+      if (!isAllowedUpstream(rawTarget, allowedUpstreams)) {
+        return c.json({ error: 'forbidden upstream' }, 403) // no target echo
+      }
+      // isAllowedUpstream returned true ⇒ normalizeUpstream(rawTarget) is a non-null normalized base URL.
+      const base = normalizeUpstream(rawTarget) as string
+      // Forward ONLY content-type + the client Authorization; strip everything else (hop-by-hop + Host).
+      const headers: Record<string, string> = {}
+      const contentType = c.req.header('content-type')
+      if (contentType !== undefined) headers['content-type'] = contentType
+      const authorization = c.req.header('authorization')
+      if (authorization !== undefined) headers['authorization'] = authorization
+      let upstream: Response
+      try {
+        upstream = await fetch(`${base}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: c.req.raw.body,
+          duplex: 'half',
+          redirect: 'error',
+          signal: c.req.raw.signal,
+        })
+      } catch {
+        return c.json({ error: 'upstream unreachable' }, 502) // upstream down OR a blocked 3xx redirect
+      }
+      return new Response(upstream.body, {
+        status: upstream.status,
+        headers: { 'content-type': upstream.headers.get('content-type') ?? 'text/event-stream' },
+      })
+    },
+  )
+
+  // 8. Serve the built web app at the same origin (#15 WI-4), if a static dir was provided. Mounted
+  //    LAST so it never shadows the /sync + /config + /proxy API routes (which are registered above and
+  //    return first); serveStatic passes through (next()) when no file matches, so an unknown non-API GET
+  //    falls to Hono's 404. lucid is a single-screen app with no client-side router, so `/` serves
+  //    index.html and no HTML5-history SPA fallback is needed. Public — auth is /sync + /proxy scoped.
   if (deps.staticDir !== undefined) {
     app.use('/*', serveStatic({ root: deps.staticDir, index: 'index.html' }))
   }
 
-  // 8. Catch-all: any unexpected error → 500 with a generic body. Never echo a stack trace or token.
+  // 9. Catch-all: any unexpected error → 500 with a generic body. Never echo a stack trace or token.
   app.onError((_err, c) => c.json({ error: 'internal error' }, 500))
 
   return app
