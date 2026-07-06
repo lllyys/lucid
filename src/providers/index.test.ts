@@ -113,6 +113,27 @@ describe('createProvider', () => {
     expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'ok' })
   })
 
+  it('#28: routes a custom provider through the same-origin proxy when config.proxy is set', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(streamResponse(sse({ choices: [{ delta: { content: 'hi' } }] }).concat('data: [DONE]\n\n'))),
+    )
+    const p = createProvider(
+      'custom',
+      {
+        apiKey: 'sk-user',
+        baseUrl: 'http://100.80.151.31:8000/v1',
+        model: 'm',
+        fetch: fetchMock as unknown as typeof fetch,
+        proxy: { origin: 'https://app.example.com', upstream: 'http://100.80.151.31:8000/v1' },
+      },
+      fakeDeps,
+    )
+    expect(await p.translate({ kind: 'translate', text: 'Hi', targetLang: 'es' })).toEqual({ status: 'done', text: 'hi' })
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://app.example.com/proxy')
+    expect((init.headers as Record<string, string>)['x-lucid-proxy-upstream']).toBe('http://100.80.151.31:8000/v1')
+  })
+
   it('a custom provider without a baseUrl throws requestFailed', () => {
     try {
       createProvider('custom', { apiKey: 'sk-test', model: 'm' })

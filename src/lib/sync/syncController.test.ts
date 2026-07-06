@@ -6,6 +6,11 @@ import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useGlossaryStore } from '@/stores/glossaryStore'
 import { useStarredStore } from '@/stores/starredStore'
 import { okBackend, errBackend, deferredPullBackend, term, starredItem, tick, resetSyncStores } from '@/test/orchestratorHarness'
+import {
+  getProxyAllowlist,
+  setProxyAllowlist,
+  clearProxyAllowlist,
+} from '@/lib/providers/proxyAllowlist'
 
 const CONFIG = { serverUrl: 'https://lucid.example', token: 'tok-1' }
 
@@ -17,6 +22,7 @@ const makeController = (backend: SyncBackend) =>
     pollMs: 1000,
     isOnline: () => true,
     subscribeConnectivity: () => () => {},
+    warmProxyAllowlist: () => {}, // #28: no-op so tests don't fire a real GET /proxy (see the #28 block)
   })
 
 beforeEach(() => {
@@ -326,7 +332,11 @@ describe('createSyncController', () => {
     const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response(null, { status: 204 })))
     vi.stubGlobal('fetch', fetchMock)
     // no createBackend → the default createRestSyncBackend(config) is used; offline so no drain/fetch on connect
-    const ctrl = createSyncController({ isOnline: () => false, subscribeConnectivity: () => () => {} })
+    const ctrl = createSyncController({
+      isOnline: () => false,
+      subscribeConnectivity: () => () => {},
+      warmProxyAllowlist: () => {}, // #28: isolate the DELETE-count assertion from the /proxy warm
+    })
     ctrl.connectSingleOrigin()
     await tick()
     await ctrl.disconnect() // purge → DELETE /sync/data via the real fetch
@@ -456,6 +466,65 @@ describe('createSyncController', () => {
       expect(useSyncStore.getState().showAutoPrompt).toBe(true) // consent surfaced — the signal is alive
       expect(useSyncStore.getState().config).toBeNull()
     })
+  })
+})
+
+// #28 — launch() warms the same-origin LLM-proxy allow-list cache ONLY for a token-free single-origin
+// connect (the browser sends the custom key as Authorization; a token-set server needs that header for
+// its own bearer, so it uses the direct path). Every other connect CLEARS the cache → [] → all direct.
+describe('createSyncController — proxy allow-list warm (#28)', () => {
+  beforeEach(() => {
+    clearProxyAllowlist()
+  })
+
+  it('warms the allow-list for a token-free single-origin connect (connectSingleOrigin)', async () => {
+    const warm = vi.fn()
+    const ctrl = createSyncController({
+      createBackend: () => okBackend(),
+      isOnline: () => false,
+      subscribeConnectivity: () => () => {},
+      warmProxyAllowlist: warm,
+    })
+    ctrl.connectSingleOrigin()
+    expect(warm).toHaveBeenCalledWith(window.location.origin)
+    await ctrl.disconnect()
+  })
+
+  it('does NOT warm — and CLEARS the cache — for a token-set (non-single-origin) connect', async () => {
+    setProxyAllowlist(['http://stale/v1']) // a prior server's advertisement
+    const warm = vi.fn()
+    const ctrl = createSyncController({
+      createBackend: () => okBackend(),
+      isOnline: () => false,
+      subscribeConnectivity: () => () => {},
+      warmProxyAllowlist: warm,
+    })
+    ctrl.connect(CONFIG) // serverUrl !== location.origin (or token set)
+    expect(warm).not.toHaveBeenCalled()
+    expect(getProxyAllowlist()).toEqual([]) // stale advertisement cleared
+    await ctrl.disconnect()
+  })
+
+  it('the DEFAULT warmer fetches GET ${origin}/proxy and populates the cache', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ upstreams: ['http://100.80.151.31:8000/v1'] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    // no warmProxyAllowlist → the real fire-and-forget refresh runs; okBackend + offline → no other fetch
+    const ctrl = createSyncController({
+      createBackend: () => okBackend(),
+      isOnline: () => false,
+      subscribeConnectivity: () => () => {},
+    })
+    ctrl.connectSingleOrigin()
+    await tick() // flush the fire-and-forget GET /proxy
+    expect(fetchMock).toHaveBeenCalledWith(`${window.location.origin}/proxy`)
+    expect(getProxyAllowlist()).toEqual(['http://100.80.151.31:8000/v1'])
+    await ctrl.disconnect()
+    vi.unstubAllGlobals()
   })
 })
 

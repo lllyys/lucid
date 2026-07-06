@@ -1,7 +1,7 @@
 {
   "name": "lucid",
   "private": true,
-  "version": "0.23.3",
+  "version": "0.24.0",
   "type": "module",
   "packageManager": "pnpm@11.0.8",
   "engines": {
@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check:all": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
+    "test:coverage:server": "pnpm --filter @lucid/server test:coverage",
+    "check:all": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:coverage:server && pnpm build"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

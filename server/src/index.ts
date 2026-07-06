@@ -19,6 +19,7 @@ import { pathToFileURL } from 'node:url'
 import { serve } from '@hono/node-server'
 import { createApp } from './app.js'
 import { createSyncStore } from './db.js'
+import { parseAllowedUpstreams } from './proxy.js'
 
 /** Durable default DB file. NOT ':memory:' — a real server must persist across restarts. */
 export const DEFAULT_DB_PATH = 'sync.db'
@@ -34,6 +35,12 @@ export interface ServerConfig {
   maxBodyBytes: number
   /** Optional path to the built web-app dist to serve at the same origin (#15 WI-4). Unset = API-only. */
   staticDir?: string
+  /**
+   * The same-origin LLM-proxy allow-list (#28), parsed + normalized from `PROXY_ALLOWED_UPSTREAMS`.
+   * Empty = the proxy is disabled (the default). Always present (never undefined) so createApp's proxy
+   * routes read one shape.
+   */
+  allowedUpstreams: string[]
 }
 
 /** A trimmed env value, or undefined when the var is absent / blank — so blank falls back to a default. */
@@ -103,8 +110,11 @@ export function createServerConfig(env: Record<string, string | undefined>): Ser
     Number.MAX_SAFE_INTEGER,
     DEFAULT_MAX_BODY_BYTES,
   )
+  // #28: parse the operator's same-origin LLM-proxy allow-list. Pure (no I/O); empty when unset →
+  // the proxy is disabled (POST /proxy 403s, GET /proxy advertises []).
+  const allowedUpstreams = parseAllowedUpstreams(env.PROXY_ALLOWED_UPSTREAMS)
 
-  return { token, dbPath, port, maxBodyBytes, staticDir }
+  return { token, dbPath, port, maxBodyBytes, staticDir, allowedUpstreams }
 }
 
 /** statSync-like probe — injected so the gate is unit-testable without touching the real filesystem. */
@@ -157,12 +167,19 @@ function main(): void {
   // STATIC_DIR, else we'd serve an open plaintext /sync behind a broken (404ing) app.
   assertTokenFreeDirReadable(config)
   if (isTokenFree(config)) console.warn(TOKEN_FREE_WARNING)
+  // #28: LOUD, consequence-naming line when the same-origin LLM proxy is enabled, so the operator can
+  // never be surprised that the server relays browser requests to these upstreams. Only the operator's
+  // own allow-listed base URLs are printed (not secret); the relayed Authorization key is never logged.
+  if (config.allowedUpstreams.length > 0) {
+    console.warn(`LLM PROXY ENABLED — /proxy relays to allow-listed upstreams: ${config.allowedUpstreams.join(', ')}`)
+  }
   const store = createSyncStore(config.dbPath)
   const app = createApp({
     store,
     token: config.token,
     maxBodyBytes: config.maxBodyBytes,
     staticDir: config.staticDir,
+    allowedUpstreams: config.allowedUpstreams,
   })
   serve({ fetch: app.fetch, port: config.port })
   // One startup line — the token is deliberately omitted (never log a secret, rule 65 §5).

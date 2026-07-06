@@ -72,6 +72,7 @@ describe('assertTokenFreeDirReadable — token-free start requires a real readab
     dbPath: DEFAULT_DB_PATH,
     port: DEFAULT_PORT,
     maxBodyBytes: DEFAULT_MAX_BODY_BYTES,
+    allowedUpstreams: [],
   }
 
   it('passes when the token-free STATIC_DIR stats to a directory', () => {
@@ -120,6 +121,7 @@ describe('isTokenFree + TOKEN_FREE_WARNING (#19 WI-1)', () => {
     dbPath: DEFAULT_DB_PATH,
     port: DEFAULT_PORT,
     maxBodyBytes: DEFAULT_MAX_BODY_BYTES,
+    allowedUpstreams: [],
   }
 
   it.each([
@@ -139,6 +141,37 @@ describe('isTokenFree + TOKEN_FREE_WARNING (#19 WI-1)', () => {
   })
 })
 
+describe('createServerConfig — PROXY_ALLOWED_UPSTREAMS (#28)', () => {
+  it('defaults to [] when unset (the same-origin LLM proxy is disabled)', () => {
+    expect(createServerConfig({ SYNC_TOKEN: 'tok' }).allowedUpstreams).toEqual([])
+  })
+
+  it('defaults to [] when blank/whitespace', () => {
+    expect(createServerConfig({ SYNC_TOKEN: 'tok', PROXY_ALLOWED_UPSTREAMS: '   ' }).allowedUpstreams).toEqual([])
+  })
+
+  it('parses + normalizes a comma-separated allow-list', () => {
+    const cfg = createServerConfig({
+      SYNC_TOKEN: 'tok',
+      PROXY_ALLOWED_UPSTREAMS: 'http://100.80.151.31:8000/v1, http://localhost:11434/v1/',
+    })
+    expect(cfg.allowedUpstreams).toEqual(['http://100.80.151.31:8000/v1', 'http://localhost:11434/v1'])
+  })
+
+  it('drops invalid entries (non-http scheme, junk)', () => {
+    expect(
+      createServerConfig({ SYNC_TOKEN: 'tok', PROXY_ALLOWED_UPSTREAMS: 'http://ok/v1, ftp://bad/v1, junk' })
+        .allowedUpstreams,
+    ).toEqual(['http://ok/v1'])
+  })
+
+  it('works in the token-free single-origin quadrant (STATIC_DIR + no token)', () => {
+    const cfg = createServerConfig({ STATIC_DIR: '/app/web', PROXY_ALLOWED_UPSTREAMS: 'http://x:8000/v1' })
+    expect(cfg.allowedUpstreams).toEqual(['http://x:8000/v1'])
+    expect(cfg.token).toBe('')
+  })
+})
+
 describe('createServerConfig — defaults', () => {
   it('returns the documented defaults when only SYNC_TOKEN is set', () => {
     const cfg = createServerConfig({ SYNC_TOKEN: 'tok' })
@@ -147,6 +180,7 @@ describe('createServerConfig — defaults', () => {
       dbPath: DEFAULT_DB_PATH,
       port: DEFAULT_PORT,
       maxBodyBytes: DEFAULT_MAX_BODY_BYTES,
+      allowedUpstreams: [],
     })
   })
 

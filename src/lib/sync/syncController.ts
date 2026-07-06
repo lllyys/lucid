@@ -39,6 +39,7 @@ import { createSyncOrchestrator, type SyncOrchestrator, type SyncOrchestratorDep
 import { buildSeedFromLocal } from './seed'
 import { createRestSyncBackend, type SyncBackend } from './backend'
 import { detectAutoSyncEligibility } from './singleOriginAuto'
+import { refreshProxyAllowlist, clearProxyAllowlist } from '@/lib/providers/proxyAllowlist'
 import { useSyncStore, type SyncConfig } from '@/stores/syncStore'
 import { useSyncQueueStore } from '@/stores/syncQueueStore'
 import { useSessionStore } from '@/stores/sessionStore'
@@ -51,6 +52,12 @@ type OrchestratorTuning = Omit<SyncOrchestratorDeps, 'backend'>
 export interface SyncControllerDeps extends OrchestratorTuning {
   /** Build a backend from the connection config (injected for tests; default = the REST backend). */
   createBackend?: (config: SyncConfig) => SyncBackend
+  /**
+   * #28: warm the same-origin proxy allow-list cache for a token-free single-origin connect (injected
+   * for tests; default = the real fire-and-forget `GET ${origin}/proxy` fetch). A failure/absent proxy
+   * caches `[]` → the client stays direct.
+   */
+  warmProxyAllowlist?: (origin: string) => void
 }
 
 export interface SyncController {
@@ -97,6 +104,7 @@ const snapshot = () => ({
 
 export function createSyncController(deps: SyncControllerDeps = {}): SyncController {
   const createBackend = deps.createBackend ?? ((c: SyncConfig) => createRestSyncBackend({ baseUrl: c.serverUrl, token: c.token }))
+  const warmProxyAllowlist = deps.warmProxyAllowlist ?? ((origin: string) => void refreshProxyAllowlist(origin))
   const tuning: OrchestratorTuning = {
     now: deps.now,
     debounceMs: deps.debounceMs,
@@ -112,6 +120,14 @@ export function createSyncController(deps: SyncControllerDeps = {}): SyncControl
     generation += 1
     orchestrator?.stop() // tear down any prior loop first (reconnect without an explicit disconnect)
     backend = createBackend(config)
+    // #28: only a token-free single-origin server can proxy (the browser sends the custom key as
+    // Authorization; a token-set server would need that header for its own bearer). Warm the allow-list
+    // cache for that quadrant; every other connect clears it (→ [] → all direct).
+    if (config.serverUrl === window.location.origin && config.token === '') {
+      warmProxyAllowlist(config.serverUrl)
+    } else {
+      clearProxyAllowlist()
+    }
     if (!useSyncStore.getState().seeded) {
       for (const op of buildSeedFromLocal(snapshot())) useSyncQueueStore.getState().enqueue(op)
       useSyncStore.getState().markSeeded()
