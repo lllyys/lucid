@@ -281,10 +281,14 @@ export function createApp(deps: AppDeps): Hono {
       } catch {
         return c.json({ error: 'upstream unreachable' }, 502) // upstream down OR a blocked 3xx redirect
       }
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: { 'content-type': upstream.headers.get('content-type') ?? 'text/event-stream' },
-      })
+      // Forward content-type + Retry-After (so a proxied 429 keeps its server-directed backoff — the
+      // client's direct path honors Retry-After, rule 65 §4; the relay must preserve that parity).
+      const respHeaders: Record<string, string> = {
+        'content-type': upstream.headers.get('content-type') ?? 'text/event-stream',
+      }
+      const retryAfter = upstream.headers.get('retry-after')
+      if (retryAfter !== null) respHeaders['retry-after'] = retryAfter
+      return new Response(upstream.body, { status: upstream.status, headers: respHeaders })
     },
   )
 

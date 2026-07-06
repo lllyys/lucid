@@ -688,6 +688,23 @@ describe('POST /proxy — same-origin LLM relay (#28)', () => {
     expect(init.method).toBe('POST')
   })
 
+  it('forwards Retry-After from a proxied 429 so the client keeps its server-directed backoff (rule 65 §4)', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(sseBody('data: x\n\n'), {
+        status: 429,
+        headers: { 'content-type': 'text/event-stream', 'retry-after': '30' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await proxyPost(
+      tokenFreeApp,
+      { 'content-type': 'application/json', 'x-lucid-proxy-upstream': LISTED },
+      '{}',
+    )
+    expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('30') // preserved through the relay (the 200 path has none)
+  })
+
   it('forwards ONLY content-type + the client Authorization (strips other/hop-by-hop headers)', async () => {
     const fetchMock = vi.fn(async () => new Response(sseBody('data: x\n\n'), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)

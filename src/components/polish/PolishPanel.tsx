@@ -97,20 +97,21 @@ export function PolishPanel() {
   }, [dt.status, dtText])
 
   const resetPolish = () => useOperationStore.getState().reset('polish')
-  // Any keyword change (from KeywordsCard here OR the sidebar Glossary's "use") invalidates a
-  // showing polish result — re-polish with the new keywords. Compare against the previous value
-  // (not a mount flag) so a StrictMode double-invoke on mount never triggers a spurious reset.
-  const prevKeywords = useRef(keywords)
+  // A keyword change (KeywordsCard or the Glossary "use") invalidates a showing polish result — reset +
+  // re-polish. Compare keyword VALUES (a JSON key), NOT the array reference (bug #11): the sync reconcile
+  // re-applies keywords each cycle with a fresh array of identical content — a ref compare falsely wiped it.
+  const keywordsKey = JSON.stringify(keywordValues)
+  const prevKeywordsKey = useRef(keywordsKey)
   useEffect(() => {
-    if (prevKeywords.current !== keywords) {
-      prevKeywords.current = keywords
+    if (prevKeywordsKey.current !== keywordsKey) {
+      prevKeywordsKey.current = keywordsKey
       resetPolish()
       // A keyword change feeds the polish request — arm auto-polish with the new keyword set.
       armPolish(buildPolishRequest({ keywords: keywordValues }))
     }
-    // armPolish/buildPolishRequest read fresh values via closure each render; keywords is the trigger.
+    // armPolish/buildPolishRequest read fresh values via closure each render; the value key is the trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keywords])
+  }, [keywordsKey])
   // Original / draft / language edits invalidate BOTH the polish result AND any in-flight or stale
   // "Translate original" output (which mirrors into the draft) — reset both so a superseded
   // draftTranslate stream can never overwrite newer user input.
