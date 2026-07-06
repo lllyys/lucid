@@ -68,6 +68,33 @@ describe('openaiCompatibleStream — happy path & request shape', () => {
     expect((fetchMock.mock.calls[0] as [string])[0]).toBe('https://api.example.com/v1/chat/completions')
   })
 
+  it('#28: POSTs to ${origin}/proxy with the upstream header when a proxy is configured (SSE identical)', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(streamResponse(sse(delta('hi'), finish('stop'), DONE))))
+    const streamFn = openaiCompatibleStream({
+      apiKey: 'sk-user-key',
+      baseUrl: 'http://100.80.151.31:8000/v1',
+      fetch: fetchMock as unknown as typeof fetch,
+      proxy: { origin: 'https://app.example.com', upstream: 'http://100.80.151.31:8000/v1' },
+    })
+    const outcome = await collectStream(streamFn(TRANSLATE, { model: 'm' }))
+    expect(outcome).toEqual({ status: 'done', text: 'hi' })
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    // routed to the same-origin proxy, NOT the direct endpoint
+    expect(url).toBe('https://app.example.com/proxy')
+    const headers = init.headers as Record<string, string>
+    expect(headers['x-lucid-proxy-upstream']).toBe('http://100.80.151.31:8000/v1')
+    // the custom key still rides as Authorization (the server forwards it upstream)
+    expect(headers.authorization).toBe('Bearer sk-user-key')
+  })
+
+  it('#28: uses the DIRECT chat/completions endpoint when no proxy is set (no upstream header)', async () => {
+    const { outcome, fetchMock } = run(sse(delta('x'), DONE), { baseUrl: 'http://100.80.151.31:8000/v1' })
+    await outcome
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://100.80.151.31:8000/v1/chat/completions')
+    expect((init.headers as Record<string, string>)['x-lucid-proxy-upstream']).toBeUndefined()
+  })
+
   it('defaults the model to "" when unset and includes max_tokens when requested', async () => {
     const fetchMock = vi.fn(() => Promise.resolve(streamResponse(sse(delta('x'), DONE))))
     const fn = openaiCompatibleStream({ apiKey: 'k', baseUrl: 'https://x/v1', fetch: fetchMock as unknown as typeof fetch })

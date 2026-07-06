@@ -17,6 +17,12 @@ export interface OpenAICompatibleDeps {
   /** API root, e.g. https://api.openai.com/v1 (the factory guarantees it is non-empty). */
   baseUrl: string
   fetch?: typeof fetch
+  /**
+   * #28 same-origin LLM proxy. When set, POST to `${proxy.origin}/proxy` with the upstream base URL in
+   * `x-lucid-proxy-upstream` (the server appends `/chat/completions` + relays) instead of the direct
+   * `chatCompletionsUrl(baseUrl)`. The Authorization (custom key) is still sent and forwarded upstream.
+   */
+  proxy?: { origin: string; upstream: string }
 }
 
 // Minimal shape of the OpenAI chat/completions SSE payload we read (no `any`).
@@ -50,8 +56,18 @@ export function openaiCompatibleStream(deps: OpenAICompatibleDeps): VendorStream
     // custom) is sent as a Bearer token, never logged (rule 65 §5).
     const headers: Record<string, string> = { 'content-type': 'application/json' }
     if (deps.apiKey) headers.authorization = `Bearer ${deps.apiKey}`
+    // #28: when a same-origin proxy is configured, POST to `${origin}/proxy` and name the upstream base
+    // URL in a header (the server appends /chat/completions + relays); else fetch the endpoint directly.
+    // The SSE parsing below is identical either way.
+    let url: string
+    if (deps.proxy) {
+      url = `${deps.proxy.origin}/proxy`
+      headers['x-lucid-proxy-upstream'] = deps.proxy.upstream
+    } else {
+      url = chatCompletionsUrl(deps.baseUrl)
+    }
     const bytes = fetchStream(
-      chatCompletionsUrl(deps.baseUrl),
+      url,
       { method: 'POST', headers, body },
       { signal: options.signal, timeoutMs: options.timeoutMs, fetch: deps.fetch },
     )

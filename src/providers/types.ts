@@ -65,6 +65,13 @@ export interface ProviderConfig {
   model?: string
   baseUrl?: string
   fetch?: typeof fetch
+  /**
+   * #28 same-origin LLM proxy. When set (only for a `custom` provider that is token-free single-origin
+   * AND allow-listed — decided at the call site via `shouldProxy`), the OpenAI-compatible adapter POSTs
+   * to `${origin}/proxy` with the upstream base URL in `x-lucid-proxy-upstream` instead of fetching
+   * `baseUrl` directly; the server appends `/chat/completions` and relays. Absent → the direct path.
+   */
+  proxy?: { origin: string; upstream: string }
 }
 
 export type ErrorKind =

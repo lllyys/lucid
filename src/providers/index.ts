@@ -52,7 +52,9 @@ export function createProvider(
       if (!model) {
         throw new ProviderException(makeProviderError('requestFailed', { detail: 'custom provider requires a model' }))
       }
-      return openaiCompatibleStream({ apiKey, baseUrl: config.baseUrl, fetch: config.fetch })
+      // #28: pass a same-origin proxy through when the call site set it (a token-free single-origin,
+      // allow-listed custom provider); otherwise the adapter fetches baseUrl directly (unchanged).
+      return openaiCompatibleStream({ apiKey, baseUrl: config.baseUrl, fetch: config.fetch, proxy: config.proxy })
     },
   }
   return defineProvider({ vendor, model, streamFn: buildStream[vendor](), retry: deps })
