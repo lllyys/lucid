@@ -70,6 +70,7 @@ export interface ProviderConfig {
 export type ErrorKind =
   | 'rateLimited'
   | 'providerDown'
+  | 'unreachable'
   | 'invalidKey'
   | 'requestFailed'
   | 'timeout'

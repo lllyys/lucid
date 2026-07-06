@@ -11,6 +11,7 @@ import type { ErrorKind } from '@/providers/types'
 const ALL_KINDS: ErrorKind[] = [
   'rateLimited',
   'providerDown',
+  'unreachable',
   'invalidKey',
   'requestFailed',
   'timeout',
