@@ -14,8 +14,43 @@ regressions). One row per bug; expanded repro/expected/actual below the table.
 | 8 | Config sync unlock doesn't restore API keys when the server rev equals the device's last-synced rev (the common refresh case) | FIXED | high | After a refresh, the user unlocks config sync with the correct passphrase but every saved API key stays empty. Root cause: `configSyncController.ts:419` (returning-device `unlock()`) gates the key-rehydrating `adopt()` on `res.value.rev > sync.readSyncedRev()` — **strictly greater**. But `syncedRev` is localStorage-persisted (`configSync.ts:24` `lucid.config-rev`, survives reload) while API keys are in-memory only (rule 65 §5, wiped on reload). So when the server blob rev == the persisted `syncedRev` (the normal case — config unchanged elsewhere), `rev > rev` is false → `adopt()`/`providerConfig.apply()` never runs → keys never rehydrate. Config sync only restores when the server rev is *strictly newer* — exactly not the case after a plain refresh. Fix: on the cold-start unlock path adopt whenever the server blob is non-null and not locally `dirty` (the reload already wiped the in-memory config, so the server is authoritative; `!dirty` still guards an edit made during the pull window); mid-session/409-conflict adopt paths unchanged. GH: #162 |
 | 7 | New custom provider form — MODEL and API KEY inputs not vertically aligned | FIXED | low | In Settings → + Add custom provider, the MODEL and API KEY inputs sit side-by-side, but the API KEY label ("API KEY · OPTIONAL — LEAVE BLANK FOR A KEYLESS ENDPOINT") wraps to **two lines** while MODEL's is one — and the row `CustomProviderForm.tsx:129` was `flex flex-wrap gap-3` with two independent `flex-1 flex-col` columns (each owning label+input), so the taller label pushed the API KEY input down off the MODEL input's baseline. The committed design (`dev-docs/designs/lucid-custom-providers`) bottom-aligns this row (`align-items:flex-end`); the implementation omitted it. **Fixed v0.13.1:** added `items-end` to the row so the inputs share a baseline regardless of label wrapping — restores the designed alignment (CSS/layout only; designed surface → not rule-51-gated; no test required per rule 10). Verified via headless-Chromium CDP (Settings → Add custom provider on a fresh-DB server, 2600px): side-by-side, box-top delta 5px (bottoms aligned; residual = the API-KEY box is ~5px taller), down from a full-line offset. GH: #141 |
 | 9 | Starred list shows the same word twice — dedup keys on `context`, so the same word looked up in different sentences isn't deduped | FIXED | low | The content-scan dedup tuple included `context`: `sameContent` (`src/stores/starredStore.ts`) + `matchesInput` (`src/components/starred/StarButton.tsx`) keyed on `kind · source · context · sourceLang · targetLang`. `context` (added for same-lookup idempotency, Gate-2 M3 of #22) is populated only for word lookups, so the same **word** from a different sentence had a different `context` → not deduped → a second entry (screenshot: "revenue" twice, 财政收入 vs 广告收入). **Fixed v0.23.1:** dropped `context` from the tuple in **both** mirrored spots → words dedup by `kind·source·direction` (first star wins; later same-word stars are no-ops); `context` stays a stored/synced field (detail "From" line) — only the dedup key changed. RED→GREEN regression test (same word, 2 contexts → 1 entry). Prevents NEW dupes; pre-existing dupes removable via Unstar (no silent data deletion — accepted Low). Gate-4 ship-as-is (independent Claude auditor). Pure logic, not design-gated. Part of feature #22. GH: #221 |
+| 10 | Custom OpenAI-compatible endpoint works via curl but fails in-app with a misleading "Provider unavailable" (browser CORS / mixed-content) | OPEN | medium | A reachable custom endpoint (`http://100.80.151.31:8000/v1`, vLLM 0.23.0, qwen3.6, keyless — **curl succeeds**) shows "Provider unavailable — temporarily unavailable, try again" in the app (translate + Test connection both fail). Root cause: lucid is a **browser app** fetching the endpoint **directly** (no proxy, `stream.ts`/`openaiCompatibleProvider.ts`); a `fetch` blocked by **CORS** (endpoint sends no `Access-Control-Allow-Origin`) or **mixed-content** (HTTPS page → `http://` endpoint) throws `TypeError: Failed to fetch` → `toProviderError` (`src/providers/errors.ts:120`) maps it to `providerDown`. curl ignores CORS → works; the browser blocks it. The "temporarily unavailable, try again" copy is misleading (retry can't fix CORS/mixed-content). Distinct from FIXED bug #5 (probe `length`→`incomplete`). **Fix:** (1) a clearer, actionable diagnosis for `TypeError: Failed to fetch` on custom/local endpoints (copy + heuristic on the existing error banner — not design-gated); (2) deeper — a same-origin proxy (rule 65 §5 future) to bypass CORS (likely a separate feature). Confirm CORS vs mixed-content from the browser console at fix time. GH: #228 |
 
 ## Open Bug Details
+
+### Bug #10 — custom OpenAI-compatible endpoint works via curl but fails in-app (browser CORS / mixed-content)
+
+**Repro:** add a custom OpenAI-compatible provider (base `http://100.80.151.31:8000/v1`, model `qwen3.6`,
+keyless — a vLLM 0.23.0 LAN server); `curl` the same `/v1/chat/completions` → **succeeds** (valid completion,
+`finish_reason: stop`, `system_fingerprint: vllm-0.23.0`); in the app, Translate or Settings → Test connection.
+
+**Expected:** the app reaches the endpoint like curl does.
+
+**Actual:** Translate → "Provider unavailable — temporarily unavailable, try again"; Test connection → "Failed —
+temporarily unavailable". Retry never helps.
+
+**Root cause:** lucid (browser app) fetches the endpoint **directly** — no proxy. A browser `fetch` blocked by
+**CORS** (the endpoint returns no `Access-Control-Allow-Origin` for the app origin — most local LLM servers don't
+by default) or **mixed-content** (an HTTPS app page fetching an `http://` endpoint) throws `TypeError: Failed to
+fetch`, which `toProviderError` (`src/providers/errors.ts:120`) maps to `providerDown`. `curl` ignores CORS and
+is same-transport → it succeeds, so the endpoint is genuinely up. The browser collapses CORS / mixed-content /
+real-outage into one opaque `TypeError`, so lucid currently can't distinguish them, and "temporarily
+unavailable, try again" misleads (the block is permanent until CORS/mixed-content is resolved). Both the
+translate stream and the probe fetch fail identically → a fetch-level block, not a translate/stream-parse bug
+(distinct from FIXED bug #5).
+
+**Fix:**
+1. **Better diagnosis (lucid-addressable):** for a `TypeError: Failed to fetch` on a custom/local endpoint,
+   surface an actionable error instead of "temporarily unavailable" — name the likely cause (CORS or
+   HTTPS→HTTP mixed content) and the remedy (enable CORS on the server / use a proxy). Copy + heuristic on the
+   existing error banner (rules 65/66 error surface) — **not rule-51 design-gated**.
+2. **Deeper (separate feature): a thin same-origin proxy** (rule 65 §5 future server/proxy) so the browser calls
+   same-origin and the proxy calls the endpoint — the only way to actually make a CORS-less local endpoint work
+   from the browser.
+
+**To confirm at fix time:** the browser DevTools Console/Network tab — a CORS message (missing
+`Access-Control-Allow-Origin` / failing OPTIONS preflight) vs a mixed-content warning vs `net::ERR_*` — decides
+the exact guidance + whether the app origin is HTTP or HTTPS.
 
 ### Bug #9 — starred list shows the same word twice (dedup keys on context)
 
