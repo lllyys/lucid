@@ -100,7 +100,7 @@ describe('makeProviderError', () => {
     expect(e.retryable).toBe(true)
     expect(e.fallbackable).toBeUndefined()
   })
-  it.each(['providerDown', 'timeout'] as const)('%s is retryable', (kind) => {
+  it.each(['providerDown', 'unreachable', 'timeout'] as const)('%s is retryable', (kind) => {
     expect(makeProviderError(kind).retryable).toBe(true)
   })
   it.each(['invalidKey', 'requestFailed', 'refusal', 'incomplete', 'validation', 'unknown', 'aborted'] as const)(
@@ -154,8 +154,15 @@ describe('toProviderError', () => {
     expect(e.kind).toBe('aborted')
     expect(e.retryable).toBe(false)
   })
-  it('TypeError (network failure) -> providerDown', () => {
-    expect(toProviderError(new TypeError('Failed to fetch')).kind).toBe('providerDown')
+  it('TypeError (network / CORS / mixed-content block) -> unreachable, not providerDown (bug #10)', () => {
+    // A browser fetch that never connects (offline, DNS, CORS, HTTPS->http mixed content) throws a
+    // TypeError. It is distinct from a 5xx (providerDown): the endpoint may be up (curl works) while the
+    // browser refuses the request — so it maps to `unreachable` with connectivity/CORS guidance.
+    const e = toProviderError(new TypeError('Failed to fetch'))
+    expect(e.kind).toBe('unreachable')
+    expect(e.messageKey).toBe('error.unreachable')
+    expect(e.retryable).toBe(true)
+    expect(e.detail).toBe('Failed to fetch')
   })
   it('ProviderException -> its providerError verbatim', () => {
     const pe = new ProviderException(makeProviderError('refusal', { fallbackable: true }))
@@ -180,7 +187,7 @@ describe('toProviderError', () => {
 })
 
 describe('isRetryableError', () => {
-  it.each(['rateLimited', 'providerDown', 'timeout'] as const)('%s + retryable flag -> true', (k) => {
+  it.each(['rateLimited', 'providerDown', 'unreachable', 'timeout'] as const)('%s + retryable flag -> true', (k) => {
     expect(isRetryableError(makeProviderError(k))).toBe(true)
   })
   it.each(['invalidKey', 'requestFailed', 'refusal', 'incomplete', 'validation', 'aborted', 'unknown'] as const)(

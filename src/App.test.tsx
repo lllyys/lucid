@@ -34,6 +34,7 @@ beforeEach(() => {
 const ALL_ERROR_KINDS: Record<ErrorKind, true> = {
   rateLimited: true,
   providerDown: true,
+  unreachable: true,
   invalidKey: true,
   requestFailed: true,
   timeout: true,

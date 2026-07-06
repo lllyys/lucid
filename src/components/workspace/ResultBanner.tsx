@@ -16,6 +16,7 @@ import type { ErrorKind, ProviderError } from '@/providers/types'
 const TITLE_KEY: Record<ErrorKind, string> = {
   rateLimited: 'banner.rateLimited.title',
   providerDown: 'banner.providerDown.title',
+  unreachable: 'banner.unreachable.title',
   invalidKey: 'banner.invalidKey.title',
   requestFailed: 'banner.requestFailed.title',
   timeout: 'banner.timeout.title',

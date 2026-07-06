@@ -9,6 +9,7 @@ import { sanitizeDetail } from './redact'
 const MESSAGE_KEY: Record<ErrorKind, string> = {
   rateLimited: 'error.rateLimited',
   providerDown: 'error.providerDown',
+  unreachable: 'error.unreachable',
   invalidKey: 'error.invalidKey',
   requestFailed: 'error.requestFailed',
   timeout: 'error.timeout',
@@ -20,7 +21,7 @@ const MESSAGE_KEY: Record<ErrorKind, string> = {
 }
 
 // Only transient failures are retryable on the same model (rule 65 §4).
-const RETRYABLE: ReadonlySet<ErrorKind> = new Set<ErrorKind>(['rateLimited', 'providerDown', 'timeout'])
+const RETRYABLE: ReadonlySet<ErrorKind> = new Set<ErrorKind>(['rateLimited', 'providerDown', 'unreachable', 'timeout'])
 
 const MAX_RETRY_AFTER_MS = 60_000
 
@@ -117,6 +118,10 @@ export function toProviderError(err: unknown): ProviderError {
   const detail = err instanceof Error ? err.message : typeof err === 'string' ? err : undefined
   if (name === 'TimeoutError') return makeProviderError('timeout', { detail })
   if (name === 'AbortError') return makeProviderError('aborted', { detail })
-  if (err instanceof TypeError) return makeProviderError('providerDown', { detail })
+  // A browser fetch that never connects — offline, DNS, a CORS block, or an HTTPS→http mixed-content
+  // block — throws a TypeError. This is DISTINCT from `providerDown` (a server that answered with 5xx):
+  // the endpoint may be perfectly up (curl works) while the browser refuses the request, so the message
+  // must point at connectivity/CORS/mixed-content, not "the provider is temporarily unavailable" (bug #10).
+  if (err instanceof TypeError) return makeProviderError('unreachable', { detail })
   return makeProviderError('unknown', { detail })
 }
