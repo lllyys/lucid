@@ -114,6 +114,44 @@ describe('PolishPanel', () => {
     expect(screen.queryByText('inference')).toBeNull()
   })
 
+  // Bug #11 — the sync reconcile re-applies keywords into the store every cycle (a NEW array
+  // reference with IDENTICAL content). The keyword-change effect must compare VALUES, not the
+  // reference, so a same-content re-set never wipes the just-streamed polish result.
+  it('a same-content keywords re-set (sync reconcile) does NOT reset a done polish result (bug #11)', async () => {
+    mockCreate.mockReturnValue(smartProvider())
+    usePolishKeywordsStore.getState().addKeyword('inference') // a populated set, as a real reconcile would have
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'the draft')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Polish' }))
+      await tick()
+    })
+    expect(useOperationStore.getState().polish.status).toBe('done')
+    await act(async () => {
+      // the sync reconcile re-applies keywords: a NEW array of identical entities (new references, same values)
+      const same = usePolishKeywordsStore.getState().keywords.map((k) => ({ ...k }))
+      usePolishKeywordsStore.setState({ keywords: same })
+    })
+    expect(useOperationStore.getState().polish.status).toBe('done') // must NOT have reset
+  })
+
+  it('a real keyword change still invalidates a done polish result', async () => {
+    mockCreate.mockReturnValue(smartProvider())
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'the draft')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Polish' }))
+      await tick()
+    })
+    expect(useOperationStore.getState().polish.status).toBe('done')
+    await act(async () => {
+      usePolishKeywordsStore.getState().addKeyword('inference') // real content change
+    })
+    expect(useOperationStore.getState().polish.status).toBe('idle') // invalidated for re-polish
+  })
+
   it('streams "Translate original" into the draft', async () => {
     mockCreate.mockReturnValue(smartProvider())
     const user = userEvent.setup()
