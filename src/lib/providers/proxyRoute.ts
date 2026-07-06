@@ -56,3 +56,31 @@ export function shouldProxy(input: ShouldProxyInput): boolean {
 export function proxyTarget(origin: string, baseUrl: string): { url: string; upstreamHeader: string } {
   return { url: `${origin}/proxy`, upstreamHeader: normalizeBaseUrl(baseUrl) ?? baseUrl }
 }
+
+export interface ResolveProxyInput {
+  vendor: Vendor
+  /** The active target's endpoint base URL (undefined/'' for a built-in with no user URL). */
+  baseUrl: string | undefined
+  /** `window.location.origin` — the served origin. */
+  origin: string
+  /** The live sync connection config (null = local-only). */
+  syncConfig: { serverUrl: string; token: string } | null
+  /** The cached server proxy allow-list. */
+  allowed: string[]
+}
+
+/**
+ * The SINGLE resolver both call sites (usePanelRun, useTestConnection) and the footer privacy line use
+ * so they AGREE on when to proxy (#28). Returns the `{ origin, upstream }` proxy config to pass into
+ * `createProvider`, or undefined for the direct path. Pure — the caller reads the stores + allow-list
+ * cache and passes them in. Single-origin = the sync server IS this origin AND is token-free.
+ */
+export function resolveProxyConfig(input: ResolveProxyInput): { origin: string; upstream: string } | undefined {
+  if (!input.baseUrl) return undefined
+  const singleOrigin =
+    input.syncConfig !== null && input.syncConfig.serverUrl === input.origin && input.syncConfig.token === ''
+  if (!shouldProxy({ singleOrigin, allowed: input.allowed, vendor: input.vendor, baseUrl: input.baseUrl })) {
+    return undefined
+  }
+  return { origin: input.origin, upstream: proxyTarget(input.origin, input.baseUrl).upstreamHeader }
+}

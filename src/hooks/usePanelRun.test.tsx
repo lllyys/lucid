@@ -6,6 +6,8 @@ import { createProvider } from '@/providers'
 import { usePanelRun } from './usePanelRun'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
+import { useSyncStore } from '@/stores/syncStore'
+import { setProxyAllowlist, clearProxyAllowlist } from '@/lib/providers/proxyAllowlist'
 import {
   ProviderException,
   type LLMProvider,
@@ -37,6 +39,8 @@ function okProvider(outcome: ProviderOutcome = { status: 'done', text: 'ok' }): 
 beforeEach(() => {
   mockCreate.mockReset()
   useProviderStore.getState().reset()
+  useSyncStore.getState().reset()
+  clearProxyAllowlist()
   useOperationStore.getState().reset('translate')
   useOperationStore.setState({ translate: { status: 'idle', startedAt: null, elapsedMs: null, runId: 0, isAuto: false } })
 })
@@ -124,6 +128,41 @@ describe('usePanelRun', () => {
       model: 'right-model',
       baseUrl: 'https://right/v1',
     })
+  })
+
+  it('#28: injects proxy for a token-free single-origin, allow-listed custom provider', async () => {
+    const s = useProviderStore.getState()
+    const id = s.addCustomProvider({ label: 'Local vLLM', baseUrl: 'http://100.80.151.31:8000/v1', model: 'cm', key: 'sk-c' })
+    s.setVendor({ type: 'custom', id })
+    useSyncStore.setState({ config: { serverUrl: window.location.origin, token: '' } }) // token-free single-origin
+    setProxyAllowlist(['http://100.80.151.31:8000/v1'])
+    mockCreate.mockReturnValue(okProvider())
+    const { result } = renderHook(() => usePanelRun())
+    await act(async () => {
+      result.current.run('translate', req)
+      await tick()
+    })
+    expect(mockCreate).toHaveBeenCalledWith('custom', {
+      apiKey: 'sk-c',
+      model: 'cm',
+      baseUrl: 'http://100.80.151.31:8000/v1',
+      proxy: { origin: window.location.origin, upstream: 'http://100.80.151.31:8000/v1' },
+    })
+  })
+
+  it('#28: stays DIRECT (no proxy) for an unlisted custom provider even when single-origin', async () => {
+    const s = useProviderStore.getState()
+    const id = s.addCustomProvider({ label: 'Unlisted', baseUrl: 'http://unlisted.internal/v1', model: 'cm', key: 'sk-c' })
+    s.setVendor({ type: 'custom', id })
+    useSyncStore.setState({ config: { serverUrl: window.location.origin, token: '' } })
+    setProxyAllowlist(['http://100.80.151.31:8000/v1']) // does not include the unlisted base URL
+    mockCreate.mockReturnValue(okProvider())
+    const { result } = renderHook(() => usePanelRun())
+    await act(async () => {
+      result.current.run('translate', req)
+      await tick()
+    })
+    expect(mockCreate).toHaveBeenCalledWith('custom', { apiKey: 'sk-c', model: 'cm', baseUrl: 'http://unlisted.internal/v1' })
   })
 
   it('abort delegates to the operation store', () => {

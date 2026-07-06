@@ -11,7 +11,10 @@ import { useCallback } from 'react'
 import { createProvider } from '@/providers'
 import { ProviderException, type ProviderConfig, type Vendor } from '@/providers/types'
 import { probeProvider } from '@/lib/providers/testConnection'
+import { resolveProxyConfig } from '@/lib/providers/proxyRoute'
+import { getProxyAllowlist } from '@/lib/providers/proxyAllowlist'
 import { useProviderStore, type TestResult } from '@/stores/providerStore'
+import { useSyncStore } from '@/stores/syncStore'
 
 export function useTestConnection(): { test: (vendor: Vendor, customId?: string) => Promise<void> } {
   const test = useCallback(async (vendor: Vendor, customId?: string) => {
@@ -44,9 +47,19 @@ export function useTestConnection(): { test: (vendor: Vendor, customId?: string)
     }
 
     record({ status: 'testing' })
+    // #28: Test-connection uses the SAME proxy decision as an actual run (usePanelRun) so a passing
+    // test guarantees the run path — relay a token-free single-origin, allow-listed custom provider
+    // through the same-origin server, else probe it directly.
+    const proxy = resolveProxyConfig({
+      vendor,
+      baseUrl: config.baseUrl,
+      origin: window.location.origin,
+      syncConfig: useSyncStore.getState().config,
+      allowed: getProxyAllowlist(),
+    })
     let provider
     try {
-      provider = createProvider(vendor, config)
+      provider = createProvider(vendor, proxy ? { ...config, proxy } : config)
     } catch (err) {
       const kind = err instanceof ProviderException ? err.providerError.kind : 'unknown'
       record({ status: 'fail', msgKey: `error.${kind}` })

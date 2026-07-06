@@ -5,7 +5,7 @@
 // normalization mismatch fails SAFE to the direct path.
 
 import { describe, it, expect } from 'vitest'
-import { shouldProxy, proxyTarget, normalizeBaseUrl } from './proxyRoute'
+import { shouldProxy, proxyTarget, normalizeBaseUrl, resolveProxyConfig } from './proxyRoute'
 
 const ALLOWED = ['http://100.80.151.31:8000/v1', 'https://api.example.com/v1']
 
@@ -63,6 +63,64 @@ describe('shouldProxy', () => {
 
   it('is false for an invalid base URL', () => {
     expect(shouldProxy({ singleOrigin: true, allowed: ALLOWED, vendor: 'custom', baseUrl: 'garbage' })).toBe(false)
+  })
+})
+
+describe('resolveProxyConfig', () => {
+  const ORIGIN = 'https://app.example.com'
+  const singleOriginConfig = { serverUrl: ORIGIN, token: '' }
+
+  it('returns the proxy config for a token-free single-origin, allow-listed custom provider', () => {
+    expect(
+      resolveProxyConfig({
+        vendor: 'custom',
+        baseUrl: 'http://100.80.151.31:8000/v1/',
+        origin: ORIGIN,
+        syncConfig: singleOriginConfig,
+        allowed: ALLOWED,
+      }),
+    ).toEqual({ origin: ORIGIN, upstream: 'http://100.80.151.31:8000/v1' })
+  })
+
+  it('returns undefined when baseUrl is missing/empty', () => {
+    expect(resolveProxyConfig({ vendor: 'custom', baseUrl: undefined, origin: ORIGIN, syncConfig: singleOriginConfig, allowed: ALLOWED })).toBeUndefined()
+    expect(resolveProxyConfig({ vendor: 'custom', baseUrl: '', origin: ORIGIN, syncConfig: singleOriginConfig, allowed: ALLOWED })).toBeUndefined()
+  })
+
+  it('returns undefined when local-only (syncConfig null)', () => {
+    expect(
+      resolveProxyConfig({ vendor: 'custom', baseUrl: 'http://100.80.151.31:8000/v1', origin: ORIGIN, syncConfig: null, allowed: ALLOWED }),
+    ).toBeUndefined()
+  })
+
+  it('returns undefined for a token-SET single-origin server (uses direct)', () => {
+    expect(
+      resolveProxyConfig({
+        vendor: 'custom',
+        baseUrl: 'http://100.80.151.31:8000/v1',
+        origin: ORIGIN,
+        syncConfig: { serverUrl: ORIGIN, token: 'tok' },
+        allowed: ALLOWED,
+      }),
+    ).toBeUndefined()
+  })
+
+  it('returns undefined for a different (non-origin) sync server', () => {
+    expect(
+      resolveProxyConfig({
+        vendor: 'custom',
+        baseUrl: 'http://100.80.151.31:8000/v1',
+        origin: ORIGIN,
+        syncConfig: { serverUrl: 'https://other.example', token: '' },
+        allowed: ALLOWED,
+      }),
+    ).toBeUndefined()
+  })
+
+  it('returns undefined for an unlisted custom base URL', () => {
+    expect(
+      resolveProxyConfig({ vendor: 'custom', baseUrl: 'http://unlisted/v1', origin: ORIGIN, syncConfig: singleOriginConfig, allowed: ALLOWED }),
+    ).toBeUndefined()
   })
 })
 

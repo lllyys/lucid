@@ -5,6 +5,8 @@ vi.mock('@/providers', () => ({ createProvider: vi.fn() }))
 import { createProvider } from '@/providers'
 import { useTestConnection } from './useTestConnection'
 import { useProviderStore } from '@/stores/providerStore'
+import { useSyncStore } from '@/stores/syncStore'
+import { setProxyAllowlist, clearProxyAllowlist } from '@/lib/providers/proxyAllowlist'
 import { ProviderException, type LLMProvider, type StreamChunk } from '@/providers/types'
 import { makeProviderError } from '@/providers/errors'
 
@@ -27,6 +29,8 @@ function rejectingProvider(err: unknown): LLMProvider {
 beforeEach(() => {
   mockCreate.mockReset()
   useProviderStore.getState().reset()
+  useSyncStore.getState().reset()
+  clearProxyAllowlist()
 })
 
 describe('useTestConnection', () => {
@@ -142,6 +146,39 @@ describe('useTestConnection', () => {
         msgKey: 'settings.testNeedUrl',
       })
       expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    it('#28: injects proxy for a token-free single-origin, allow-listed custom provider', async () => {
+      const id = useProviderStore
+        .getState()
+        .addCustomProvider({ label: 'L', baseUrl: 'http://100.80.151.31:8000/v1', model: 'cm', key: 'sk-c' })
+      useSyncStore.setState({ config: { serverUrl: window.location.origin, token: '' } })
+      setProxyAllowlist(['http://100.80.151.31:8000/v1'])
+      mockCreate.mockReturnValue(streamingProvider())
+      const { result } = renderHook(() => useTestConnection())
+      await act(async () => {
+        await result.current.test('custom', id)
+      })
+      expect(mockCreate).toHaveBeenCalledWith('custom', {
+        apiKey: 'sk-c',
+        model: 'cm',
+        baseUrl: 'http://100.80.151.31:8000/v1',
+        proxy: { origin: window.location.origin, upstream: 'http://100.80.151.31:8000/v1' },
+      })
+    })
+
+    it('#28: stays DIRECT (no proxy) for an unlisted custom provider', async () => {
+      const id = useProviderStore
+        .getState()
+        .addCustomProvider({ label: 'L', baseUrl: 'http://unlisted.internal/v1', model: 'cm', key: 'sk-c' })
+      useSyncStore.setState({ config: { serverUrl: window.location.origin, token: '' } })
+      setProxyAllowlist(['http://100.80.151.31:8000/v1'])
+      mockCreate.mockReturnValue(streamingProvider())
+      const { result } = renderHook(() => useTestConnection())
+      await act(async () => {
+        await result.current.test('custom', id)
+      })
+      expect(mockCreate).toHaveBeenCalledWith('custom', { apiKey: 'sk-c', model: 'cm', baseUrl: 'http://unlisted.internal/v1' })
     })
 
     it('an unknown/dangling custom id is a no-op (no crash, no provider built)', async () => {
