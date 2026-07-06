@@ -119,6 +119,7 @@ describe('PolishPanel', () => {
   // reference, so a same-content re-set never wipes the just-streamed polish result.
   it('a same-content keywords re-set (sync reconcile) does NOT reset a done polish result (bug #11)', async () => {
     mockCreate.mockReturnValue(smartProvider())
+    usePolishKeywordsStore.getState().addKeyword('inference') // a populated set, as a real reconcile would have
     const user = userEvent.setup()
     render(<PolishPanel />)
     await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'the draft')
@@ -128,7 +129,8 @@ describe('PolishPanel', () => {
     })
     expect(useOperationStore.getState().polish.status).toBe('done')
     await act(async () => {
-      const same = usePolishKeywordsStore.getState().keywords.map((k) => ({ ...k })) // new array, same values
+      // the sync reconcile re-applies keywords: a NEW array of identical entities (new references, same values)
+      const same = usePolishKeywordsStore.getState().keywords.map((k) => ({ ...k }))
       usePolishKeywordsStore.setState({ keywords: same })
     })
     expect(useOperationStore.getState().polish.status).toBe('done') // must NOT have reset

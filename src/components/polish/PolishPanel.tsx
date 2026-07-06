@@ -97,11 +97,9 @@ export function PolishPanel() {
   }, [dt.status, dtText])
 
   const resetPolish = () => useOperationStore.getState().reset('polish')
-  // Any keyword change (from KeywordsCard here OR the sidebar Glossary's "use") invalidates a
-  // showing polish result — re-polish with the new keywords. Compare by keyword VALUES, NOT the array
-  // reference (bug #11): the sync reconcile re-applies keywords into the store on every cycle with a
-  // fresh array of identical content, and a reference compare falsely wiped the just-streamed result.
-  // A value key (JSON of the values) survives a same-content re-set AND a StrictMode double-invoke.
+  // A keyword change (KeywordsCard or the Glossary "use") invalidates a showing polish result — reset +
+  // re-polish. Compare keyword VALUES (a JSON key), NOT the array reference (bug #11): the sync reconcile
+  // re-applies keywords each cycle with a fresh array of identical content — a ref compare falsely wiped it.
   const keywordsKey = JSON.stringify(keywordValues)
   const prevKeywordsKey = useRef(keywordsKey)
   useEffect(() => {
