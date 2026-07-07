@@ -104,6 +104,18 @@ describe('buildPrompt — polish', () => {
       expect(sys).toContain('explanation of the changes')
     }
   })
+  // Bug #12: a draft phrased as a question or instruction must be REWRITTEN, not answered/executed.
+  // Both modes must frame the draft as text-to-rewrite (rule 66 §4 — assert the framing, not model output).
+  it('frames the draft as text to rewrite, never to answer/execute — both modes (bug #12)', () => {
+    const plain = buildPrompt(polish({ text: 'what is the diff between qqq and tqqq' })).system.toLowerCase()
+    const ref = buildPrompt(polish({ text: 'what is X?', original: '原文', keywords: ['x'] })).system.toLowerCase()
+    for (const sys of [plain, ref]) {
+      expect(sys).toContain('never answer') // do not answer/respond to/execute the draft
+      expect(sys).toContain('question') // even if phrased as a question
+      expect(sys).toContain('instruction') // ...or an instruction
+      expect(sys).toContain('rewrite') // treat it purely as text to rewrite
+    }
+  })
 })
 
 describe('buildPrompt — polish with reference (original + keywords)', () => {
