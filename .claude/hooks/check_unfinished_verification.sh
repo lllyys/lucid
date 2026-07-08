@@ -117,8 +117,11 @@ def scan(path, kind):
             cells = [c.strip() for c in line.split("|")]
             if len(cells) < 7:
                 continue
-            status = cells[5]
-            notes = cells[6]
+            # Tracker layout: | ID | Title | Status | Priority/Severity | Notes |
+            # split("|") → cells[0]="" cells[1]=ID cells[2]=Title
+            #              cells[3]=Status cells[4]=Priority cells[5]=Notes
+            status = cells[3]
+            notes = cells[5]
             if kind == "feature":
                 if status not in {"PLANNED", "IN PROGRESS", "DONE", "VERIFIED"}:
                     continue

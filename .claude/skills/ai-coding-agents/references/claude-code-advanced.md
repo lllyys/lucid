@@ -192,7 +192,7 @@ claude --agent security-reviewer "review auth module"
 ### Project Commands
 Location: `.claude/commands/<name>.md`
 
-Example `.claude/commands/fix-issue.md`:
+Example `.claude/commands/fix-github-issue.md`:
 ```markdown
 Fix GitHub issue #$ARGUMENTS
 

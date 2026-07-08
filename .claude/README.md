@@ -31,7 +31,7 @@ Subscription auth (`codex login` with ChatGPT Plus/Pro) is dramatically cheaper 
 ├── rules/                 # Auto-loaded project rules
 ├── commands/              # Project-specific slash commands
 ├── skills/                # Project-tracked skills (the relevant ones for lucid)
-├── agents/                # Subagent definitions for /feature-workflow
+├── agents/                # Subagent definitions for /feature-workflow and /fix-issue
 ├── hooks/                 # PreToolUse / Stop / UserPromptSubmit hooks
 ├── cron-prompts/          # Prompts for unattended (cron-driven) sessions
 ├── tdd-guardian/          # TDD Guardian config (pnpm test / test:coverage)
@@ -79,15 +79,16 @@ Project-specific commands (not provided by plugins):
 
 | Command | Purpose |
 |---------|---------|
+| `/bump` | Bump the app version in `package.json`, commit, tag, push |
 | `/cron-bootstrap` | Bootstrap unattended cron-driven sessions |
-| `/feature-workflow` | Gated 6-gate agent-driven feature workflow |
-| `/file-bug` | File a GitHub issue for a `docs/bugs.md` row |
-| `/file-feature` | File a GitHub issue for a `docs/features.md` row |
-| `/fix` | Root-cause bug fixing with TDD |
-| `/fix-issue` | End-to-end GitHub issue resolver (fetch, branch, fix, audit, PR) |
+| `/file-bug` | Pointer at the `file-bug` skill (mirror a `docs/bugs.md` row to GH) |
+| `/file-feature` | Pointer at the `file-feature` skill (mirror a `docs/features.md` row to GH) |
+| `/fix` | Root-cause bug fixing with TDD (untracked, in-session fixes; GH-tracked bugs → `/fix-issue`) |
 | `/merge-prs` | Review and merge open PRs sequentially |
 | `/repo-clean-up` | Remove failed GitHub Actions runs and stale remote branches |
 | `/test-guide` | Generate manual testing guide |
+
+`/feature-workflow` and `/fix-issue` are skills (below), not command files.
 
 ## Skills (`skills/`)
 
@@ -95,35 +96,30 @@ Tracked in git; loaded on demand. All present skills are lucid-relevant (no Taur
 
 | Skill | When used |
 |-------|-----------|
-| `ai-coding-agents` | Multi-tool orchestration (Codex CLI / Claude Code CLI) |
+| `ai-coding-agents` | Multi-tool reference (Codex CLI / Claude Code CLI) — rule-53 stamped |
 | `cc-suite` | Codex audit-loop helpers |
 | `css-design-tdd` | CSS / design-token TDD |
-| `feature-workflow` | Drives the binding 6-gate feature workflow |
+| `dispatch` | Brief mechanics for spawning parallel subagents (templates, checklists, ledger) |
+| `feature-workflow` | Orchestration playbook for the binding 6-gate feature workflow (dispatches agents, never implements inline) |
 | `file-bug` / `file-feature` | Mirror tracker rows to GitHub issues |
-| `fix-issue` | End-to-end GitHub issue resolution |
+| `fix-issue` | Orchestration playbook for end-to-end GitHub issue resolution (worktree implementers, serial integrator tail) |
 | `mcp-dev` / `mcp-server-manager` | MCP server configuration |
-| `plan-audit` / `plan-verify` / `planning` | Implementation planning |
 | `react-app-dev` | React UI changes (components, hooks, stores) |
-| `release-gate` | Quality-gate checks (`pnpm check:all`) |
 | `triage` | Classify reported issues into bugs/features |
 | `verify` | Browser/integration verification (Gate 5 + bug close-gate) |
-| `workflow-audit` | Audit GitHub Actions workflows |
 
 ## Agents (`agents/`)
 
-Subagent definitions used by `/feature-workflow`:
+Subagent definitions dispatched by `/feature-workflow` and `/fix-issue` (brief mechanics live in the `dispatch` skill):
 
 | Agent | Role |
 |-------|------|
-| `planner` | Research, edge cases, modular work items |
-| `implementer` | TDD-driven code changes |
-| `auditor` | Diff review for correctness and rule violations |
-| `test-runner` | Test execution and E2E coordination |
-| `verifier` | Final pre-release checklist |
-| `spec-guardian` | Validates work against specifications |
-| `impact-analyst` | Finds the minimal correct change set |
-| `release-steward` | Commit messages and release notes |
-| `manual-test-author` | Manual testing guide maintenance |
+| `planner` | Gate 1+2 — authors the plan and drives its own Codex plan-audit loop; writes only `dev-docs/plans/**` |
+| `implementer` | Gate 3+4 — worktree-native TDD implementation (feature WI or bug fix) plus its own Codex audit loop |
+| `auditor` | Independent read-only reviewer — manual Gate-2/4 fallback and orchestrator spot-checks |
+| `gate-runner` | Report-only quality-gate executor — runs `pnpm check:all` in a named tree, never edits |
+| `verifier` | Gate 5a/5b browser verification — owns a port+profile, writes evidence files, never flips tracker rows |
+| `integrator` | The single serial merge-tail owner — per branch: rebase, re-gate, doc deltas, bump, PR, merge, tag |
 
 ## Hooks (`hooks/`)
 
@@ -132,8 +128,8 @@ Wired up in `settings.json`:
 | File | Event | Purpose |
 |------|-------|---------|
 | `refine_prompt.sh` (+ `refine_prompt.txt`) | UserPromptSubmit | On a `>>>`-prefixed prompt, refines it and blocks the original |
-| `tdd-guard.mjs` | PreToolUse (Edit/Write/MultiEdit) | Scoped TDD guard: blocks edits to high-risk source (`src/providers/**`, `src/lib/translation/**`, `src/lib/polish/**`, `src/stores/**`) unless a sibling `*.test.ts(x)` exists |
-| `check_terminal_status_evidence.sh` | PreToolUse (Edit/Write/MultiEdit) | Blocks flipping a tracker row to VERIFIED/FIXED without a `dev-docs/verification/` evidence file |
+| `tdd-guard.mjs` | PreToolUse (Edit/Write/MultiEdit) | Scoped TDD guard: blocks edits to high-risk source (`src/providers/**`, `src/lib/{translation,polish,providers,sync}/**`, `src/stores/**`) unless a sibling `*.test.ts(x)` exists |
+| `check_terminal_status_evidence.sh` | PreToolUse (Edit/Write/MultiEdit) | Blocks flipping a `docs/features.md` row to VERIFIED without a `dev-docs/verification/` evidence file (bug FIXED flips are not hook-enforced — bug evidence gates GH-issue close) |
 | `check_gh_issue_mirror.sh` | PreToolUse (Edit/Write/MultiEdit) | Blocks tracker rows that lack a `GH: #N` mirror cross-reference |
 | `check_codex_audit_artifact.sh` | PreToolUse (Bash) | Blocks `gh pr merge` without a passing Codex audit log for the branch |
 | `check_unfinished_verification.sh` | Stop | Warns (non-blocking) about unfinished verification debt at session end |

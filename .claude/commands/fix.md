@@ -14,6 +14,13 @@ $ARGUMENTS
 **If `$ARGUMENTS` is empty**, don't guess: ask the user which issue to fix — or, if a failing
 test or error is already visible in this session, confirm you'll fix that — before proceeding.
 
+**Mandatory handoff:** if the target is a GH-tracked bug → use `/fix-issue` — audit log,
+tracker, and close gate are non-optional there. `/fix` is for untracked, in-session fixes only.
+
+**Design gate (rule 51):** a fix that introduces new visible chrome (dialog, toast, banner,
+status chip, indicator) is design-gated — stop and file `needs-design` per
+`.claude/rules/51-no-self-designed-ui.md`; never invent UI in a fix.
+
 ## Fixing Philosophy
 
 **No half measures.** Every fix must be complete and correct.
@@ -64,7 +71,7 @@ test or error is already visible in this session, confirm you'll fix that — be
 - Keep the diff minimal and focused — don't refactor unrelated code.
 - Follow project conventions:
   - Use `@/` imports for cross-module, relative for same-module
-  - Use design tokens, never hardcoded colors (`.claude/rules/31-design-tokens.md`)
+  - Use design tokens, never hardcoded colors (`.claude/rules/30-ui-consistency.md`)
   - No Zustand store destructuring in components
   - Keep files under ~300 lines
 

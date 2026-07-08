@@ -199,17 +199,18 @@ claude mcp reset-project-choices
 
 **Codex:**
 ```bash
-# Very long prompt
-echo "$(cat huge-file.txt)" | codex exec -
+# Very long prompt — never `| codex exec -` (rule-53 stdin wedge);
+# pass as an argument with stdin closed
+codex exec "$(cat huge-file.txt)" < /dev/null
 # May hit token limits - will truncate
 
 # Binary in stdout
-codex exec --json "task" > output.json
+codex exec --json "task" < /dev/null > output.json
 # Output is valid JSON, but content may be truncated
 
-# Non-UTF8 input
-cat binary.bin | codex exec -
-# Undefined behavior
+# Non-UTF8 input: `cat binary.bin | codex exec -` is FORBIDDEN — stdin-piped
+# codex exec is the rule-53 wedge pattern, and non-UTF8 stdin is undefined
+# behavior on top. Don't feed binary to codex at all.
 ```
 
 **Claude:**
@@ -264,7 +265,7 @@ claude -p --permission-prompt-tool broken_tool "task"
 **Codex:**
 ```bash
 # No TTY in CI
-codex exec "task"  # Works (non-interactive)
+codex exec "task" < /dev/null  # Works (non-interactive; close stdin per rule 53)
 codex "task"       # May fail (expects TTY)
 
 # Parallel jobs same API key
@@ -272,7 +273,7 @@ codex "task"       # May fail (expects TTY)
 # Use different API keys or queue
 
 # Git not initialized
-codex exec --skip-git-repo-check "task"
+codex exec --skip-git-repo-check "task" < /dev/null
 ```
 
 **Claude:**
@@ -377,7 +378,7 @@ codex cloud diff <task>  # Review first
 **After Rate Limit:**
 ```bash
 # Wait and retry
-sleep 60 && codex exec "task"
+sleep 60 && codex exec "task" < /dev/null
 
 # Or use fallback
 claude -p --fallback-model haiku "task"

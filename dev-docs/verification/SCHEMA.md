@@ -3,19 +3,26 @@
 Gate 5b acceptance evidence for a feature (or bug close-gate). One file per terminal
 verification, named `feature-<id>-<YYYYMMDD>.md` or `bug-<id>-<YYYYMMDD>.md`. The
 `check_terminal_status_evidence.sh` PreToolUse hook blocks flipping a `docs/features.md`
-row to `VERIFIED` (or a `docs/bugs.md` row to `FIXED`) unless a matching file exists here.
+row to `VERIFIED` unless a matching file exists here (existence check only). Bug `FIXED`
+row flips are NOT hook-enforced — bug close-gate evidence is required at GH-issue-close
+time, not at the row flip.
 
 ## Frontmatter
 
 ```yaml
 ---
-feature: <id>          # or `bug: <id>`
-title: <short title>
-status: VERIFIED        # or FIXED for bugs
-result: pass | fail
+kind: feature | bug
+id: <id>                       # the tracker row id
+status_target: VERIFIED        # or FIXED for bugs
+commit_sha: <40-hex SHA>       # the merge commit the verification ran against
+app_version: <X.Y.Z>           # package.json version at that commit
 date: YYYY-MM-DD
 verifier: <who/what ran it>
-final_wi: <WI-N>        # features only; the WI whose merge completed the feature
+browser: <browser + how it was driven, or "n/a — <why>">
+os_version: <e.g. macOS 26.3.1>
+build_mode: <e.g. production (vite build) | dev (pnpm dev) | test (vitest)>
+provider: <active provider + mocked/real, per rule 65 §8>
+result: pass | partial | fail
 ---
 ```
 
