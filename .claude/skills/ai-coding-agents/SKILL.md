@@ -5,6 +5,13 @@ description: Comprehensive guide for using Codex CLI (OpenAI) and Claude Code CL
 
 # AI Coding Agents Skill
 
+> **Rule 53 banner (binding):** Gate-time Codex — Gate-2 plan audits, Gate-4 implementation
+> audits — goes ONLY through `/cc-suite:*` commands (bounded, stdin-isolated, job-tracked
+> runner). Never drive a gate with raw `codex exec`. Any direct `codex exec` invocation MUST
+> close stdin with `< /dev/null` per `.claude/rules/53-codex-runner-isolation.md` §2 — in a
+> non-tty shell an open stdin wedges Codex forever. Every `codex exec` example below carries
+> the redirect for this reason.
+
 Expert knowledge for Codex CLI and Claude Code CLI — the two leading AI coding agents.
 
 **Note:** This skill documents both tools for reference. lucid development primarily uses **Claude Code CLI**. The Codex CLI sections are retained for completeness and cross-tool workflows.
@@ -26,7 +33,7 @@ Expert knowledge for Codex CLI and Claude Code CLI — the two leading AI coding
 |------|-----------|-----------------|
 | Interactive session | `codex` | `claude` |
 | With prompt | `codex "fix the bug"` | `claude "fix the bug"` |
-| Non-interactive | `codex exec "task"` | `claude -p "task"` |
+| Non-interactive | `codex exec "task" < /dev/null` | `claude -p "task"` |
 | Resume last | `codex resume --last` | `claude -c` |
 | Resume by ID | `codex resume <id>` | `claude -r <id>` |
 
@@ -80,12 +87,11 @@ codex --search "find docs"      # Enable web search
 
 #### `codex exec` - Non-Interactive
 ```bash
-codex exec "write tests"        # Run and exit
-codex e "task"                  # Short alias
-echo "task" | codex exec -      # From stdin
-codex exec --json "task"        # JSONL output
-codex exec -o result.txt "task" # Save to file
-codex exec --output-schema schema.json "task"  # Validate output
+codex exec "write tests" < /dev/null        # Run and exit
+codex e "task" < /dev/null                  # Short alias
+codex exec --json "task" < /dev/null        # JSONL output
+codex exec -o result.txt "task" < /dev/null # Save to file
+codex exec --output-schema schema.json "task" < /dev/null  # Validate output
 ```
 
 #### `codex resume` - Continue Sessions
@@ -307,7 +313,7 @@ claude install latest           # Latest version
 
 ### Custom Commands
 
-Create `.claude/commands/fix-issue.md`:
+Create `.claude/commands/fix-github-issue.md`:
 ```markdown
 Fix GitHub issue #$ARGUMENTS
 
@@ -318,7 +324,7 @@ Fix GitHub issue #$ARGUMENTS
 5. Create a commit
 ```
 
-Usage: `/project:fix-issue 1234`
+Usage: `/project:fix-github-issue 1234`
 
 ### Configuration
 
@@ -432,7 +438,7 @@ claude --agents '{
 - name: Run Codex
   run: |
     echo "${{ secrets.OPENAI_API_KEY }}" | codex login --with-api-key
-    codex exec --json -o result.txt "fix linting errors"
+    codex exec --json -o result.txt "fix linting errors" < /dev/null
 ```
 
 **Claude in CI:**
@@ -477,7 +483,7 @@ claude --add-dir ../shared-lib ../config
 
 **Codex:**
 ```bash
-codex exec --output-schema schema.json "generate API spec"
+codex exec --output-schema schema.json "generate API spec" < /dev/null
 ```
 
 **Claude:**

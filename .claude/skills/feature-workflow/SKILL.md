@@ -1,711 +1,362 @@
 ---
 name: feature-workflow
-description: "Run the binding 6-gate feature workflow end-to-end per rule 47 (Plan → Independent Plan Audit → TDD Implementation → Implementation Audit Loop → Browser/Integration Verification → Merge). Use this skill whenever the user wants to implement a new feature in lucid, asks 'implement feature #N', 'work on feature 47', 'start the feature workflow', 'build the provider-switch UI', 'plan + build feature X', or describes building a new capability that doesn't yet exist. NOT for fixing broken implementations (that's fix-issue). The skill drives the row from `TODO` → `VERIFIED` through six gates that must never be skipped — author/auditor separation, evidence files, hook compliance are all binding."
+description: "Run the binding 6-gate feature workflow (/feature-workflow) end-to-end per rule 47 (Plan → Independent Plan Audit → TDD Implementation → Implementation Audit Loop → Browser/Integration Verification → Merge) — as an ORCHESTRATION playbook: the main session dispatches planner/implementer/verifier/integrator agents and integrates their envelopes; it never implements, tests, audits, or merges inline. Use this skill whenever the user wants to implement a new feature in lucid, asks 'implement feature #N', 'work on feature 47', 'start the feature workflow', 'build the provider-switch UI', 'plan + build feature X', or describes building a new capability that doesn't yet exist. NOT for fixing broken implementations (that's fix-issue). The skill drives the row from `TODO` → `VERIFIED` through six gates that must never be skipped — author/auditor separation, evidence files, hook compliance are all binding."
 ---
 
-# Feature Workflow (rule 47, six gates, never skip one)
+# Feature Workflow — orchestration playbook (rule 47, six gates, never skip one)
 
-Drives a feature from `TODO` → `VERIFIED` through the binding 6-gate
-sequence in `.claude/rules/47-feature-workflow.md`:
+Drives a feature from `TODO` → `VERIFIED` through the binding 6-gate sequence
+in `.claude/rules/47-feature-workflow.md` (Plan → Independent Plan Audit → TDD
+Implementation → Implementation Audit Loop → Browser/Integration Verification →
+Merge → close gate).
 
-> Plan → Independent Plan Audit → TDD Implementation → Implementation
-> Audit Loop → Browser/Integration Verification → Merge → (close gate)
+**Design axiom**: the main session (you, the orchestrator) triages, computes the
+fan-out DAG, dispatches agents, and integrates their bounded return envelopes —
+it **never** implements, tests, audits, verifies, merges, or reads transcripts.
+Gates run inside dispatched agents:
 
-Each gate has an explicit **required artifact**, **author/auditor
-separation rule**, **tracker status transition**, **blocking hook**,
-and **exit criteria**. You don't enter the next gate until the current
-gate's exit criteria are met. Multiple iterations within a gate are
-normal.
-
-## Input
-
-Parse the user's request to extract a feature identifier — either a numeric id from
-`docs/features.md` (e.g. `48`) or a short slug (e.g. `materializing-restore`). If
-the user did not name a feature, list `TODO`/`PLANNED` candidates from `docs/features.md`
-and ask the user to pick.
-
-`$ARGUMENTS` is the feature identifier — either a numeric id from
-`docs/features.md` (e.g. `48`) or a short slug (e.g.
-`materializing-restore`). If empty, list `TODO`/`PLANNED` candidates
-from `docs/features.md` and ask the user to pick.
-
-## Scope guard — read this first
-
-This skill is for **features only** (capabilities never implemented).
-If the work is fixing a broken implementation, stop here and use
-`/fix-issue`. The bug-vs-feature distinction is binding per AGENTS.md;
-running a fix through this skill skips the bug-tracker workflow.
-
-## Hooks you'll trip
-
-| Hook | Triggers when | What it requires |
+| Gate | Who runs it | Agent file |
 |---|---|---|
-| `check_gh_issue_mirror.sh` | `Edit/Write/MultiEdit` on `docs/features.md` | mirror-required rows (`PLANNED`/`IN PROGRESS`/`DONE`/`VERIFIED`) must have `GH: #N` in Notes column |
-| `check_terminal_status_evidence.sh` | tracker flip to `VERIFIED` on `docs/features.md` | matching `dev-docs/verification/feature-<id>-<YYYYMMDD>.md` evidence file with valid frontmatter |
-| `check_codex_audit_artifact.sh` | `gh pr merge` on a source-touching PR | `.claude/codex-audits/<branch>-audit.md` with `final_verdict` ∈ {ship-as-is, follow-up-recommended} |
-
-Plan around them; do not bypass.
-
-## Pre-flight Checks
-
-1. **Resolve target**: parse `$ARGUMENTS` to a feature row in
-   `docs/features.md`. Read the row + any sub-section plan.
-2. **Working tree**: `git status --porcelain`. If dirty, isolate work
-   on a branch; do not revert unrelated changes.
-3. **Branch / sync**: `git fetch origin`. Confirm `main` is current.
-4. **Tracker baseline + entry-gate selection**: note the current row
-   status, then check whether `dev-docs/plans/*-feature-<id>-*.md`
-   exists. The two artifacts can disagree (the row's `PLANNED` may
-   have been set on the lighter row-template definition: Problem/
-   Scope/Edge Cases filled in). The combination decides where to
-   enter:
-
-   | Row status | `dev-docs/plans/*-feature-<id>-*.md` present? | Enter at |
-   |---|---|---|
-   | `TODO` | no | **Gate 1** (write the plan) |
-   | `TODO` | yes (drafted ahead, not yet audited) | **Gate 2** |
-   | `PLANNED` | no | **Gate 1** (drawing up the plan IS the work — do not bail out) |
-   | `PLANNED` | yes, no audit revision history | **Gate 2** |
-   | `PLANNED` | yes, audited (revision history shows clean Gate 2) | **Gate 3** |
-   | `IN PROGRESS` | yes (assumed) | **resume next pending WI / re-enter Gate 4 if a WI is mid-audit** |
-   | `DONE` | yes | **Gate 5b** (post-merge final acceptance) |
-   | `VERIFIED` | yes | already complete; nothing to do |
-
-   **Do not stop because the plan doc is missing.** Drawing up the
-   `dev-docs/plans/` doc is Gate 1's deliverable, not a precondition.
-   A row already at `PLANNED` whose dev-docs plan doesn't exist
-   means: row-level template was filled, full implementation plan
-   wasn't lifted yet — lift it now (Gate 1), audit it (Gate 2),
-   then proceed. Only TODO/IDEA-level rows whose row-template
-   itself is empty (no Problem/Scope/Edge Cases at all) need
-   triage before Gate 1 is meaningful — those redirect to /triage.
-5. **Bug-vs-feature sanity check**: re-confirm this is a feature
-   (capability never implemented), not a bug (broken implementation).
-   If it's a bug → STOP, redirect to `/fix-issue`.
-
----
-
-# Gate 1 — Plan
-
-| Field | Value |
-|---|---|
-| Required artifact | `dev-docs/plans/YYYYMMDD-feature-<id>-<slug>.md` with all required sections (see below) |
-| Owner / auditor | Author = orchestrator (or Planner subagent). No auditor — that's Gate 2. |
-| Status transition | If row was `TODO`: stays `TODO` through Gate 1; flips to `PLANNED` only after Gate 2 passes. If row was already `PLANNED` (row-template definition filled but no plan doc): stays `PLANNED` — do NOT regress to `TODO`. The plan doc fills in what was missing |
-| Blocking hook | `check_gh_issue_mirror.sh` fires on the `PLANNED` flip (must have `GH: #N` in row Notes; create the issue here) |
-| Exit criteria | Plan file exists at the documented path with all required sections filled in |
-
-**Required artifact**: `dev-docs/plans/YYYYMMDD-feature-<id>-<slug>.md`.
-
-**Required content** (rule 47 + features.md plan template):
-
-- **Problem** — user need this addresses (mirror or refine row's `Problem`).
-- **Surface area** — file-by-file with concrete signatures: which
-  protocols, types, methods get added or modified. Include a "files
-  OUT of scope" subsection.
-- **Prior art / project precedent / rejected alternatives** — what
-  existing patterns we're building on, what was considered and
-  rejected, and why. Research is part of the plan, not a separate
-  step.
-- **Work-item sequencing** — small, testable units (typically 1–15
-  WIs). Each WI is one PR's worth of work. Estimate PR size per WI.
-  **Mark each WI as foundational or behavioral** (see Gate 5).
-- **Test catalogue** — concrete test files, what each covers,
-  including audit-driven additions (corruption, partial failure,
-  idempotency edge cases).
-- **Risks + mitigations** — known unknowns and how we'll handle them.
-- **Backward compat** — what happens to existing data / older clients
-  / older backups when this ships.
-
-**Author**: this skill's orchestrator (or a Planner subagent).
-
-**Status transition**: row stays at `TODO` until Gate 2 passes; only
-then move to `PLANNED`. Per the mirror rule, `PLANNED` triggers GH
-issue creation if not already mirrored — `gh issue create` for
-`Feature #N: <summary>` with the `enhancement` label, then stamp
-`GH: #M` into the row's Notes column.
-
-**Exit criteria**: plan file exists at the documented path with all
-required sections filled in. Ready for independent audit.
-
----
-
-# Gate 2 — Independent Plan Audit
-
-| Field | Value |
-|---|---|
-| Required artifact | Audit verdict captured inline in the plan file's revision history (Codex thread + rounds + verdict), OR a `Manual Audit Evidence` section when AI auditor unavailable |
-| Owner / auditor | Author = Gate 1 author. Auditor = **DIFFERENT agent context** (the configured Codex runner — cc-suite — by default, or a fresh subagent with read-only sandbox + "audit, don't implement" framing). Author/auditor separation is mandatory per rule 48 |
-| Status transition | row → `PLANNED` only after this gate passes; that flip triggers GH issue creation if not already mirrored |
-| Blocking hook | `check_gh_issue_mirror.sh` on the `PLANNED` flip |
-| Exit criteria | Zero open Critical/High/Medium findings; Low findings fixed or accepted with rationale; **max 3 audit rounds** (escalate to user if not clean by round 3) |
-
-**Required artifact**: Codex (or equivalent independent agent) audit
-verdict captured inline in the plan file's revision history, OR a
-`Manual Audit Evidence` section if the AI auditor is unavailable.
-
-**Author/auditor separation**: the agent that wrote the plan must
-**not** audit it. cc-suite running Codex as a separate `codex exec` process satisfies this
-by default. If a future setup runs everything through one agent, this
-gate requires invoking a different model/context boundary explicitly
-(e.g., a fresh subagent with read-only sandbox + explicit
-"audit, don't implement" framing). See `.claude/rules/48-parallel-execution.md`.
-
-## 2a. Plan audit via the configured Codex runner
-
-Run the project's configured **independent Codex audit runner** — current
-runner **`cc-suite`**, via **`/cc-suite:review-plan`** (architectural plan
-review: consistency, completeness, feasibility, ambiguity, risk; it drives
-Codex through `codex exec`). Do NOT use `ToolSearch +codex` or
-`mcp__plugin_codex-toolkit_codex__codex` — cc-suite intentionally avoids the
-MCP bridge (it hangs on long responses) and the old `codex-toolkit` MCP
-server is no longer loaded. If the `codex` CLI is missing/unauthenticated or
-cc-suite errors, skip to **2c. Manual fallback**.
-
-## 2b. Audit focus
-
-Point `/cc-suite:review-plan` at `dev-docs/plans/<plan-file>.md` for feature
-#<id>: <title> (read-only sandbox) and have it be direct — contradict the
-plan where it's wrong — focusing on:
-
-1. Model assumption verification — do the TypeScript types, store
-   shapes, provider-interface methods, function signatures, file
-   paths the plan names actually exist in the current codebase?
-   (This catches the largest class of pre-implementation bugs.)
-2. Risks + missing edge cases — what failure modes the plan misses.
-3. Interface signature critique — are new TypeScript interfaces
-   (e.g. the provider interface, store actions, React component
-   props) well-shaped, or do they leak implementation concerns?
-4. Async / state hazards — race conditions in streaming responses,
-   stale-closure bugs in React effects/hooks, Zustand store update
-   ordering, cancellation/abort handling.
-5. Cohesion check — is the WI split right, or are some WIs too big
-   or too small?
-6. Foundational-vs-behavioral classification — is each WI's tier
-   correct? (Foundational = types/interfaces/pure utilities, no
-   user-observable behavior. Behavioral = anything that changes app
-   behavior, store state, the provider layer, streaming, diff
-   rendering, or UI flow.)
-
-Have it report findings as: file:line | severity (Critical/High/Medium/Low) | issue | fix
-
-## 2c. Manual fallback (Codex unavailable)
-
-Add a `Manual Audit Evidence` section to the plan with:
-- **Files read** (paths)
-- **Symbols / signatures verified** (which fields/types/enums you confirmed exist)
-- **Edge cases checked** (the list)
-- **Risks accepted** (with rationale)
-- **Tests added or intentionally deferred**
-
-Manual fallback is allowed only when the independent audit tool is
-genuinely unavailable, not just inconvenient. The audit step is
-non-negotiable; manual fallback is an evidence-bearing alternative.
-
-## 2d. Loop or exit
-
-Author rewrites the plan to address findings; auditor re-reviews.
-Track audit rounds in the plan's revision history.
-
-**Exit criteria**:
-- Zero open Critical/High/Medium findings.
-- Low findings either fixed or explicitly accepted with rationale in
-  the plan's "Known limitations" or "Audit fixes applied" section.
-- **Maximum 3 audit rounds.** If unresolved findings remain after
-  round 3, STOP and escalate to the user — accept, defer, or redesign.
-
-**Status transition**: row → `PLANNED` (mirror rule fires; create GH
-issue if not present, stamp `GH: #N` in Notes).
-
-## 2e. Open the gate-progress timeline on the GH issue
-
-Per rule 47's "Gate progress is recorded in the GH issue", the issue is
-the running record of the feature's path through the six gates. Right
-after the issue exists, post the **first** timeline comment recording
-that Gate 2 passed:
-
-```bash
-gh issue comment <feature-gh-issue> --body "$(cat <<'EOF'
-**Gate 2 — plan audited.**
-- Plan: `dev-docs/plans/<plan-file>.md`
-- Audit: Codex threadId `<id>`, <N> round(s), verdict clean (or `manual-fallback`)
-- Work items (tier):
-  - WI-1 <slug> — foundational
-  - WI-2 <slug> — behavioral
-  - …
-EOF
-)"
-```
-
-Keep it short and factual — the plan file stays the source of truth;
-this comment points at it. Do not paste the plan's contents into the
-issue.
-
-> **Hard dependency**: Gate 3 cannot start on an unaudited plan.
-> Skipping Gate 2 and starting TDD anyway is the most likely failure
-> mode here. Don't.
-
----
-
-# Gate 3 — TDD Implementation (per Work Item)
-
-| Field | Value |
-|---|---|
-| Required artifact | Per WI: failing test (RED), minimal impl (GREEN), refactored code (REFACTOR), per-WI PR with audit log + version bump |
-| Owner / auditor | Author = implementer (the agent driving this skill or a TDD-implementer subagent). The Codex audit *of this WI's PR* is **Gate 4**, with auditor != implementer. |
-| Status transition | When WI-1's PR opens, row → `IN PROGRESS` |
-| Blocking hook | `check_codex_audit_artifact.sh` blocks `gh pr merge` without audit log; `check_gh_issue_mirror.sh` blocks tracker edits without `GH: #N` |
-| Exit criteria | Per WI: tests green, Gate 4 audit clean, docs sync committed if triggered, version bump committed, PR opened with the right reference convention. **Gate 3 cannot start on an unaudited plan** — Gate 2 must have passed first |
-
-**Status transition**: when WI-1's PR opens, row → `IN PROGRESS`.
-
-For each Work Item, run the per-WI inner loop:
-
-## 3a. Branch + WI scaffold
-
-- Branch: `feat/feature-<id>-wi-<n>-<slug>` off `main`.
-- (No tracker move yet — already at `IN PROGRESS` from WI-1's PR.)
-
-## 3b. RED → GREEN → REFACTOR
-
-Per `.claude/rules/10-tdd.md`:
-1. **RED** — write a failing Vitest test that captures the WI's behavior.
-   - Zustand store → store test calling actions via `getState()`, reset state in `beforeEach`
-   - Provider layer (`src/providers/**`) → adapter test against a mocked `fetch`/transport, no real vendor SDK calls
-   - React component / hook → `@testing-library/react` test (query by ARIA role/name; `renderHook` for hooks)
-   - Pure utility (translation/polish/diff) → table-driven `it.each` test
-2. **GREEN** — minimal implementation to make the test pass.
-3. **REFACTOR** — clean up without changing behavior. Tests stay green.
-
-Codebase conventions: see `.claude/rules/50-codebase-conventions.md`.
-File-size guideline: ~300 lines max.
-
-## 3c. Test gate
-
-```bash
-pnpm check:all   # chains lint → test:coverage → build
-```
-
-Pass → continue. Fail → fix and retry. 3 failures → stop, report.
-
-> **Note**: `pnpm check:all` is the binding quality gate. During the
-> RED→GREEN loop you can iterate faster with `pnpm test:watch` on the
-> WI's spec, but the WI is not done until the full `pnpm check:all`
-> chain (lint + coverage + build) is green.
-
-## 3d. Gate 4 — Implementation Audit (per-WI, inline)
-
-| Field | Value |
-|---|---|
-| Required artifact | `.claude/codex-audits/<branch>-audit.md` with valid frontmatter (branch, threadId, rounds, final_verdict, date) |
-| Owner / auditor | Author = WI implementer. Auditor = the configured Codex runner (cc-suite) or a fresh subagent. Author/auditor separation per rule 48 |
-| Status transition | none — row stays `IN PROGRESS` |
-| Blocking hook | `check_codex_audit_artifact.sh` blocks `gh pr merge` without this file |
-| Exit criteria | Zero open Critical/High/Medium findings; **max 3 audit rounds** (escalate to user if not clean by round 3) |
-
-This is the same audit shape as `/fix-issue` Phase 4. Runs against the
-WI's PR before merge.
-
-### Collect changed files
-
-```bash
-git diff main --name-only
-git diff main
-```
-
-### Codex audit
-
-Run the same configured Codex runner as Gate 2a — **`cc-suite`**:
-**`/cc-suite:audit`** for a read-only audit (Codex audits, you fix —
-preserves rule-48 author/auditor separation), or **`/cc-suite:audit-fix`**
-for the audit→fix→verify loop. Do NOT use `ToolSearch +codex` /
-`mcp__plugin_codex-toolkit_codex__codex` — the codex-toolkit MCP server is
-gone. Point it at the changed files (`git diff main --name-only`) and focus on:
-
-1. Correctness vs the plan — does this WI deliver what the plan promised?
-2. Edge cases — boundary conditions, null/undefined, empty input,
-   Unicode/CJK, mid-stream cancellation, concurrent store updates
-3. Security — XSS in rendered diff/markdown output, prompt/response
-   sanitization, no secrets (API keys) leaked to logs or the client bundle
-4. Duplicate code — repeated logic that should be unified
-5. Dead code — unused imports, unreachable branches, orphaned functions
-6. Shortcuts & patches — workarounds, TODO markers, band-aids
-7. Lucid compliance — TypeScript strictness (no stray `any`), React
-   effect/hook hygiene (cleanup, no stale closures), file size <300 lines
-8. Provider-layer safety — UI/feature code never imports a vendor SDK
-   directly; all LLM access goes through the single provider interface
-   in `src/providers/**`; streaming responses handle abort + partial chunks
-
-Have it report as: file:line | severity (Critical/High/Medium/Low) | issue | fix
-
-Fix every finding, then re-run `/cc-suite:audit` on the updated diff to
-verify (or let `/cc-suite:audit-fix`'s built-in verify pass cover it).
-
-If the Codex runner is unavailable: manual mini-audit (same dimensions 1–8,
-written into the audit log artifact with `threadId: manual-fallback`).
-
-### Audit log artifact (required before merge)
-
-Path: `.claude/codex-audits/<branch-with-slashes-replaced-by-hyphens>-audit.md`
-
-Frontmatter:
-
-```markdown
----
-branch: <current branch name, exactly as `git branch --show-current` returns>
-threadId: <Codex exec session id>    # OR `manual-fallback`
-rounds: <integer ≥ 1>
-final_verdict: ship-as-is | follow-up-recommended | block-recommended
-date: YYYY-MM-DD
----
-```
-
-Body:
-- Per-round findings (file:line | severity | issue | fix).
-- Resolution note for each finding (fixed / accepted / deferred).
-- Summary verdict statement.
-- Manual fallback section if applicable.
-
-Commit the audit log alongside the WI changes (own commit or folded
-into the relevant fix commit).
-
-**Exit criteria**: zero open Critical/High/Medium findings. **Max 3
-rounds** for this WI's audit; after round 3 escalate.
-
-## 3e. Docs sync (if triggered, before version bump)
-
-Per `.claude/rules/24-doc-sync.md`:
-
-| If this WI touched | Update |
-|---|---|
-| New provider adapter / store / shared hook / context / cross-feature pattern | `docs/architecture.md` |
-| User-visible behavior, tech stack, requirements, setup, ≥5-row tracker change | `README.md` |
-| Otherwise | nothing |
-
-If updates needed: own commit (`docs: update architecture.md for
-feature #<id> WI-<n>`) **before** the version bump.
-
-## 3f. Version bump (mandatory)
-
-Per `.claude/rules/40-version-bump.md` — every WI's PR ends with one.
-
-```bash
-# Bump the "version" field in package.json (semver)
-pnpm version X.Y.Z --no-git-tag-version
-grep '"version"' package.json
-
-# Smoke build
-pnpm build
-
-git add package.json
-git commit -m "chore: bump version to X.Y.Z"
-```
-
-**Bump tier (deterministic per WI):**
-
-| WI tier | Bump |
-|---|---|
-| Foundational (no user-observable change) | `patch` |
-| Behavioral but not the final WI | `patch` |
-| Final WI of the feature (completes user-visible behavior) | `minor` (or `major` if the feature is a breaking change) |
-
-Every PR merge produces a tag — see Gate 6's tag step. The tag count
-across a multi-WI feature ≈ the WI count, because every PR carries a
-mandatory version bump per rule 40.
-
-## 3g. PR
-
-**Reference convention** (binding, derived from AGENTS.md merge gate):
-
-- **Intermediate WI PRs** (every WI except the final one): use plain
-  prose like `Part of feature #<feature-gh-issue>` in the body. **Do
-  NOT** use `Refs #N` or `Fixes #N` magic words. Reason: the merge
-  gate ("a PR that references an open feature does not merge until
-  the feature reaches `DONE`") would otherwise block every
-  intermediate WI's merge and force one giant PR. Plain prose
-  cross-links the PR to the feature without tripping the gate.
-- **Final WI PR** (the one whose merge brings the feature to `DONE`):
-  use `Refs #<feature-gh-issue>`. **Never** `Fixes #N` — the GH issue
-  stays open until Gate 5b post-merge acceptance lands; auto-close
-  is wrong here.
-
-```bash
-gh pr create --title "feat(#<feature-id> WI-<n>): <concise description>" --body "$(cat <<'EOF'
-## Summary
-
-{1-3 bullets describing what changed and why}
-
-{For intermediate WIs}: Part of feature #<feature-gh-issue>
-{For final WI only}: Refs #<feature-gh-issue>
-
-## What Changed
-
-{list of key changes}
-
-## WI Status
-
-- WI-<n>: {tier — foundational | behavioral} — this PR
-- Remaining WIs: {summary}
-
-## Codex Audit (Gate 4)
-
-{audit summary — iterations run, findings fixed, verdict}
-
-Audit log: `.claude/codex-audits/{branch-slug}-audit.md`
-
-## Validation
-
-- [x] `pnpm check:all` passes (Gate 3 test gate)
-- [x] Tests cover changed behavior (TDD: RED → GREEN)
-- [x] Codex audit loop completed ({M} iterations, verdict: {verdict})
-- [x] Docs sync — {architecture.md updated | README.md updated | n/a}
-- [x] Version bumped: {old} → {new}
-
-## Gate 5a Verification (per-PR slice — pre-merge)
-
-- Tier: {foundational — unit + integration sufficient | behavioral — slice verified end-to-end | final WI — pre-merge slice with `5b post-merge evidence file pending`}
-- {What was run, what was observed}
-
-## Type of Change
-
-- [x] Feature WI ({Part of feature #<feature-gh-issue> for intermediate WIs | Refs #<feature-gh-issue> for the final WI})
-EOF
-)"
-```
-
----
-
-# Gate 5 — Browser / Integration Verification
-
-| Field | Value |
-|---|---|
-| Required artifact | 5a: PR description "Gate 5a Verification" section per WI. 5b (final-WI only): `dev-docs/verification/feature-<id>-<YYYYMMDD>.md` per SCHEMA.md |
-| Owner / auditor | Author = verifier (orchestrator or designated subagent). 5b is "evidence-bearing"; SCHEMA result-field semantics gate any `VERIFIED` flip |
-| Status transition | 5a alone does NOT change status. After 5b lands with `result: pass`, row → `VERIFIED` |
-| Blocking hook | `check_terminal_status_evidence.sh` blocks the `VERIFIED` flip without 5b file present at the documented path |
-| Exit criteria | 5a: PR's slice verification recorded honestly; 5b: every acceptance criterion exercised end-to-end with `result: pass` (or `partial` / `fail` per SCHEMA semantics) |
-
-Gate 5 has two phases — **5a (pre-merge slice)** and **5b (post-merge
-final acceptance)** — because the SCHEMA.md evidence file requires the
-**merge-commit SHA on `main`**, which doesn't exist before the final
-WI's merge.
-
-## 5a. Pre-merge slice verification (per WI)
-
-| WI tier | Verification depth (pre-merge) | Where recorded |
+| 1 + 2 | one planner dispatch (authors plan + drives its own Codex Gate-2 loop) | `.claude/agents/planner.md` |
+| 3 + 4 | wave-dispatched implementers (TDD + own Gate-4 Codex loop, in worktrees) | `.claude/agents/implementer.md` |
+| 5a | verifier dispatches (branch worktree, assigned port) | `.claude/agents/verifier.md` |
+| 6 | one integrator dispatch per ready set (rebase → re-gate → bump → PR → merge → tag) | `.claude/agents/integrator.md` |
+| 5b | verifier dispatch on main at the merge SHA | `.claude/agents/verifier.md` |
+
+**All brief mechanics** — the brief template, the rule-48 worktree
+preamble (verbatim, no small-task exemption), pre-spawn / post-return
+checklists, the failure policy, and the resource registry — live in
+`.claude/skills/dispatch/SKILL.md`. Follow it for every spawn; never improvise
+or duplicate briefs here.
+
+## Input and scope guard
+
+`$ARGUMENTS` is the feature identifier — a numeric id from `docs/features.md`
+(e.g. `48`) or a short slug (e.g. `materializing-restore`). If empty, list
+`TODO`/`PLANNED` candidates and ask the user to pick. **Features only**
+(capabilities never implemented) — fixing a broken implementation is
+`/fix-issue`; the bug-vs-feature distinction is binding per AGENTS.md.
+
+## Entry / resume table
+
+Note the current row status, then check whether
+`dev-docs/plans/*-feature-<id>-*.md` exists. The combination decides where to
+enter:
+
+| Row status | `dev-docs/plans/*-feature-<id>-*.md` present? | Enter at |
 |---|---|---|
-| **Foundational** (types, interfaces, pure utilities — no user-observable behavior) | Unit + integration tests + Gate 4 audit are sufficient | PR description "Gate 5a Verification" line |
-| **Behavioral** (anything that changes app behavior, store state, the provider layer, streaming, diff rendering, or UI flow) | **Slice verification** — run the app in the browser (`pnpm dev`) and exercise the slice end-to-end; automate with Playwright where possible. For provider features, point at a local Ollama or a mocked transport; for translation/polish flows, paste real text and observe the streamed diff. | PR description "Gate 5a Verification" section: what was run, what was observed |
-| **Final WI** (the one that completes the feature) | **Pre-merge slice** of the final acceptance criteria — exercise what's exercisable on the working-tree build in the browser. Defer anything that requires a merged-on-main build. | PR description "Gate 5a Verification" + a note "5b post-merge evidence file pending" |
+| `TODO` | no | **Gate 1** (write the plan) |
+| `TODO` | yes (drafted ahead, not yet audited) | **Gate 2** |
+| `PLANNED` | no | **Gate 1** (drawing up the plan IS the work — do not bail out) |
+| `PLANNED` | yes, no audit revision history | **Gate 2** |
+| `PLANNED` | yes, audited (revision history shows clean Gate 2) | **Gate 3** |
+| `IN PROGRESS` | yes (assumed) | **resume next pending WI / re-enter Gate 4 if a WI is mid-audit** |
+| `IN PROGRESS`, mid-WI state unclear (session died) | yes | **resume from GH timeline + ledger**: rebuild the ledger from the GH issue's gate-progress comments + the tracker row + `git worktree list` + branch/audit-log state, then re-enter at the first incomplete step |
+| `DONE` | yes | **Gate 5b** (post-merge final acceptance) |
+| `VERIFIED` | yes | already complete; nothing to do |
 
-5a is the pre-merge gate that lets Gate 6 merge land. It is NOT the
-final acceptance pass.
-
-## 5b. Post-merge final acceptance (final WI only)
-
-After the final WI's PR merges, write the **structured evidence file**
-that flips the row to `VERIFIED`.
-
-Path: `dev-docs/verification/feature-<id>-<YYYYMMDD>.md` per
-`dev-docs/verification/SCHEMA.md`.
-
-**Required frontmatter**:
-
-```yaml
----
-kind: feature
-id: <N>
-status_target: VERIFIED
-commit_sha: <40-hex of merge commit on main>
-app_version: <package.json "version">
-date: YYYY-MM-DD
-verifier: <name or "claude">
-browser: <e.g. "Chromium 126 (Playwright)" or "Chrome 126">
-os_version: <e.g. "macOS 15.4">
-build_mode: dev | preview | production
-provider: <e.g. "Ollama (local llama3)" or "mocked transport" or "n/a">
-result: pass | partial | fail
----
-```
-
-**Required body sections** (rule 47 + SCHEMA):
-
-- `## Acceptance criteria` — table mapping each criterion from the
-  plan to observed behavior + pass/fail.
-- `## Commands run` — fenced code blocks of the actual shell / `pnpm`
-  / Playwright / curl commands used. Reproducible recipe.
-- `## Observations` — what surprised you, what was almost a
-  regression, what's brittle for next time.
-- `## Artifacts` — paths to screenshots, Playwright traces, console /
-  network log captures. Optional but strongly recommended.
-
-**Result-field semantics** (binding):
-
-- `pass` — every acceptance criterion verified end-to-end. Tracker
-  may move to `VERIFIED`; GH issue may be closed.
-- `partial` — some criteria deferred. Tracker stays at `DONE`; a
-  follow-up evidence file is required.
-- `fail` — at least one criterion regressed. Tracker moves back to
-  `IN PROGRESS`; do NOT flip to `VERIFIED`.
-
-> **"Tooling unavailable" is NOT an acceptable deferral reason** unless
-> a specific tool is named and confirmed missing (e.g. `pnpm` returns
-> "command not found", the Playwright browsers aren't installed, the
-> local Ollama server is down). "I'll do it next session" is not a
-> tool-unavailability claim — it's a discipline lapse.
+**Do not stop because the plan doc is missing** — it is Gate 1's deliverable,
+not a precondition. Only TODO/IDEA-level rows whose row-template itself is
+empty (no Problem/Scope/Edge Cases at all) redirect to /triage.
 
 ---
 
-# Gate 6 — Merge
+# Playbook — one feature, N WIs
 
-| Field | Value |
+1. **Inline pre-flight:** read the feature row only; `git status --porcelain`
+   clean; `/clear` if prior unrelated context. Re-confirm this is a feature,
+   not a bug (bug → redirect to `/fix-issue`, STOP).
+2. **Dispatch planner** (Gates 1+2, one dispatch). On BLOCKED `needs-design`:
+   file the needs-design issue automatically (rule 51), annotate the row Notes,
+   stop that slice.
+3. **Inline:** commit the plan file. If the row lacks `GH: #N`, the working
+   order is: create the GH issue directly with `gh issue create` (using
+   file-feature's title/label/body format — the file-feature skill itself
+   refuses `TODO` rows, and the mirror hook blocks a bare `PLANNED` flip),
+   then flip the row `PLANNED` **and** stamp `GH: #N` in ONE single Edit (the
+   mirror hook simulates the post-edit content, so the combined edit passes);
+   commit and push the tiny main commit. Post the Gate-2 timeline comment
+   (plan path, threadId, rounds, verdict, WI list with tiers).
+4. **Compute waves** from the WI table: strata by `depends-on`; within a
+   stratum, only pairwise-disjoint write-sets run together; cap 3.
+5. **Per wave:** create worktrees from clean main; dispatch implementers **in
+   one message**; update the ledger.
+6. **Per envelope:** run the post-return checklist (dispatch skill); drift →
+   re-brief once → collapse+discard.
+7. **Gate 5a:** dispatch verifiers for behavioral WIs with distinct ports —
+   may run while other implementers are still in Gate 3 (rule 48 matrix:
+   mixed Gate 5 + Gate 3 OK).
+8. **Integration:** assemble the ordered ready-list (bump levels: intermediate
+   WI = patch, final WI = minor, breaking = major); flip `DONE` on main only
+   when this slot is the final WI; **dispatch the integrator once** for the
+   ready set. Post one per-WI timeline comment per returned row (WI+tier, PR#,
+   version, merge SHA, Gate-4 verdict, 5a result). Bounced branches →
+   re-dispatch to a fresh implementer on the same worktree, re-queue in a later
+   integrator call.
+9. **Next wave:** dispatch after its dependencies' branches have MERGED
+   (worktrees created from the updated main). Independent later-strata WIs may
+   join earlier waves if write-sets stay disjoint.
+10. **After the final WI merges** (row already flipped `DONE` at step 8 —
+    that flip's timing is authoritative; do not flip again): post "Shipped in
+    vX.Y.Z (commit <sha>). Awaiting Gate 5" + `awaiting-browser-verification`
+    label (or `verification-exception` / `verification-blocked` per AGENTS.md).
+11. **Gate 5b:** dispatch verifier on main at the merge SHA. `pass` → commit
+    evidence + `VERIFIED` flip together, closure comment citing the evidence
+    file, `gh issue close`. `partial` → stays `DONE` + follow-up filed.
+    `fail` → back to `IN PROGRESS` + rework dispatch.
+12. **End-of-flow checklist:** ledger closed; no live worktrees unaccounted;
+    `pgrep -x codex` = 0; no background shells (rule 49).
+
+---
+
+# Gate detail — what each dispatch must satisfy
+
+## Gates 1 + 2 — one planner dispatch
+
+Brief the planner with the feature row's id/title/Problem field. It authors
+`dev-docs/plans/YYYYMMDD-feature-<id>-<slug>.md` (rule 47 Gate 1's seven
+sections, including the **mandatory WI table**
+`| WI | tier | depends-on | write-set prefix(es) | design-bundle path or needs-design |`)
+and drives its own `/cc-suite:review-plan` Gate-2 loop. Author/auditor
+separation holds: Codex audits, the planner authors (rule 48).
+
+**Rule-51 design gate in Gate-1 content**: every behavioral WI that introduces
+UI must name the committed `dev-docs/designs/<bundle>/` artifact depicting its
+surface; a UI WI without a bundle is flagged `needs-design` in the WI table —
+the planner never invents UI, and neither do you.
+
+**Gate 1 acceptance bar**: plan file exists at the documented path with all
+required sections filled in.
+
+**Gate 2 acceptance bar**: zero open Critical/High/Medium findings; Low
+findings fixed or explicitly accepted with rationale in the plan; **maximum 3
+audit rounds** — if unresolved findings remain after round 3, STOP and escalate
+to the user (accept, defer, or redesign). If Codex is genuinely unavailable,
+the planner returns BLOCKED and you dispatch the auditor agent for the rule-47
+`Manual Audit Evidence` fallback — never skip the audit.
+
+**On the planner's DONE envelope (inline):** commit the plan file; if the row
+lacks `GH: #N`, create the GH issue with `gh issue create` (file-feature's
+title/label/body format), then flip the row `PLANNED` and stamp `GH: #N` in
+one single Edit (see step 3's ordering); post the Gate-2 timeline comment. The WI table arrives in the envelope —
+reference the plan by path thereafter; do not read its body.
+
+> **Hard dependency**: Gate 3 cannot start on an unaudited plan (rule 48 matrix).
+
+## Gates 3 + 4 — wave-dispatched implementers
+
+**Wave computation** (from the plan's WI table):
+
+- Stratify WIs by `depends-on` — a WI enters a wave only after every dependency
+  has **MERGED** (not just PR'd).
+- Within a stratum, only WIs with **pairwise-disjoint write-set prefixes** run
+  concurrently. Overlap → serialize (rule 48 hard rule 3).
+- Cap **3 concurrent implementers**. cc-suite queues their Gate-4 Codex audits.
+- Create each worktree from **clean main** at
+  `.claude/worktrees/feature-<id>-wi-<n>/` with branch
+  `feat/feature-<id>-wi-<n>-<slug>`; dispatch the whole wave **in one message**.
+
+Each implementer (WI mode) runs RED → GREEN → REFACTOR, `pnpm check:all` in
+its worktree, then its own Gate-4 `/cc-suite:audit` loop, committing
+`.claude/codex-audits/<branch-with-/→->-audit.md` on the branch. Shared-doc
+deltas return as envelope text — implementers never edit shared docs,
+trackers, `package.json`, or PRs.
+
+**Status transition**: when the first wave dispatches, flip the row
+`IN PROGRESS` (tiny main commit).
+
+**Gate 3 acceptance bar (per WI)**: tests pass under `pnpm check:all`; new code
+follows codebase conventions.
+
+**Gate 4 acceptance bar (per WI)**: zero open Critical/High/Medium findings;
+Low findings fixed or accepted with rationale; **max 3 audit rounds** — after
+round 3, escalate. Audit log committed on the branch with valid frontmatter
+(`branch`, `threadId`, `rounds`, `final_verdict`, `date`).
+
+**Batch-Gate-4 allowance** (rule 47 audit-count table): mechanical, low-risk
+WIs that share the same surface MAY batch under one audit — note the batching
+in each covered branch's audit log.
+
+**Spot-check**: on ~1 in 5 branches, additionally dispatch the read-only
+auditor agent against the worktree as an independent second look.
+
+**Dropped by design — do not reintroduce:** no `git diff main` dump step
+(`--name-only` only, for the post-return checklist), and no per-WI inline
+version-bump or PR-open steps — bump, PR, merge, and tag are the integrator's.
+
+## Gate 5a — verifier dispatches (pre-merge slice)
+
+| WI tier | Verification depth (pre-merge) |
 |---|---|
-| Required artifact | per WI: green PR ready to merge with audit log + version bump + Gate 5a slice noted in description |
-| Owner / auditor | Author = WI implementer. Merge gate enforced by AGENTS.md (fix-or-implement) + active hooks |
-| Status transition | per merge: not-final WI → row stays `IN PROGRESS`; final WI → row → `DONE`. (`VERIFIED` is a separate post-merge step, see Gate 5b.) |
-| Blocking hook | `check_codex_audit_artifact.sh` blocks `gh pr merge` without audit log |
-| Exit criteria | Squash merge succeeds; tag `v<X.Y.Z>` cut from the merge commit on `main`; status transitioned per the rules above |
+| **Foundational** (types, interfaces, pure utilities) | Unit + integration tests + Gate 4 audit suffice — no verifier dispatch |
+| **Behavioral** | Verifier dispatch against the WI's worktree: exercise the slice end-to-end in the browser (Playwright where possible; mocked transport or local Ollama for provider features) |
+| **Final WI** | Pre-merge slice of the acceptance criteria; defer anything needing a merged-on-main build to 5b |
 
-**A WI's PR may merge** when ALL hold:
+Assign each verifier a distinct port from the pool **5180–5189** plus its own
+profile dir (dispatch skill's resource registry). 5a dispatches may overlap
+running Gate-3 work. The verifier's envelope feeds the integrator's PR-body
+content; 5a alone never changes row status.
 
-- Tests pass (Gate 3c).
-- Implementation audit loop is clean (Gate 3d / 4).
-- Audit log artifact exists at `.claude/codex-audits/<branch>-audit.md`
-  with valid frontmatter (`check_codex_audit_artifact.sh` will block
-  `gh pr merge` otherwise).
-- **Gate 5a slice verification** complete for the WI's tier and recorded
-  in the PR description. **5b post-merge evidence file is NOT required
-  pre-merge** — it's chicken-and-egg with the merge commit SHA.
-- Docs sync committed if triggered (Gate 3e).
-- Version bump committed as the last commit before opening the PR
-  (Gate 3f).
-- PR reference convention satisfied (Gate 3g): intermediate WIs use
-  `Part of feature #N` prose; only the final WI uses `Refs #N`.
+## Gate 6 — one integrator dispatch per ready set
 
-```bash
-gh pr merge <PR#> --squash --delete-branch
-```
+**You are forbidden from running `gh pr merge`.** Merges belong to the
+integrator, executed FROM each branch's worktree (so
+`check_codex_audit_artifact.sh` binds). You also never bump versions or open
+PRs inline.
 
-After EACH WI's merge (every PR carries its own version bump per
-rule 40, so every merge gets its own tag):
+Assemble the ordered ready-list — per branch: `{worktree path, branch, bump
+level, PR title/body content (incl. feature reference + Gate-5a record),
+doc-delta text}` — and dispatch the integrator once. Per slot it rebases,
+re-runs `pnpm check:all`, applies doc deltas (rule 20 same-PR), verifies
+sibling tests, computes the **concrete X.Y.Z at slot time** from current
+package.json/tag state + your bump level, commits the bump last, opens the PR,
+merges, tags.
 
-```bash
-git checkout main && git pull origin main
-git tag v<X.Y.Z>          # the version this WI's PR bumped to
-git push origin v<X.Y.Z>
-```
+**Bump levels (you assign; integrator computes concrete versions):**
 
-Then post the per-WI timeline comment on the GH issue (rule 47, "Gate
-progress is recorded in the GH issue"):
+| WI | Level |
+|---|---|
+| Intermediate WI (foundational or behavioral, not final) | `patch` |
+| Final WI of the feature | `minor` |
+| Breaking change | `major` |
 
-```bash
-gh issue comment <feature-gh-issue> --body "$(cat <<'EOF'
-**WI-<n> merged** (<foundational | behavioral>).
-- PR #<pr>, merged as `<short-sha>`
-- Version: v<X.Y.Z>
-- Gate 4 audit: <ship-as-is | follow-up-recommended>
-- Gate 5a slice: <what was run / observed, or "unit + integration (foundational)">
-EOF
-)"
-```
+**Reference convention (binding)**: intermediate WI PRs use plain prose
+`Part of feature #<gh-issue>` (no magic words — `Refs`/`Fixes` would trip the
+merge gate on an open feature); the final WI PR uses `Refs #<gh-issue>`.
+**Never `Fixes #N`** — the issue stays open until Gate 5b; auto-close is wrong.
 
-This makes the *middle* of the workflow visible on GitHub. The final
-WI's merge instead uses the existing "shipped, awaiting verification"
-comment in the Post-Merge Finalizer below — do not double-post.
+**Gate 6 acceptance bar (per PR)**: tests green post-rebase; Gate-4 audit log
+present with `final_verdict` ∈ {ship-as-is, follow-up-recommended}; Gate-5a
+slice recorded for the WI's tier; docs sync applied if triggered; version bump
+is the last commit before PR-open (rule 40); reference convention satisfied.
 
-**Status transitions** (per merge):
+**Bounced branches** (semantic rebase conflict, re-gate failure, missing
+sibling test): re-dispatch a **fresh implementer on the same worktree** with
+the bounce reason as input, then re-queue the branch in a later integrator
+call — never repair a bounced branch inline. After the envelope returns, post
+the per-WI timeline comments from the returned table and flip statuses.
 
-- WI lands but more remain → row stays `IN PROGRESS`.
-- **Final WI** lands → row → `DONE` (implemented; not yet verified).
-  This flip is what enables the Gate 5b post-merge evidence file to
-  reference the merge-commit SHA.
-- After Gate 5b evidence file lands with `result: pass` → row →
-  `VERIFIED` via a tracker edit. **`check_terminal_status_evidence.sh`
-  blocks this `VERIFIED` flip** if the evidence file isn't at
-  `dev-docs/verification/feature-<id>-<YYYYMMDD>.md`.
+## Gate 5b + close gate
 
----
+After the final WI merges (row flipped `DONE`, shipped comment + label
+posted): dispatch the verifier on **main at the merge SHA**, with a port
+assignment. It runs every acceptance criterion from the plan and writes
+`dev-docs/verification/feature-<id>-<YYYYMMDD>.md` per SCHEMA.md (frontmatter
+incl. `commit_sha` (40-hex), `app_version`, `result: pass | partial | fail`).
 
-# Post-Merge Finalizer (close gate)
+**Result-field semantics (binding)**:
 
-**Do NOT auto-`gh issue close` on the GH issue when the final WI
-merges.** Per AGENTS.md "Close gate":
+- `pass` — commit the evidence file **and** the `VERIFIED` flip together (the
+  evidence file must exist on disk before the tracker edit — hook order); post
+  the closure comment citing the evidence file; `gh issue close`.
+- `partial` — row stays `DONE`; file the follow-up; a follow-up evidence file
+  is required.
+- `fail` — row back to `IN PROGRESS`; file a bug; dispatch rework; do NOT close.
 
-> The "shipped, awaiting verification" comment (below) and the closure
-> comment after Gate 5b are the **last two rows** of the gate-progress
-> timeline from rule 47. Together with the Gate-2 comment (2e) and the
-> per-WI-merge comments (Gate 6), they make the issue a complete record
-> of the feature's path through all six gates.
+Non-browser-reproducible features close under `verification-exception` with a
+high-fidelity integration test at real subsystem boundaries; harness-missing
+features stay open under `verification-blocked` with a follow-up filed.
 
-## Right after final WI's `gh pr merge`
-
-1. Apply label to GH issue (if browser-verifiable, default
-   `awaiting-browser-verification`; otherwise pick from
-   `verification-exception` / `verification-blocked` per AGENTS.md).
-2. Post a "shipped, awaiting verification" comment:
-
-   ```
-   gh issue comment <feature-gh-issue> --body "Shipped in v<X.Y.Z> (commit <short-sha>). Awaiting Gate 5 final acceptance pass."
-   ```
-
-3. Tag is cut from the merge commit (per Gate 6's `git tag` step).
-
-## After Gate 5 final acceptance
-
-- For **browser-verification** path:
-  - Check out and run the merged build in the browser (`pnpm dev` /
-    `pnpm preview`).
-  - Run every acceptance criterion from the plan; automate with
-    Playwright where possible.
-  - Record observations in `dev-docs/verification/feature-<id>-<YYYYMMDD>.md`.
-  - Post closure comment citing the evidence file:
-
-    ```
-    gh issue comment <feature-gh-issue> --body "VERIFIED in the browser (Chromium, commit <sha>). All acceptance criteria pass. Evidence: dev-docs/verification/feature-<id>-<YYYYMMDD>.md."
-    gh issue close <feature-gh-issue>
-    ```
-
-- For **non-browser-reproducible** features (race conditions, fault
-  injection, etc.): close under `verification-exception` with a
-  high-fidelity integration test at real subsystem boundaries (not
-  stubs). Same evidence file, citation comment, then `gh issue close`.
-
-- For **verification-blocked** (no harness exists yet): keep open,
-  apply the label, file a follow-up to build the harness (potentially
-  as another feature).
-
-If verification reveals a regression: do NOT close. Move row back to
-`IN PROGRESS`, file a bug, fix, re-verify.
+> **"Tooling unavailable" is NOT an acceptable deferral reason** unless a
+> specific tool is named and confirmed missing. "I'll do it next session" is a
+> discipline lapse, not a tool-unavailability claim.
 
 ---
 
-## Acceptance Contract
+# GH issue gate-progress timeline (append-only, short, factual)
 
-The feature is "done" — i.e. row may flip to `VERIFIED` and GH issue
-may close — only when:
+The GH issue is the running record of the feature's path through the gates
+(rule 47). Post one comment per transition; back-fill before the next
+transition if one was skipped. Never paste plan contents into the issue.
 
-1. All Work Items merged via Gate 6.
-2. Final WI's `dev-docs/verification/feature-<id>-<YYYYMMDD>.md` has
-   `result: pass` covering every acceptance criterion from the plan.
-3. Closure comment posted with commit SHA, what was tested, what was
-   observed.
-4. `gh issue close <feature-gh-issue>` executed.
+| Transition | Comment records |
+| --- | --- |
+| Gate 2 passes (issue just created) | plan path + audit verdict (Codex threadId + rounds, or `manual-fallback`) + the WI list with foundational/behavioral tiers |
+| Each WI's PR merges (Gate 6) | WI number + tier, PR number, version bumped to, merge-commit SHA, Gate 4 audit verdict, Gate 5a slice result |
+| Final WI merges → row `DONE` | "Shipped in vX.Y.Z (commit `<sha>`). Awaiting Gate 5" — do not double-post a per-WI comment for the final WI |
+| Gate 5b acceptance pass → row `VERIFIED` | evidence-file path + `result:` + a one-line acceptance-criteria summary, posted just before `gh issue close` |
 
-If uncertain at any gate: stop and ask. Don't guess your way past a
-gate — that's how rule 47 was tightened in the first place.
+# Mixed mode — feature WIs + bugs in flight together
 
-## Error Handling
+One global ledger, one integration queue, one version sequence. Disjointness
+is checked across the **whole** active set (a bug touching
+`src/providers/x.ts` blocks a WI touching it — rule 48 hard rule 3 knows no
+feature/bug distinction). Bugs typically queue first (patch), then feature WIs,
+in one orchestrator-chosen merge order; the single integrator instance is the
+only serialization point. Codex cap and browser ports are shared across both
+pipelines. Gate-2-of-a-plan never overlaps Gate-3-on-that-plan (rule 48
+matrix); everything else overlaps freely by write-set.
+
+# NEVER inline — context-hygiene policy (binding)
+
+**Never enters the main session:** full `git diff` output; `pnpm
+check:all`/test/build logs; Codex rawOutput or audit transcripts;
+Playwright/dev-server transcripts and screenshots; plan bodies (the WI table
+arrives in the planner's envelope; the plan is referenced by path thereafter);
+bug-repro transcripts; bulk source reads; full `gh pr view` bodies;
+rebase/merge output (the integrator returns a table).
+
+**The orchestrator MAY read inline:** single tracker rows, agent envelopes,
+one-line `gh` results, `--name-only` diff lists for the post-return checklist.
+
+**The orchestrator NEVER runs:** `pnpm` anything, `codex`, Playwright,
+`gh pr merge`, or `git diff` beyond `--name-only`.
+
+**Enforcement mechanics:** every envelope is capped at 30 lines; overflow goes
+to `<worktree>/.reports/` and comes back as paths; needing detail = dispatch
+the auditor or Explore, not reading it yourself. Per rule 60 §8: start a **new
+session per feature** for 5+-WI features; `/clear` between unrelated batches;
+the **ledger + tracker rows + GH timeline are the resumable state** (they
+survive session death). Re-brief once on drift, then collapse (rule 48).
+
+# Tracker-write policy (orchestrator-only)
+
+`docs/features.md` (and `docs/bugs.md`) are edited by the orchestrator ONLY,
+on **main** only, **one row at a time**, each flip committed immediately as a
+tiny `chore(tracker)` commit **and pushed immediately** (`git push`) — unpushed
+tracker commits make local main diverge from remote after the integrator's
+merges, which its post-merge `git pull --rebase` step tolerates but the next
+wave's worktrees should never be created from stale main. Agents never touch
+trackers. Sequencing:
+`IN PROGRESS` at first dispatch; `DONE` on main immediately before the final
+WI's integration slot; `VERIFIED` only after the evidence file exists on disk.
+
+# Hooks you'll trip
+
+| Hook | Event | Triggers when | What it requires |
+|---|---|---|---|
+| `check_gh_issue_mirror.sh` | PreToolUse `Edit\|Write\|MultiEdit` | edits to `docs/features.md` rows | mirror-required rows (`PLANNED`/`IN PROGRESS`/`DONE`/`VERIFIED`) must have `GH: #N` in Notes column |
+| `check_terminal_status_evidence.sh` | PreToolUse `Edit\|Write\|MultiEdit` | tracker flip to `VERIFIED` on `docs/features.md` only (bug `FIXED` flips are NOT hook-enforced — bug evidence is enforced at GH-issue-close, not at the row flip) | matching `dev-docs/verification/feature-<id>-<YYYYMMDD>.md` evidence file exists (existence check) |
+| `tdd-guard.mjs` | PreToolUse `Edit\|Write\|MultiEdit` | production-source writes on TDD-scoped paths (`src/providers/**`, `src/lib/{translation,polish,providers,sync}/**`, `src/stores/**`) | a sibling `*.test.ts(x)` must exist — a block on an implementer is the gate working, not an error (test committed first) |
+| `check_codex_audit_artifact.sh` | PreToolUse `Bash` | `gh pr merge` on a source-touching PR | `.claude/codex-audits/<branch>-audit.md` with `final_verdict` ∈ {ship-as-is, follow-up-recommended} — binds in the integrator's worktree |
+| `check_unfinished_verification.sh` | Stop | session end | surfaces `DONE` rows still awaiting Gate-5b verification — close the gap, don't carry it silently |
+| `check_audit_debt.sh` | Stop | session end | surfaces recent source-touching merges lacking audit logs |
+
+Plan around them; never bypass (rule 60 §9 — if a hook blocks legitimate work,
+fix the gate, don't skip it).
+
+# The ledger (orchestrator's inline working state)
+
+Maintain one line per in-flight job, updated on every dispatch and envelope:
+
+```
+job | agent | branch | write-set | port | status | verdict/version
+```
+
+Statuses: `dispatched → returned → verified-5a → queued → merged | bounced |
+collapsed`. The ledger + tracker rows + GH timeline are the resumable state —
+a fresh session rebuilds the ledger from the latter two + `git worktree list`.
+
+## Error handling
 
 | Scenario | Action |
 |---|---|
-| `$ARGUMENTS` is empty | List `TODO`/`PLANNED` candidates; ask user to pick |
-| Target is actually a bug | Redirect to `/fix-issue`; STOP |
-| Plan exists at `dev-docs/plans/...` from a prior run | Resume at the correct gate (re-run Gate 2 if plan changed; else continue) |
-| Codex runner unavailable | Use manual fallback; mark audit log `threadId: manual-fallback` |
+| Planner returns BLOCKED `needs-design` | File the needs-design issue (rule 51, automatic — never ask), annotate row Notes, stop the slice |
+| Implementer returns BLOCKED `needs-design` (WI hit undesigned UI) | File the needs-design issue (rule 51, automatic), annotate the WI row Notes, fix the Gate-1 plan (the WI was misclassified), stop that slice |
+| Codex unavailable (planner/implementer BLOCKED on it) | Dispatch the auditor agent for the manual-fallback evidence; `threadId: manual-fallback` |
 | 3 audit rounds with findings still open (Gate 2 OR Gate 4) | STOP. Escalate to user — accept, defer, or redesign |
-| Test gate fails 3x | Report errors, keep branch, STOP |
-| `check_gh_issue_mirror.sh` blocks tracker edit | Add `GH: #N` to the row's Notes column, retry |
-| `check_codex_audit_artifact.sh` blocks `gh pr merge` | Verify the audit log file exists at the expected path with valid frontmatter |
-| `check_terminal_status_evidence.sh` blocks `VERIFIED` flip | Write the evidence file at `dev-docs/verification/feature-<id>-<YYYYMMDD>.md` first |
-| Gate 5 verification reveals a regression | Move row back to `IN PROGRESS`, file a bug, fix, re-verify. Do NOT close GH issue |
-| Branch already exists | Reuse if WI matches; else rename |
+| Implementer envelope fails post-return checklist (write-set drift) | Re-brief once, narrower; still bad → collapse to main, discard the worktree whole |
+| Integrator returns `bounced` | Fresh implementer on the same worktree with the bounce reason; re-queue |
+| Verifier 5b returns `fail` | Row back to `IN PROGRESS`, file a bug, dispatch rework; do NOT close the issue |
+
+If uncertain at any gate: stop and ask. Never guess your way past a gate.

@@ -1,11 +1,12 @@
 #!/bin/bash
 # PreToolUse hook for Edit / Write / MultiEdit tools.
 #
-# Purpose: blocks any tracker edit (docs/features.md, docs/bugs.md)
-# that flips a row's status column to VERIFIED (features) or FIXED
-# (bugs) without a corresponding evidence file in
-# dev-docs/verification/. See dev-docs/verification/SCHEMA.md for
-# the required shape.
+# Purpose: blocks a docs/features.md edit that flips a row's status
+# column to VERIFIED without a corresponding evidence file in
+# dev-docs/verification/ (existence check). docs/bugs.md FIXED flips
+# are intentionally NOT gated here — bug close-gate evidence is
+# enforced at GH-issue-close time, not at the row flip. See
+# dev-docs/verification/SCHEMA.md for the required shape.
 #
 # Reads PreToolUse JSON from stdin per Claude Code's hook spec:
 #   { tool_name, tool_input: { file_path, old_string, new_string,
@@ -195,9 +196,6 @@ EOF
 Run the verification per .claude/rules/47-feature-workflow.md Gate 5,
 write the evidence file (schema: dev-docs/verification/SCHEMA.md),
 then retry the edit.
-
-To bypass for legitimate reasons (rare), submit your next prompt
-prefixed with: verify-skip:<id>:<reason>
 EOF
     exit 2
 fi

@@ -57,7 +57,25 @@ if (!filePath || typeof filePath !== "string") {
 }
 
 const abs = resolve(filePath);
-const repoRoot = resolve(import.meta.dirname, "..", "..");
+
+// Resolve the repo root by walking UP from the edited file to the nearest
+// directory containing .git or package.json. Deriving the root from this
+// hook's own location would pin it to the main checkout and silently skip
+// enforcement for files inside worktrees (.claude/worktrees/**), whose
+// paths never match the scope when made relative to the main checkout.
+function findRepoRoot(startDir) {
+  let dir = startDir;
+  for (;;) {
+    if (existsSync(resolve(dir, ".git")) || existsSync(resolve(dir, "package.json"))) {
+      return dir;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+const repoRoot = findRepoRoot(dirname(abs)) ?? resolve(import.meta.dirname, "..", "..");
 
 // Convert to a path relative to repo root for scope matching.
 const rel = abs.startsWith(repoRoot + "/") ? abs.slice(repoRoot.length + 1) : abs;

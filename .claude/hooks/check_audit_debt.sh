@@ -1,7 +1,8 @@
 #!/bin/bash
 # Stop hook — surfaces "merged without Codex audit log" debt.
 #
-# Scans the last 5 merges on `main` (the typical session window) and
+# Scans the last 25 commits on `main` (covers multi-branch parallel
+# sessions, not just single-fix ones) and
 # warns if any merged a feature/fix branch that touched source code
 # without a matching `.claude/codex-audits/<branch>-audit.md` file.
 # Catches the "ran the workflow but skipped Gate 4" pattern at session
@@ -25,7 +26,7 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then exit 0; fi
 DEBT=""
 COUNT=0
 
-# Look at the last 5 commits on main, grab any squash-merge headers.
+# Look at the last 25 commits on main, grab any squash-merge headers.
 while IFS=$'\t' read -r sha subject; do
     # Skip merge commits without a PR marker. GitHub's squash-merge
     # subjects end with " (#N)" — anchor to end so we don't pick up a
@@ -59,7 +60,7 @@ while IFS=$'\t' read -r sha subject; do
 
     DEBT+="  - ${sha:0:7} #${PR_NUMBER} (${BRANCH})"$'\n'
     COUNT=$((COUNT + 1))
-done < <(git log --format='%H%x09%s' main -5 2>/dev/null)
+done < <(git log --format='%H%x09%s' main -25 2>/dev/null)
 
 if [[ "$COUNT" -gt 0 ]]; then
     cat >&2 <<EOF
