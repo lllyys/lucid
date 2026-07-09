@@ -1,6 +1,6 @@
 # Feature #26 — Tighter editor resting height
 
-**Status:** PLANNED
+**Status:** DONE
 **GH:** #218 (feature) · #219 (design, landed) · relates #97 (#13)
 **Design:** `dev-docs/designs/lucid-editor-resting-height/` (committed 2026-07-09, rule 51 satisfied)
 **Size:** Small (1 WI, 1 PR)
@@ -141,3 +141,7 @@ Codex (gpt-5.5, high, read-only) — **verdict READY TO BUILD**, 0 Critical/High
 - v1 (2026-07-09) — initial plan.
 - Gate-2 audit (2026-07-09, Codex gpt-5.5/high, thread in `.claude` job log) — **READY TO BUILD**,
   0 Crit/High, 2 Med + 4 Low/Info all resolved above.
+- Gate-5 browser verify (2026-07-09) caught a Source first-keystroke jump — the empty
+  placeholder wrapped to 2 lines under `field-sizing: content`, so the first character
+  collapsed the box by one line. Fixed in `1cbd390` (shortened `translate.sourcePlaceholder`
+  to the design's one-line copy) → re-verify PASS (`72e8992`).
