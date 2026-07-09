@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --ink:#1E1C19; --on-accent:#FFFFFF;
+      --border:#E9E6E0; --border-strong:#E2DFD8; --fill-muted:#F0EDE7;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-tint:#F3F2FE; --accent-border:#DDDCFB;
+      --hover:#F5F3EF;
+      --shadow-c1:rgba(30,28,25,0.13);
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --ink:#F2EFE9; --on-accent:#FFFFFF;
+      --border:#322E27; --border-strong:#3C3830; --fill-muted:#2A2720;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t3:#A6A199; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --t7:#726D65;
+      --accent:#6E66DE; --accent-ink:#AEA7F7; --accent-soft:#2A2649; --accent-tint:#221F40; --accent-border:#3C3768;
+      --hover:#2C2922;
+      --shadow-c1:rgba(0,0,0,0.55);
+    }
+    html,body{background:var(--canvas);}
+    *{box-sizing:border-box;}
+    body{margin:0;}
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--canvas);color:var(--ink);font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:48px 40px 64px;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <!-- HEADER -->
+    <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:38px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="position:relative;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span></span>
+        <span style="font-size:19px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--accent-ink);text-transform:uppercase;background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:6px;padding:3px 8px;">issue #226 · refs #225 · #23</span>
+      </div>
+      <h1 style="margin:0;font-size:29px;font-weight:600;letter-spacing:-0.022em;line-height:1.1;max-width:32ch;">Clear button on the Draft-to-polish header</h1>
+      <p style="margin:0;font-size:13.5px;line-height:1.65;color:var(--t2);max-width:74ch;">The same <strong style="font-weight:600;color:var(--t1);">Clear</strong> as the polish Original header (#23) — a borderless text button, <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">--t5</code> resting, hover to <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">--ink</code> — placed on the busier <strong style="font-weight:600;color:var(--t1);">DRAFT TO POLISH</strong> header. It <strong style="font-weight:600;color:var(--t1);">leads the right-side control group</strong>, before <em>Translate original</em>, so Clear occupies the same first-slot position on both polish cards. It wipes the draft and resets the polish op without arming a re-polish, then refocuses the textarea.</p>
+    </div>
+
+    <!-- STATE GRID -->
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;">
+
+      <!-- with text -->
+      <div>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:10px;display:block;">default · draft present → Clear shown, leading the group</span>
+        <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:var(--surface);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;white-space:nowrap;">Draft to polish</span></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;" style-hover="color:var(--ink);">Clear</button>
+              <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;color:var(--accent-ink);cursor:pointer;white-space:nowrap;" style-hover="background:var(--hover);">↻ Translate original</button>
+              <button title="Look up words" style="width:27px;height:27px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:13px;cursor:pointer;" style-hover="background:var(--hover);color:var(--ink);">⌕</button>
+              <button style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;" style-hover="background:var(--hover);"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">English</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button>
+            </div>
+          </div>
+          <div style="padding:13px 16px 18px;min-height:96px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">We need to finish the first draft of this report before Friday.</p></div>
+        </div>
+      </div>
+
+      <!-- empty -->
+      <div>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:10px;display:block;">empty · nothing to clear → Clear hidden (lookup disabled too)</span>
+        <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:var(--surface);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;white-space:nowrap;">Draft to polish</span></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;color:var(--accent-ink);cursor:pointer;white-space:nowrap;" style-hover="background:var(--hover);">↻ Translate original</button>
+              <button title="Look up words" disabled style="width:27px;height:27px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:13px;cursor:not-allowed;opacity:0.4;">⌕</button>
+              <button style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;" style-hover="background:var(--hover);"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">English</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button>
+            </div>
+          </div>
+          <div style="padding:13px 16px 18px;min-height:96px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--t7);">Your draft in the target language…</p></div>
+        </div>
+      </div>
+
+      <!-- hover -->
+      <div>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:10px;display:block;">Clear · pointer hover (→ --ink)</span>
+        <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:var(--surface);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;white-space:nowrap;">Draft to polish</span></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--ink);cursor:pointer;padding:0;">Clear</button>
+              <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;color:var(--accent-ink);cursor:pointer;white-space:nowrap;">↻ Translate original</button>
+              <button title="Look up words" style="width:27px;height:27px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:13px;cursor:pointer;">⌕</button>
+              <button style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">English</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button>
+            </div>
+          </div>
+          <div style="padding:13px 16px 18px;min-height:96px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">We need to finish the first draft of this report before Friday.</p></div>
+        </div>
+      </div>
+
+      <!-- focus -->
+      <div>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:10px;display:block;">Clear · keyboard focus (ring = --accent-ink)</span>
+        <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:var(--surface);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;white-space:nowrap;">Draft to polish</span></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--ink);cursor:pointer;padding:1px 2px;border-radius:4px;outline:2px solid var(--accent-ink);outline-offset:2px;">Clear</button>
+              <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;color:var(--accent-ink);cursor:pointer;white-space:nowrap;">↻ Translate original</button>
+              <button title="Look up words" style="width:27px;height:27px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:13px;cursor:pointer;">⌕</button>
+              <button style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">English</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button>
+            </div>
+          </div>
+          <div style="padding:13px 16px 18px;min-height:96px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">We need to finish the first draft of this report before Friday.</p></div>
+        </div>
+      </div>
+
+      <!-- translating -->
+      <div>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:10px;display:block;">translating · stream owns the draft → Clear hidden, Stop is the exit</span>
+        <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:var(--surface);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;white-space:nowrap;">Draft to polish</span></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--t3);">translating…</span>
+              <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:6px;padding:3px 8px;font-family:Geist,sans-serif;font-size:11px;color:var(--t1);cursor:pointer;" style-hover="background:var(--hover);">Stop</button>
+              <button title="Look up words" disabled style="width:27px;height:27px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:13px;cursor:not-allowed;opacity:0.4;">⌕</button>
+              <button style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;" style-hover="background:var(--hover);"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">English</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button>
+            </div>
+          </div>
+          <div style="padding:13px 16px 18px;min-height:96px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">We need to finish the first draft of this repo<span style="display:inline-block;width:1px;height:16px;background:var(--accent);vertical-align:-2px;margin-left:1px;"></span></p></div>
+        </div>
+      </div>
+
+      <!-- dark -->
+      <div>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:10px;display:block;">dark · draft present → Clear shown</span>
+        <div data-theme="dark" style="padding:18px;border-radius:16px;background:#100F0C;border:1px solid #322E27;">
+          <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:var(--surface);">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);">
+              <div style="display:flex;align-items:center;gap:9px;min-width:0;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;white-space:nowrap;">Draft to polish</span></div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;" style-hover="color:var(--ink);">Clear</button>
+                <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;color:var(--accent-ink);cursor:pointer;white-space:nowrap;" style-hover="background:var(--hover);">↻ Translate original</button>
+                <button title="Look up words" style="width:27px;height:27px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:13px;cursor:pointer;" style-hover="background:var(--hover);color:var(--ink);">⌕</button>
+                <button style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;" style-hover="background:var(--hover);"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">English</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button>
+              </div>
+            </div>
+            <div style="padding:13px 16px 18px;min-height:96px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">We need to finish the first draft of this report before Friday.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RTL -->
+      <div style="grid-column:1 / -1;">
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:10px;display:block;">RTL · Arabic draft → header mirrors, Clear still leads the (now leftward) group</span>
+        <div dir="rtl" style="max-width:560px;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;border:1px solid var(--border);background:var(--surface);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-bottom:1px solid var(--fill-muted);">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;white-space:nowrap;">Draft to polish</span></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12px;color:var(--t5);cursor:pointer;padding:0;" style-hover="color:var(--ink);">مسح</button>
+              <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;color:var(--accent-ink);cursor:pointer;white-space:nowrap;" style-hover="background:var(--hover);">↻ ترجمة الأصل</button>
+              <button title="Look up words" style="width:27px;height:27px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:13px;cursor:pointer;" style-hover="background:var(--hover);color:var(--ink);">⌕</button>
+              <button style="display:flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;" style-hover="background:var(--hover);"><span style="font-size:12.5px;font-weight:500;color:var(--ink);">العربية</span><span style="display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--t4);"></span></button>
+            </div>
+          </div>
+          <div style="padding:13px 16px 18px;min-height:96px;"><p style="margin:0;font-family:Newsreader,serif;font-size:18px;line-height:1.8;color:var(--ink);text-align:right;">نحتاج إلى إنهاء المسودة الأولى من هذا التقرير قبل يوم الجمعة.</p></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- PHONE PORTRAIT -->
+    <div style="margin-top:38px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:14px;display:block;">phone portrait · controls wrap to a second row; Clear keeps the first slot, ≥44px hit area</span>
+      <div style="display:flex;justify-content:center;">
+        <div style="width:360px;border-radius:34px;border:1px solid var(--border-strong);background:var(--surface);padding:11px;box-shadow:0 18px 44px var(--shadow-c1);">
+          <div style="border-radius:25px;overflow:hidden;background:var(--canvas);border:1px solid var(--fill-muted);">
+            <div style="height:30px;display:flex;align-items:center;justify-content:center;"><span style="width:64px;height:5px;border-radius:3px;background:var(--fill-muted);"></span></div>
+            <div style="padding:8px 12px 18px;">
+              <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:13px;border:1px solid var(--border);background:var(--surface);">
+                <div style="display:flex;flex-direction:column;gap:7px;padding:10px 13px;border-bottom:1px solid var(--fill-muted);">
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span>
+                    <button style="border:none;background:transparent;font-family:Geist,sans-serif;font-size:12.5px;color:var(--t5);cursor:pointer;padding:7px 2px;" style-hover="color:var(--ink);">Clear</button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <button style="border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:6px 10px;font-family:Geist,sans-serif;font-size:11.5px;font-weight:500;color:var(--accent-ink);cursor:pointer;white-space:nowrap;">↻ Translate original</button>
+                    <button title="Look up words" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;color:var(--t3);font-size:13px;cursor:pointer;">⌕</button>
+                    <button style="display:flex;align-items:center;gap:5px;padding:6px 9px;border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;cursor:pointer;"><span style="font-size:12px;font-weight:500;color:var(--ink);">English</span><span style="display:inline-block;width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid var(--t4);"></span></button>
+                  </div>
+                </div>
+                <div style="padding:12px 13px 16px;"><p style="margin:0;font-family:Newsreader,serif;font-size:16px;line-height:1.65;color:var(--ink);">This feature cuts latency a lot.</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPEC NOTE -->
+    <div style="margin-top:42px;border:1px solid var(--border);background:var(--surface);border-radius:14px;padding:22px 24px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent-ink);display:block;margin-bottom:16px;">implementation spec</span>
+      <div style="display:grid;grid-template-columns:140px 1fr;gap:11px 20px;font-size:13px;line-height:1.6;">
+        <span style="color:var(--t4);font-weight:500;">Placement</span><span style="color:var(--t1);">In <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">DraftCard</code> header, <strong style="font-weight:600;">first in the right-side group</strong> — before <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">Translate original</code> / <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">LookupToggle</code> / <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">LanguagePicker</code>. Same slot as the #23 Clear on the Original card, so both polish cards read identically.</span>
+        <span style="color:var(--t4);font-weight:500;">Appearance</span><span style="color:var(--t1);">Identical to #23: borderless text button, Geist 12px, resting <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">--text-tertiary</code> → hover <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">--text-color</code>, focus-visible ring <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">--accent-ink</code>. The quiet text style keeps it visually subordinate to the bordered Translate original.</span>
+        <span style="color:var(--t4);font-weight:500;">Visibility</span><span style="color:var(--t1);">Shown only when <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">value.trim()</code> is non-empty AND <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">!translating</code>. While the draft streams, the stream owns the field — <em>Stop</em> is the only exit (matches the lookup toggle disabling during streaming).</span>
+        <span style="color:var(--t4);font-weight:500;">Behavior</span><span style="color:var(--t1);">Wipes the draft, resets the dependent polish op <strong style="font-weight:600;">without arming a re-polish</strong> (mirrors #23's <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">clearOriginal</code> — no LLM call), then refocuses the draft textarea.</span>
+        <span style="color:var(--t4);font-weight:500;">Copy</span><span style="color:var(--t1);">Reuse i18n key <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">polish.clear</code> from #23. Localized + mirrored under RTL.</span>
+        <span style="color:var(--t4);font-weight:500;">Phone</span><span style="color:var(--t1);">Header wraps to two rows: label + Clear on row one (Clear gets ≥44px vertical hit area via padding), Translate original + ⌕ + language picker on row two.</span>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="margin-top:34px;padding-top:18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);text-transform:uppercase;letter-spacing:0.05em;">
+      <span>Lucid · issue #226 · draft Clear bundle · matches workspace tokens (light + dark)</span>
+      <span>default · empty · hover · focus · translating · dark · RTL · phone — 8 states</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
