@@ -1,6 +1,6 @@
 # Feature #27 — Clear button on the DRAFT-to-polish box
 
-**Status:** PLANNED
+**Status:** DONE
 **GH:** #225 (feature) · #226 (design, landed) · relates #23 (Original Clear)
 **Design:** `dev-docs/designs/lucid-draft-clear/` (committed 2026-07-09, rule 51 satisfied)
 **Size:** Small (1 WI, 1 PR)
@@ -162,3 +162,5 @@ i18n change (key reused). Nothing to migrate.
   items-center px-2` for a real ≥44px hit target (not `py-1.5` ≈24px); (Low) hide the `draftHint` on phone
   to match the design's row 1; (Low) clean inverse visibility (`min-[600px]:hidden` / `hidden
   min-[600px]:inline-flex`) to avoid the 599/600 fractional gap. **Gate-2 PASSED** — 0 open Crit/High/Med.
+- Shipped (2026-07-09) — Gate-3 impl `4d7db90`, Gate-4 Codex ship-as-is, Gate-5 adversarial verify
+  (browser + code-audit lenses) **PASS**, evidence `a277b31`. Row → DONE; shipped v0.26.0.
