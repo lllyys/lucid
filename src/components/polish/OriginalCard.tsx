@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { usePaneLookup } from '@/hooks/usePaneLookup'
 import { EditableLookupOverlay } from '@/components/lookup/EditableLookupOverlay'
 import { LookupToggle } from '@/components/lookup/LookupToggle'
+import { EDITOR_CARD_MIN_H, EDITOR_FIELD_MIN_H } from '@/lib/editor/editorSizing'
 import { LanguagePicker } from './LanguagePicker'
 
 /**
@@ -45,7 +46,7 @@ export function OriginalCard({
     lookup.textareaRef.current?.focus()
   }
   return (
-    <div className="flex min-h-[130px] shrink-0 flex-col overflow-hidden rounded-[14px] border bg-[var(--bg-color)]">
+    <div className={`flex ${EDITOR_CARD_MIN_H} shrink-0 flex-col overflow-hidden rounded-[14px] border bg-[var(--bg-color)]`}>
       <div className="flex items-center justify-between border-b px-4 py-2.5">
         <div className="flex items-center gap-2.5">
           <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
@@ -89,7 +90,7 @@ export function OriginalCard({
           spellCheck={false}
           dir="auto"
           style={{ unicodeBidi: 'plaintext', textAlign: 'start' }}
-          className="field-sizing-content min-h-[88px] max-h-[88vh] resize-none bg-transparent px-4 py-3 font-serif text-[18px] leading-[1.7]"
+          className={`field-sizing-content ${EDITOR_FIELD_MIN_H} max-h-[88vh] resize-none bg-transparent px-4 py-3 font-serif text-[18px] leading-[1.7]`}
         />
         <EditableLookupOverlay
           textareaRef={lookup.textareaRef}

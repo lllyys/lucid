@@ -67,6 +67,15 @@ describe('TranslatePanel', () => {
     expect(source.className.split(/\s+/)).not.toContain('max-h-[88vh]')
   })
 
+  // WI-1 / #26 — the source editor rests at a tighter 56px inner minimum (was 88px), via the shared
+  // EDITOR_FIELD_MIN_H constant. Grow-to-content and the tier caps (asserted above) are untouched.
+  it('rests the source editor at the tighter 56px inner minimum (#26)', () => {
+    render(<TranslatePanel />)
+    const source = screen.getByLabelText('Source')
+    expect(source.className).toContain('min-h-[56px]')
+    expect(source.className.split(/\s+/)).not.toContain('min-h-[88px]')
+  })
+
   it('stacks the source/translation columns below 600', () => {
     const { container } = render(<TranslatePanel />)
     const row = screen.getByLabelText('Source').closest('.flex.items-start')!

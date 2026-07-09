@@ -9,6 +9,7 @@ import { detectDirection, directionLabels } from '@/lib/translation/detectDirect
 import { bidiAttrs, type BidiOverride } from '@/lib/translation/bidi'
 import { isRunNowShortcut } from '@/lib/workspace/runNowShortcut'
 import { isMacPlatform } from '@/lib/workspace/platform'
+import { EDITOR_FIELD_MIN_H } from '@/lib/editor/editorSizing'
 import type { LLMRequest } from '@/providers/types'
 import { notify } from '@/components/workspace/notify'
 import { useAutoRecordTask } from '@/hooks/useAutoRecordTask'
@@ -234,7 +235,7 @@ export function TranslatePanel() {
               spellCheck={false}
               dir={srcBidi.dir}
               style={{ ...srcBidi.style, textAlign: 'start' }}
-              className="field-sizing-content min-h-[88px] w-full resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75] max-[599px]:max-h-[50vh] min-[600px]:max-h-[88vh]"
+              className={`field-sizing-content ${EDITOR_FIELD_MIN_H} w-full resize-none bg-transparent px-6 pb-6 font-serif text-[19px] leading-[1.75] max-[599px]:max-h-[50vh] min-[600px]:max-h-[88vh]`}
             />
             <EditableLookupOverlay
               textareaRef={lookup.textareaRef}
