@@ -23,6 +23,7 @@ const renderCard = (over: Partial<React.ComponentProps<typeof DraftCard>> = {}) 
     <DraftCard
       value="hello world"
       onChange={vi.fn()}
+      onClear={vi.fn()}
       lang="en"
       onLang={vi.fn()}
       targetLang="zh"
@@ -84,6 +85,7 @@ describe('DraftCard — lookup wiring', () => {
       <DraftCard
         value="hello worlds"
         onChange={vi.fn()}
+        onClear={vi.fn()}
         lang="en"
         onLang={vi.fn()}
         targetLang="zh"
@@ -93,5 +95,72 @@ describe('DraftCard — lookup wiring', () => {
       />,
     )
     expect(lookupMock.close).toHaveBeenCalledTimes(1)
+  })
+})
+
+// WI-1 (feature #27) — the Clear button on the DRAFT-to-polish (input) pane. Mirrors the #23
+// Original Clear (wipe + refocus, shown only on non-whitespace text) with one addition: the Draft is a
+// streaming target, so Clear is ALSO gated on `!translating` (Stop owns the field mid-stream). The
+// header dual-renders a phone + desktop Clear (one display:none per breakpoint); jsdom loads no CSS so
+// BOTH are present in the tree — queries are scoped with getAllByRole, never a bare getByRole.
+describe('DraftCard — Clear button (feature #27)', () => {
+  const clears = () => screen.queryAllByRole('button', { name: /clear/i })
+
+  it('hides Clear when the field is empty', () => {
+    renderCard({ value: '' })
+    expect(clears()).toHaveLength(0)
+  })
+
+  it('hides Clear when the field is whitespace-only', () => {
+    renderCard({ value: '   \n\t ' })
+    expect(clears()).toHaveLength(0)
+  })
+
+  it('shows Clear (phone + desktop dual-render) when the field has text and is not translating', () => {
+    renderCard({ value: 'hello world', translating: false })
+    expect(clears()).toHaveLength(2)
+  })
+
+  it('hides Clear while translating — the draftTranslate stream owns the field, Stop is the exit', () => {
+    renderCard({ value: 'hello world', translating: true })
+    expect(clears()).toHaveLength(0)
+  })
+
+  it('keeps Clear shown while a polish op streams (guard is !translating only, never isPolishing)', () => {
+    // A polish stream does NOT raise `translating` (that flag is draftTranslate-only); from DraftCard's
+    // view translating stays false, so Clear remains available to reset the polish input mid-stream.
+    renderCard({ value: 'hello world', translating: false })
+    expect(clears()).toHaveLength(2)
+  })
+
+  it('calls onClear (not onChange) and refocuses the Draft textarea when clicked', async () => {
+    const onClear = vi.fn()
+    const onChange = vi.fn()
+    renderCard({ value: 'hello world', onClear, onChange })
+    await userEvent.click(clears()[0])
+    expect(onClear).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveFocus()
+  })
+
+  it('labels the button with polish.clear ("Clear")', () => {
+    renderCard({ value: 'hello world' })
+    expect(clears()[0]).toHaveAccessibleName('Clear')
+  })
+
+  it('gives the phone Clear a ≥44px hit target and leads the desktop control group', () => {
+    renderCard({ value: 'hello world' })
+    const all = clears()
+    const phone = all.find((b) => b.className.includes('min-h-11'))
+    const desktop = all.find((b) => b.className.includes('min-[600px]:inline-flex'))
+    expect(phone).toBeDefined()
+    expect(desktop).toBeDefined()
+    // The desktop Clear leads the right-side group — before Translate original / lookup / language.
+    const translate = screen.getByRole('button', { name: /translate original/i })
+    const lookupToggle = screen.getByRole('button', { name: /lookup/i })
+    const picker = screen.getByRole('button', { name: /draft to polish language/i })
+    expect(desktop!.compareDocumentPosition(translate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(desktop!.compareDocumentPosition(lookupToggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(desktop!.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

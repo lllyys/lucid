@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, act, fireEvent } from '@testing-library/react'
+import { render, screen, act, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@/providers', () => ({ createProvider: vi.fn() }))
@@ -10,6 +10,7 @@ import '@/i18n'
 import { PolishPanel } from './PolishPanel'
 import { useProviderStore } from '@/stores/providerStore'
 import { useOperationStore } from '@/stores/operationStore'
+import { useLookupStore } from '@/stores/lookupStore'
 import { usePolishKeywordsStore } from '@/stores/polishKeywordsStore'
 import { useAutoRunStore } from '@/stores/autoRunStore'
 import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
@@ -75,10 +76,47 @@ beforeEach(() => {
   __resetSessionIds()
   useSessionStore.getState().reset()
   __resetAutoRecord() // feature #14 — clear the per-panel auto-record dedup map between tests
+  useLookupStore.getState().close()
   const ops = useOperationStore.getState()
   ops.reset('polish')
   ops.reset('draftTranslate')
 })
+
+// Clear buttons scoped to one editor card. The DRAFT header dual-renders a phone + desktop Clear
+// (both present in jsdom — no CSS loaded), and both polish cards now carry a Clear, so a bare
+// getByRole('button', { name: 'Clear' }) is ambiguous — scope by the card that owns the textbox.
+function clearButtonsIn(name: 'Original' | 'Draft to polish'): HTMLElement[] {
+  const card = screen.getByRole('textbox', { name }).closest('.rounded-\\[14px\\]') as HTMLElement
+  return within(card).getAllByRole('button', { name: /clear/i })
+}
+
+// A polish stream that yields one chunk then stalls on a test-controlled gate, so a Clear can be
+// clicked while the polish op is mid-stream (translate stays a one-shot).
+function gatedPolishProvider(): { provider: LLMProvider; release: () => void } {
+  let release!: () => void
+  const gate = new Promise<void>((r) => {
+    release = r
+  })
+  async function* streamOp(req: LLMRequest): AsyncGenerator<StreamChunk, ProviderOutcome, void> {
+    if (req.kind === 'polish') {
+      yield { text: 'partial polish' }
+      await gate
+      yield { text: ' more' }
+      return { status: 'done', text: 'partial polish more' }
+    }
+    yield { text: 'translated draft' }
+    return { status: 'done', text: 'translated draft' }
+  }
+  const provider: LLMProvider = {
+    vendor: 'anthropic',
+    model: 'm',
+    stream: (req) => streamOp(req),
+    streamOp: (req) => streamOp(req),
+    translate: async () => ({ status: 'done', text: '' }),
+    polish: async () => ({ status: 'done', text: '' }),
+  }
+  return { provider, release }
+}
 
 describe('PolishPanel', () => {
   it('renders the three input regions and no "+ from glossary" control (feature #3)', () => {
@@ -350,7 +388,7 @@ describe('PolishPanel — Clear (feature #23)', () => {
     expect(useOperationStore.getState().draftTranslate.status).toBe('done')
     expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('translated draft')
 
-    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    await user.click(clearButtonsIn('Original')[0])
 
     expect(screen.getByRole('textbox', { name: 'Original' })).toHaveValue('')
     expect(useOperationStore.getState().draftTranslate.status).toBe('idle')
@@ -370,7 +408,7 @@ describe('PolishPanel — Clear (feature #23)', () => {
       fireEvent.change(screen.getByRole('textbox', { name: 'Original' }), { target: { value: '原文' } })
       expect(screen.getByText(/auto-run in 1\.5s/i)).toBeInTheDocument()
 
-      fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+      fireEvent.click(clearButtonsIn('Original')[0])
       // Clear cancels the pending auto-run and never re-arms — the chip dismisses immediately.
       expect(screen.queryByText(/auto-run in 1\.5s/i)).toBeNull()
 
@@ -384,6 +422,84 @@ describe('PolishPanel — Clear (feature #23)', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+// WI-1 (feature #27): the Clear button on the polish DRAFT pane — a dedicated NON-ARMING handler
+// (clearDraft) that wipes the draft + resets the dependent polish/draftTranslate ops, and must NOT
+// schedule an auto-polish even under auto-run (parity with #23's clearOriginal). Its visibility guard
+// is `!translating` (draftTranslate-streaming) only, so Clear stays live while the polish op streams.
+describe('PolishPanel — Draft Clear (feature #27)', () => {
+  it('DRAFT Clear empties the draft, resets the ops, and does NOT arm an auto-polish (auto-run on)', async () => {
+    vi.useFakeTimers()
+    try {
+      act(() => useProviderStore.getState().setVendor('ollama'))
+      useAutoRunStore.getState().setEnabled('polish', true)
+      mockCreate.mockReturnValue(smartProvider())
+      render(<PolishPanel />)
+      // Typing a draft (with auto-run on) arms a pending auto-polish — exactly what Clear must NOT keep.
+      fireEvent.change(screen.getByRole('textbox', { name: 'Draft to polish' }), { target: { value: 'rough draft' } })
+      expect(screen.getByText(/auto-run in 1\.5s/i)).toBeInTheDocument()
+
+      fireEvent.click(clearButtonsIn('Draft to polish')[0])
+      // Draft wiped; the pending chip dismisses immediately (clearDraft cancels + never re-arms).
+      expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('')
+      expect(screen.queryByText(/auto-run in 1\.5s/i)).toBeNull()
+
+      await act(async () => {
+        vi.advanceTimersByTime(1500)
+        await Promise.resolve()
+      })
+      // No provider run fired (createProvider is only reached inside a run), and both ops stay idle.
+      expect(mockCreate).not.toHaveBeenCalled()
+      expect(useOperationStore.getState().polish.status).toBe('idle')
+      expect(useOperationStore.getState().draftTranslate.status).toBe('idle')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stays visible during a polish stream and resets the polish op when clicked', async () => {
+    const { provider, release } = gatedPolishProvider()
+    mockCreate.mockReturnValue(provider)
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'rough draft')
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^polish$/i }))
+      await tick()
+    })
+    // Polish is mid-stream (gated); draftTranslate is idle → `translating` is false → Clear is shown.
+    expect(useOperationStore.getState().polish.status).toBe('streaming')
+    expect(clearButtonsIn('Draft to polish').length).toBeGreaterThan(0)
+
+    await act(async () => {
+      await user.click(clearButtonsIn('Draft to polish')[0])
+      await tick()
+    })
+    expect(useOperationStore.getState().polish.status).toBe('idle')
+    expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('')
+
+    await act(async () => {
+      release()
+      await tick()
+    })
+  })
+
+  it('disarms/closes a draft (polishDraft) lookup that was armed when Clear is clicked', async () => {
+    mockCreate.mockReturnValue(smartProvider())
+    const user = userEvent.setup()
+    render(<PolishPanel />)
+    await user.type(screen.getByRole('textbox', { name: 'Draft to polish' }), 'hello world')
+    act(() => {
+      useLookupStore.setState({ open: true, owner: 'polishDraft', word: 'world' })
+    })
+    expect(useLookupStore.getState().open).toBe(true)
+
+    await user.click(clearButtonsIn('Draft to polish')[0])
+    // Empty draft → the usePaneLookup value-change effect closes the polishDraft lookup.
+    expect(screen.getByRole('textbox', { name: 'Draft to polish' })).toHaveValue('')
+    expect(useLookupStore.getState().open).toBe(false)
   })
 })
 
