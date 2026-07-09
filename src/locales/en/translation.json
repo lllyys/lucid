@@ -110,7 +110,7 @@
   "translate.translation": "Translation",
   "translate.clear": "Clear",
   "translate.charCount": "{{count}} chars",
-  "translate.sourcePlaceholder": "Type or paste text in Chinese or English — Lucid detects the direction…",
+  "translate.sourcePlaceholder": "Type or paste text…",
   "translate.resultPlaceholder": "The translation will stream in here. Lucid detects whether your text is Chinese or English and translates the other way automatically.",
   "privacy.hosted": "Your text is sent to {{provider}} to be processed.",
   "privacy.proxied": "Your text is sent to {{provider}} via this server, then processed.",

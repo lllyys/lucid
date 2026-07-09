@@ -33,6 +33,21 @@ const renderCard = (over: Partial<React.ComponentProps<typeof DraftCard>> = {}) 
     />,
   )
 
+// WI-1 (feature #26) — the Draft editor rests tighter: textarea inner min 88px → 56px, card
+// min 130px → 98px, via the shared EDITOR_FIELD_MIN_H / EDITOR_CARD_MIN_H constants. Grow-to-content
+// and the 88vh cap are untouched.
+describe('DraftCard — resting height (#26)', () => {
+  it('rests the textarea at 56px and the card at 98px (tighter min)', () => {
+    const { container } = renderCard()
+    const textarea = screen.getByLabelText('Draft to polish')
+    expect(textarea.className).toContain('min-h-[56px]')
+    expect(textarea.className.split(/\s+/)).not.toContain('min-h-[88px]')
+    const card = container.firstElementChild as HTMLElement
+    expect(card.className).toContain('min-h-[98px]')
+    expect(card.className.split(/\s+/)).not.toContain('min-h-[130px]')
+  })
+})
+
 describe('DraftCard — lookup wiring', () => {
   it('an armed word click opens a polishDraft lookup with INVERTED langs (draft=target)', async () => {
     // Draft language is 'en' (tgtLang); the original side is 'zh' (srcLang). A draft word is an

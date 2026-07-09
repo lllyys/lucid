@@ -15,6 +15,7 @@ import { useAutoRunStore } from '@/stores/autoRunStore'
 import { useSessionStore, __resetSessionIds } from '@/stores/sessionStore'
 import { __resetAutoRecord } from '@/lib/sessions/autoRecord'
 import type { LLMProvider, LLMRequest, ProviderOutcome, StreamChunk } from '@/providers/types'
+import enTranslation from '@/locales/en/translation.json'
 
 const mockCreate = vi.mocked(createProvider)
 const mockNotify = vi.mocked(notify)
@@ -65,6 +66,34 @@ describe('TranslatePanel', () => {
     expect(source.className).toContain('min-[600px]:max-h-[88vh]')
     // Never the unconditional 88vh cap that #13 flagged as too tall for a 760px phone.
     expect(source.className.split(/\s+/)).not.toContain('max-h-[88vh]')
+  })
+
+  // WI-1 / #26 — the source editor rests at a tighter 56px inner minimum (was 88px), via the shared
+  // EDITOR_FIELD_MIN_H constant. Grow-to-content and the tier caps (asserted above) are untouched.
+  it('rests the source editor at the tighter 56px inner minimum (#26)', () => {
+    render(<TranslatePanel />)
+    const source = screen.getByLabelText('Source')
+    expect(source.className).toContain('min-h-[56px]')
+    expect(source.className.split(/\s+/)).not.toContain('min-h-[88px]')
+  })
+
+  // #26 Gate-5 regression — the EMPTY Source editor must rest at the same one-line 56px floor as
+  // one-line content, so there is no first-keystroke jump. With `field-sizing: content` an empty
+  // textarea sizes to its placeholder text; a placeholder long enough to wrap to two lines makes the
+  // empty box ~91px, which then collapses to ~57px the instant the user types (the 34px downward jump
+  // browser verification caught once the floor dropped from 88px to 56px). Guarding the length keeps the
+  // Source placeholder on one line. Design ref dev-docs/designs/lucid-editor-resting-height/ depicts the
+  // short one-line "Type or paste text…" copy. jsdom has no layout engine, so this asserts the copy-length
+  // invariant that drives the empty-state height rather than measuring offsetHeight.
+  it('keeps the Source placeholder short enough to render on one line (#26 no first-keystroke jump)', () => {
+    render(<TranslatePanel />)
+    // Assert the ACTUALLY-rendered placeholder (not just the raw JSON) so a wrong i18n key or a fallback
+    // that silently reintroduces a long string is caught too. The 40-char cap is a deliberate guard
+    // against the gross regression this fixed (a 71-char, two-line placeholder); the design copy is 19
+    // chars, so 40 leaves headroom for copy tweaks while still failing on a wrapping placeholder.
+    const placeholder = screen.getByLabelText('Source').getAttribute('placeholder') ?? ''
+    expect(placeholder).toBe(enTranslation['translate.sourcePlaceholder'])
+    expect(placeholder.length).toBeLessThanOrEqual(40)
   })
 
   it('stacks the source/translation columns below 600', () => {

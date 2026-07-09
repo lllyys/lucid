@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --canvas:#FAF9F6; --surface:#FFFFFF; --ink:#1E1C19;
+      --border:#E9E6E0; --border-strong:#E2DFD8; --fill-muted:#F0EDE7;
+      --t1:#6B6760; --t2:#7A766E; --t3:#8C887F; --t4:#9A958C; --t5:#A8A399; --t6:#B0ABA1; --t7:#B6B1A7;
+      --accent:#574FD6; --accent-ink:#574FD6; --accent-soft:#EDECFB; --accent-border:#DDDCFB;
+      --hover:#F5F3EF;
+      --shadow-c1:rgba(30,28,25,0.13); --shadow-c2:rgba(30,28,25,0.06);
+    }
+    [data-theme="dark"]{
+      --canvas:#1A1814; --surface:#23211C; --ink:#F2EFE9;
+      --border:#322E27; --border-strong:#3C3830; --fill-muted:#2A2720;
+      --t1:#CBC6BC; --t2:#BBB6AC; --t3:#A6A199; --t4:#948F86; --t5:#8E8980; --t6:#847F77; --t7:#726D65;
+      --accent:#6E66DE; --accent-ink:#AEA7F7; --accent-soft:#2A2649; --accent-border:#3C3768;
+      --hover:#2C2922;
+      --shadow-c1:rgba(0,0,0,0.55); --shadow-c2:rgba(0,0,0,0.4);
+    }
+    html,body{background:var(--canvas);}
+    *{box-sizing:border-box;}
+    body{margin:0;}
+    @keyframes lucid-caret{0%,100%{opacity:1;}50%{opacity:0;}}
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--canvas);color:var(--ink);font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:48px 40px 64px;">
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <!-- HEADER -->
+    <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:38px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="position:relative;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);display:inline-flex;align-items:center;justify-content:center;"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span></span>
+        <span style="font-size:19px;font-weight:600;letter-spacing:-0.02em;">Lucid</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.05em;color:var(--accent-ink);text-transform:uppercase;background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:6px;padding:3px 8px;">issue #219 · refs #218 · supersedes #13 resting height</span>
+      </div>
+      <h1 style="margin:0;font-size:29px;font-weight:600;letter-spacing:-0.022em;line-height:1.1;max-width:32ch;">Tighter editor resting height</h1>
+      <p style="margin:0;font-size:13.5px;line-height:1.65;color:var(--t2);max-width:74ch;">The three auto-expanding editors (translate <strong style="font-weight:600;color:var(--t1);">Source</strong>, polish <strong style="font-weight:600;color:var(--t1);">Original</strong>, polish <strong style="font-weight:600;color:var(--t1);">Draft</strong>) currently rest at an 88px inner minimum — one line of text floats over ~33px of dead space. New resting minimum: <strong style="font-weight:600;color:var(--t1);">56px inner</strong> — exactly one 18px/1.7 text line (≈31px) plus the existing 12px top + 13px bottom padding. Grow-to-content (<code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">field-sizing: content</code>) and the ~88vh cap are unchanged.</p>
+    </div>
+
+    <!-- SECTION A : before / after -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:0 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">A</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Resting height — before / after</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">one-line content · inner min 88px → 56px · card ≈130px → ≈98px</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;margin-bottom:8px;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">before · min-h 88px inner (committed #13)</div>
+        <div style="width:430px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="min-height:88px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">Could we move the meeting?</div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:44ch;line-height:1.6;">~33px of empty field below a single line — the trigger for this request</div>
+      </div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">after · min-h 56px inner (this bundle)</div>
+        <div style="width:430px;max-width:100%;background:var(--surface);border:1px solid var(--accent-border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span><span style="display:inline-flex;align-items:center;gap:5px;font-family:'Geist Mono',monospace;font-size:9px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--accent-border);padding:2px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:0.05em;">hugs one line</span></div>
+          <div style="min-height:56px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">Could we move the meeting?</div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:44ch;line-height:1.6;">field = padding + exactly one text line · header unchanged · no clipped descenders</div>
+      </div>
+    </div>
+
+    <!-- SECTION B : growth ladder -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">B</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Growth ladder</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">empty = 1-line rest → grows one line at a time → caps at ~88vh with inner scroll</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">empty · rests at 56px inner</div>
+        <div style="width:270px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="min-height:56px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--t7);">Type or paste text…<span style="display:inline-block;width:1px;height:18px;background:var(--accent);vertical-align:-3px;margin-left:1px;animation:lucid-caret 1s step-end infinite;"></span></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">1 line · same 56px — no jump on first keystroke</div>
+        <div style="width:270px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="min-height:56px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">明天见。</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">3 lines · grows +~31px per line</div>
+        <div style="width:270px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">We measured frame pacing under load and found the deferred pass dominates.</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">huge paste · caps at ~88vh → inner scroll returns</div>
+        <div style="width:270px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;display:flex;flex-direction:column;height:238px;">
+          <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);flex:0 0 auto;"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="flex:1;position:relative;min-height:0;overflow:hidden;">
+            <div style="position:absolute;inset:0;padding:12px 16px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);overflow:hidden;">The rendering pipeline's latency must be optimised before the next milestone, so the obvious lever is to fold the lighting resolve into the gbuffer fill and skip the extra…</div>
+            <div style="position:absolute;top:8px;right:5px;bottom:8px;width:6px;border-radius:6px;background:var(--fill-muted);"><div style="position:absolute;top:0;left:0;right:0;height:38%;border-radius:6px;background:var(--border-strong);"></div></div>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:30px;background:linear-gradient(to top,var(--surface),transparent);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION C : consistency -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">C</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">One rule for all three editors</span>
+      <span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t5);">translate Source · polish Original · polish Draft — identical 56px rest</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+      <div style="width:330px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+        <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+        <div style="min-height:56px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--t7);">Type or paste text…</div>
+      </div>
+      <div style="width:330px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+        <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Original</span></div>
+        <div style="min-height:56px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--t7);">The original sentence…</div>
+      </div>
+      <div style="width:330px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+        <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span></div>
+        <div style="min-height:56px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--t7);">Your draft in the target language…</div>
+      </div>
+    </div>
+
+    <!-- SECTION D : dark / RTL / phone -->
+    <div style="display:flex;align-items:baseline;gap:13px;margin:38px 0 14px;border-bottom:1px solid var(--border-strong);padding-bottom:11px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:var(--accent-ink);">D</span>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;">Dark · RTL · phone</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">dark · 1-line rest</div>
+        <div data-theme="dark" style="padding:16px;border-radius:16px;background:#100F0C;border:1px solid #322E27;">
+          <div style="width:300px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+            <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+            <div style="min-height:56px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.7;color:var(--ink);">Could we move the meeting?</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">RTL · same 56px rest, dir=auto</div>
+        <div dir="rtl" style="width:330px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 2px var(--shadow-c2);overflow:hidden;">
+          <div style="padding:11px 16px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Source</span></div>
+          <div style="min-height:56px;padding:12px 16px 13px;font-family:Newsreader,serif;font-size:18px;line-height:1.8;color:var(--ink);text-align:right;">هل يمكننا تأجيل الاجتماع؟</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);margin-bottom:9px;">phone · tighter rest = more of the stack on screen</div>
+        <div style="width:300px;border-radius:30px;border:1px solid var(--border-strong);background:var(--surface);padding:10px;box-shadow:0 18px 44px var(--shadow-c1);">
+          <div style="border-radius:22px;overflow:hidden;background:var(--canvas);border:1px solid var(--fill-muted);">
+            <div style="height:26px;display:flex;align-items:center;justify-content:center;"><span style="width:56px;height:5px;border-radius:3px;background:var(--fill-muted);"></span></div>
+            <div style="padding:6px 10px 14px;display:flex;flex-direction:column;gap:8px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+                <div style="padding:9px 12px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Original</span></div>
+                <div style="min-height:50px;padding:10px 12px 11px;font-family:Newsreader,serif;font-size:16px;line-height:1.65;color:var(--ink);">我们周五见。</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+                <div style="padding:9px 12px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Draft to polish</span></div>
+                <div style="min-height:50px;padding:10px 12px 11px;font-family:Newsreader,serif;font-size:16px;line-height:1.65;color:var(--ink);">See you Friday.</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+                <div style="padding:9px 12px;border-bottom:1px solid var(--fill-muted);"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;">Polished</span></div>
+                <div style="min-height:50px;padding:10px 12px 11px;font-family:Newsreader,serif;font-size:16px;line-height:1.65;color:var(--t7);">Run polish to see the result…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);margin-top:9px;max-width:36ch;line-height:1.6;">all three cards fit above the fold at rest — impossible at the 88px minimum</div>
+      </div>
+    </div>
+
+    <!-- SPEC NOTE -->
+    <div style="margin-top:42px;border:1px solid var(--border);background:var(--surface);border-radius:14px;padding:22px 24px;">
+      <span style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent-ink);display:block;margin-bottom:16px;">implementation spec</span>
+      <div style="display:grid;grid-template-columns:150px 1fr;gap:11px 20px;font-size:13px;line-height:1.6;">
+        <span style="color:var(--t4);font-weight:500;">Resting min</span><span style="color:var(--t1);">Textarea <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">min-h-[88px]</code> → <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">min-h-[56px]</code>: one 18px × 1.7 line (≈31px) + py padding (12px + 13px). Card <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">min-h-[130px]</code> → <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">min-h-[98px]</code> (header ≈42px + 56px field).</span>
+        <span style="color:var(--t4);font-weight:500;">Growth</span><span style="color:var(--t1);">Unchanged: <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">field-sizing: content</code>, +≈31px per wrapped line, cap <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">max-h-[88vh]</code> after which the textarea scrolls internally. Empty and one-line rest at the same height — no jump on the first keystroke.</span>
+        <span style="color:var(--t4);font-weight:500;">Scope</span><span style="color:var(--t1);">All three #13 editors identically: <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">SourcePane</code> (translate), <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">OriginalCard</code>, <code style="font-family:'Geist Mono',monospace;font-size:12px;color:var(--accent-ink);">DraftCard</code>. One shared constant — do not fork per editor.</span>
+        <span style="color:var(--t4);font-weight:500;">Phone</span><span style="color:var(--t1);">Same rule (the 16px phone body size rests at ≈50px inner). Benefit is largest here: the full polish stack fits above the fold at rest.</span>
+        <span style="color:var(--t4);font-weight:500;">Non-goals</span><span style="color:var(--t1);">No header, padding, typography, or cap changes; RTL/dir handling untouched. Supersedes only the resting-height values of the #13 bundle.</span>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="margin-top:34px;padding-top:18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:'Geist Mono',monospace;font-size:10px;color:var(--t6);text-transform:uppercase;letter-spacing:0.05em;">
+      <span>Lucid · issue #219 · tighter resting height bundle · matches workspace tokens (light + dark)</span>
+      <span>before/after · empty · 1-line · 3-line · cap · three editors · dark · RTL · phone</span>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

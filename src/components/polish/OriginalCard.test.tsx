@@ -61,6 +61,21 @@ describe('OriginalCard — lookup wiring', () => {
 // WI-1 (feature #23) — the Clear button on the polish Original (input) pane. Mirrors the translate
 // source Clear: wipes the input + refocuses, shown only when the field has non-whitespace text, and
 // leading the right-side control group (before the lookup toggle + language picker).
+// WI-1 (feature #26) — the Original editor rests tighter: textarea inner min 88px → 56px, card
+// min 130px → 98px, via the shared EDITOR_FIELD_MIN_H / EDITOR_CARD_MIN_H constants. Grow-to-content
+// and the 88vh cap are untouched.
+describe('OriginalCard — resting height (#26)', () => {
+  it('rests the textarea at 56px and the card at 98px (tighter min)', () => {
+    const { container } = renderCard()
+    const textarea = screen.getByLabelText('Original')
+    expect(textarea.className).toContain('min-h-[56px]')
+    expect(textarea.className.split(/\s+/)).not.toContain('min-h-[88px]')
+    const card = container.firstElementChild as HTMLElement
+    expect(card.className).toContain('min-h-[98px]')
+    expect(card.className.split(/\s+/)).not.toContain('min-h-[130px]')
+  })
+})
+
 describe('OriginalCard — Clear button (feature #23)', () => {
   it('hides Clear when the field is empty', () => {
     renderCard({ value: '' })
