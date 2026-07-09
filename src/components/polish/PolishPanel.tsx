@@ -133,6 +133,17 @@ export function PolishPanel() {
     debounce.cancel()
   }
 
+  // Clear (feature #27): the DRAFT sibling of clearOriginal — wipe the draft + reset the dependent
+  // polish/draftTranslate ops, a dedicated NON-arming handler. Routing through onDraft/armPolish would
+  // schedule a debounced auto-polish of the (now-empty) draft under auto-run (#23's trap); this never
+  // arms and cancels any pending auto-run so its chip dismisses immediately. Visibility (`!translating`)
+  // is owned by DraftCard, so Clear stays live while the polish op streams (clearing resets it).
+  const clearDraft = () => {
+    setDraft('')
+    resetForInput()
+    debounce.cancel()
+  }
+
   const onTranslateOriginal = () => {
     if (!original.trim()) return
     // A fresh translation produces a new draft, so any polish result on screen is now stale —
@@ -270,6 +281,7 @@ export function PolishPanel() {
           <DraftCard
             value={draft}
             onChange={onDraft}
+            onClear={clearDraft}
             lang={tgtLang}
             onLang={onTgtLang}
             // The Draft is in the target language → its lookup is INVERTED (meaning lang = srcLang).
