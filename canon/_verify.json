@@ -1,0 +1,41 @@
+{
+  "Same-origin LLM proxy": {
+    "verifiedAt": "2026-07-06",
+    "checks": [
+      { "artifact": "server/src/proxy.ts", "hash": "c12a02fa821f6d48032b2b2d986bdd47e00a4c3e25afc21fb59dcd20cddedbed", "claim": "the proxy allow-list module exists" },
+      { "artifact": "server/src/app.ts", "hash": "8909f9902e0d602d172e57079731a314ddd56ae19d2cc3a5556117e7e9163fd1", "claim": "GET/POST /proxy relay routes exist" }
+    ]
+  },
+  "Proxy security model": {
+    "verifiedAt": "2026-07-06",
+    "checks": [
+      { "artifact": "server/src/app.ts", "hash": "8909f9902e0d602d172e57079731a314ddd56ae19d2cc3a5556117e7e9163fd1", "claim": "redirect:'error' + bare-path app.use('/proxy') auth present" },
+      { "artifact": "server/src/proxy.ts", "hash": "c12a02fa821f6d48032b2b2d986bdd47e00a4c3e25afc21fb59dcd20cddedbed", "claim": "full-base-URL allow-list match" }
+    ]
+  },
+  "Polish keyword invalidation": {
+    "verifiedAt": "2026-07-06",
+    "checks": [
+      { "artifact": "src/components/polish/PolishPanel.tsx", "hash": "18e26670a8ae1451ab29859e46f3f56c22eaf2691bb00cde9ec7a6b76426ad9e", "claim": "keyword-change effect compares JSON value-key, not array reference" }
+    ]
+  },
+  "Sync reconcile side-effects": {
+    "verifiedAt": "2026-07-06",
+    "checks": [
+      { "artifact": "src/lib/sync/reconcile.ts", "hash": "50979be7f9411dc02a6fdf0280518e82ad2db577654e2ab4f1c8f9c55d9d19d7", "claim": "reconcile re-applies keywords into the store each cycle" }
+    ]
+  },
+  "Server deployment and DB path": {
+    "verifiedAt": "2026-07-06",
+    "checks": [
+      { "artifact": "server/src/db.ts", "hash": "8a0f87ecad66110e1b970a0cef7f2547174c581f61ff787c0afe3eece86b9593", "claim": "one SQLite db with entities + config tables" }
+    ]
+  },
+  "Server coverage gate": {
+    "verifiedAt": "2026-07-06",
+    "checks": [
+      { "artifact": "package.json", "hash": "0e914b63a2100da7aa38e553e0f67ca1c73707271bcf5357cf4645b0d06a11c0", "claim": "check:all runs --filter @lucid/server test:coverage" },
+      { "artifact": "server/vitest.config.ts", "hash": "312ddf13cdca7231c111f2dfd739da9fc01a75cfff795c508a1275d24ea931f3", "claim": "server coverage config present" }
+    ]
+  }
+}
